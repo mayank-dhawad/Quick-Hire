@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,6 +21,12 @@ import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation, normalizeLanguage, SUPPORTED_LANGUAGES } from '../lib/translations';
 import { AccessibleVoiceBar } from './AccessibleVoiceBar';
+import {
+  isLiveSmsEnabled,
+  subscribeToSmsConfig,
+  toggleLiveSms,
+  getSmsStatusLabel
+} from '../lib/smsConfig';
 
 interface AuthProps {
   isOpen?: boolean;
@@ -59,6 +65,17 @@ export function Auth({
   const [selectedRole, setSelectedRole] = useState<'worker' | 'employer'>('worker');
   const [langMenuOpen, setLangMenuOpen] = useState(false);
 
+  // Live Fast2SMS vs Demo mode state
+  const [isLiveSms, setIsLiveSms] = useState<boolean>(() => isLiveSmsEnabled());
+  const [demoOtpCode, setDemoOtpCode] = useState<string>('');
+
+  useEffect(() => {
+    setIsLiveSms(isLiveSmsEnabled());
+    return subscribeToSmsConfig((enabled) => {
+      setIsLiveSms(enabled);
+    });
+  }, []);
+
   const phonePrompt = getVoiceGuidance('phoneInput', currentLang);
   const otpPrompt = getVoiceGuidance('otpInput', currentLang);
   const rolePrompt = getVoiceGuidance('roleSelection', currentLang);
@@ -73,6 +90,7 @@ export function Auth({
     setAuthError('');
     setAuthNotice('');
     setOtp('');
+    setDemoOtpCode('');
     setPassword('');
   };
 
@@ -115,13 +133,23 @@ export function Auth({
         existingProfile = data;
 
         if (!existingProfile) {
-          await supabase.from('profiles').insert({
+          const profileEmail = authUser.email && !authUser.email.endsWith('@quickhire.local') ? authUser.email : null;
+          const newProfilePayload: Record<string, unknown> = {
             id: authUser.id,
             full_name: authUser.user_metadata?.full_name || (selectedRole === 'worker' ? 'QuickHire Worker' : 'QuickHire Employer'),
             phone_number: authUser.phone || (phone ? '+91' + phone.replace(/\D/g, '') : null),
             role: selectedRole,
             account_status: 'active',
-          });
+          };
+          if (profileEmail) {
+            newProfilePayload.email = profileEmail;
+          }
+
+          const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload as any);
+          if (insErr && (insErr.code === '42703' || String(insErr.message).includes('column'))) {
+            delete newProfilePayload.email;
+            await supabase.from('profiles').insert(newProfilePayload as any);
+          }
 
           if (selectedRole === 'worker') {
             await supabase.from('workers').insert({
@@ -133,17 +161,28 @@ export function Auth({
           }
         } else {
           const wasDeactivated = existingProfile.account_status === 'deactivated';
-          const updatePayload: { role: 'employer' | 'worker'; account_status?: string } = {
+          const updatePayload: Record<string, unknown> = {
             role: selectedRole,
           };
           if (wasDeactivated) {
             updatePayload.account_status = 'active';
           }
+          if (authUser.email && !authUser.email.endsWith('@quickhire.local')) {
+            updatePayload.email = authUser.email;
+          }
 
-          await supabase
+          const { error: updErr } = await supabase
             .from('profiles')
-            .update(updatePayload)
+            .update(updatePayload as any)
             .eq('id', authUser.id);
+
+          if (updErr && (updErr.code === '42703' || String(updErr.message).includes('column'))) {
+            delete updatePayload.email;
+            await supabase
+              .from('profiles')
+              .update(updatePayload as any)
+              .eq('id', authUser.id);
+          }
 
           if (selectedRole === 'worker') {
             const { data: existingWorker } = await supabase
@@ -174,6 +213,7 @@ export function Auth({
       setLoading(false);
       setPhone('');
       setOtp('');
+      setDemoOtpCode('');
       setEmail('');
       setPassword('');
       setStep('request');
@@ -261,45 +301,58 @@ export function Auth({
         console.warn('Local session storage warning:', storageErr);
       }
 
-      // 2. Dispatch real-time SMS via Fast2SMS bulk API endpoint
-      let smsDelivered = false;
-      let fast2smsNotice = '';
+      // Check real-time SMS toggle state
+      const liveSmsActive = isLiveSmsEnabled();
+      setDemoOtpCode(generatedOtp);
 
-      try {
-        const fast2smsUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${FAST2SMS_API_KEY}&route=otp&variables_values=${generatedOtp}&numbers=${cleanPhone}`;
-        const response = await fetch(fast2smsUrl, {
-          method: 'GET',
-          headers: {
-            Accept: 'application/json',
-          },
-        });
+      if (liveSmsActive) {
+        // 2. Dispatch real-time SMS via Fast2SMS bulk API endpoint
+        let smsDelivered = false;
+        let fast2smsNotice = '';
 
-        const resData = await response.json().catch(() => null);
-        if (response.ok && (resData?.return === true || resData?.status_code === 200)) {
-          smsDelivered = true;
-        } else {
-          fast2smsNotice = Array.isArray(resData?.message)
-            ? resData.message.join(', ')
-            : (resData?.message || 'Fast2SMS returned a delivery notice');
+        try {
+          const fast2smsUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${FAST2SMS_API_KEY}&route=otp&variables_values=${generatedOtp}&numbers=${cleanPhone}`;
+          const response = await fetch(fast2smsUrl, {
+            method: 'GET',
+            headers: {
+              Accept: 'application/json',
+            },
+          });
+
+          const resData = await response.json().catch(() => null);
+          if (response.ok && (resData?.return === true || resData?.status_code === 200)) {
+            smsDelivered = true;
+          } else {
+            fast2smsNotice = Array.isArray(resData?.message)
+              ? resData.message.join(', ')
+              : (resData?.message || 'Fast2SMS returned a delivery notice');
+          }
+        } catch (apiErr: unknown) {
+          const errMessage = apiErr instanceof Error ? apiErr.message : 'Network error reaching Fast2SMS';
+          fast2smsNotice = errMessage;
+          console.warn('Fast2SMS fetch error:', apiErr);
         }
-      } catch (apiErr: unknown) {
-        const errMessage = apiErr instanceof Error ? apiErr.message : 'Network error reaching Fast2SMS';
-        fast2smsNotice = errMessage;
-        console.warn('Fast2SMS fetch error:', apiErr);
-      }
 
-      setLoading(false);
-      setStep('verify');
+        setLoading(false);
+        setStep('verify');
 
-      if (smsDelivered) {
-        setAuthNotice(`OTP successfully sent to +91 ${cleanPhone} via Fast2SMS.`);
-        speakText(otpPrompt, currentLang);
-      } else if (FAST2SMS_API_KEY === 'YOUR_FAST2SMS_API_KEY') {
-        setAuthNotice(`[Demo Mode] OTP: ${generatedOtp} (Add VITE_FAST2SMS_API_KEY to .env for real SMS delivery).`);
-        speakText(`Your verification code is ${generatedOtp.split('').join(' ')}`, currentLang);
+        if (smsDelivered) {
+          setAuthNotice(`OTP successfully sent to +91 ${cleanPhone} via Fast2SMS.`);
+          speakText(otpPrompt, currentLang);
+        } else if (FAST2SMS_API_KEY === 'YOUR_FAST2SMS_API_KEY') {
+          setAuthNotice(`[Demo Mode] OTP: ${generatedOtp} (Add VITE_FAST2SMS_API_KEY to .env for real SMS delivery).`);
+          speakText(`Your verification code is ${generatedOtp.split('').join(' ')}`, currentLang);
+        } else {
+          setAuthNotice(`OTP generated: ${generatedOtp} (${fast2smsNotice || 'Fast2SMS dispatch notification'}).`);
+          speakText(otpPrompt, currentLang);
+        }
       } else {
-        setAuthNotice(`OTP generated: ${generatedOtp} (${fast2smsNotice || 'Fast2SMS dispatch notification'}).`);
-        speakText(otpPrompt, currentLang);
+        // Live SMS is OFF (to save wallet credits):
+        // Skips the network call, saves OTP to database & session, and displays OTP on screen
+        setLoading(false);
+        setStep('verify');
+        setAuthNotice(`[SMS Demo Mode] OTP: ${generatedOtp} (Live SMS disabled to save credits).`);
+        speakText(`Your verification code is ${generatedOtp.split('').join(' ')}`, currentLang);
       }
     } catch (err: unknown) {
       setLoading(false);
@@ -413,9 +466,10 @@ export function Auth({
           return;
         }
 
-        // Resilient fallback: Create authenticated session for verified phone
+        // Resilient fallback: Create authenticated session for verified phone with valid UUID
+        const phoneUuid = `00000000-0000-4000-8000-${cleanPhone.padStart(12, '0')}`;
         const fallbackUser: User = {
-          id: `usr_${cleanPhone}`,
+          id: phoneUuid,
           app_metadata: { provider: 'phone' },
           user_metadata: {
             role: selectedRole,
@@ -679,11 +733,25 @@ export function Auth({
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                   {t('mobileNumberLabel')}
                 </label>
-                <VoiceSpeakerButton
-                  text={phonePrompt}
-                  lang={currentLang}
-                  label="Listen to mobile number instruction"
-                />
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleLiveSms()}
+                    title="Click to toggle SMS provider between Live Fast2SMS and Demo Mode"
+                    className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
+                      isLiveSms
+                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
+                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
+                    }`}
+                  >
+                    {getSmsStatusLabel(isLiveSms)}
+                  </button>
+                  <VoiceSpeakerButton
+                    text={phonePrompt}
+                    lang={currentLang}
+                    label="Listen to mobile number instruction"
+                  />
+                </div>
               </div>
               <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3.5 focus-within:border-brand-500 shadow-2xs bg-white">
                 <span className="text-sm font-bold text-slate-500 mr-3 select-none">+91</span>
@@ -709,7 +777,7 @@ export function Auth({
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>{t('sendingFast2sms')}</span>
+                  <span>{isLiveSms ? t('sendingFast2sms') : 'Generating Demo OTP...'}</span>
                 </span>
               ) : (
                 <>
@@ -724,6 +792,33 @@ export function Auth({
         ) : (
           /* AUTH STEP 2: OTP VERIFICATION */
           <div className="space-y-4">
+            {/* On-screen OTP Display for Easy Testing and Presentations */}
+            {(!isLiveSms || FAST2SMS_API_KEY === 'YOUR_FAST2SMS_API_KEY') && demoOtpCode && (
+              <div className="p-3.5 bg-amber-50/90 border border-amber-300/80 rounded-2xl flex items-center justify-between text-xs text-amber-950 shadow-xs">
+                <div className="space-y-0.5">
+                  <div className="flex items-center gap-1.5">
+                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-800">
+                      🧪 Demo OTP:
+                    </span>
+                    <span className="font-mono font-black text-sm tracking-widest text-slate-900 bg-white px-2 py-0.5 rounded-md border border-amber-300 shadow-2xs">
+                      {demoOtpCode}
+                    </span>
+                  </div>
+                  <p className="text-[10px] text-amber-700">Fast2SMS call skipped to save wallet credits.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setOtp(demoOtpCode);
+                    speakText(`Code entered: ${demoOtpCode.split('').join(' ')}`, currentLang);
+                  }}
+                  className="px-2.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl font-bold text-xs transition-colors shrink-0 shadow-2xs cursor-pointer"
+                >
+                  Auto-fill
+                </button>
+              </div>
+            )}
+
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
                 <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">

@@ -2,13 +2,28 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
-import { UserCheck, CheckCircle2, AlertTriangle, Trash2, ShieldAlert, MapPin } from 'lucide-react';
+import {
+  UserCheck,
+  CheckCircle2,
+  AlertTriangle,
+  Trash2,
+  ShieldAlert,
+  MapPin,
+  Mail,
+  Calendar,
+  User as UserIcon,
+  Briefcase,
+  IndianRupee,
+  FileText,
+  Edit3,
+  ArrowLeft,
+  Sparkles,
+  Phone
+} from 'lucide-react';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation, normalizeLanguage } from '../lib/translations';
-import { Database } from '../lib/database.types';
-
-type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
+import { extractErrorMessage } from '../lib/errorHandler';
 
 type WorkerCategory = 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed';
 
@@ -64,13 +79,37 @@ export function WorkerProfileModal({
   currentLang = 'English',
   onDeactivateAccount,
 }: WorkerProfileProps) {
+  // Personal details
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
+  const [email, setEmail] = useState('');
+  const [gender, setGender] = useState<'Male' | 'Female' | 'Other' | 'Prefer not to say' | ''>('');
+  const [dateOfBirth, setDateOfBirth] = useState('');
+
+  // Structured Address details
+  const [village, setVillage] = useState('');
+  const [city, setCity] = useState('');
+  const [district, setDistrict] = useState('');
+  const [stateName, setStateName] = useState('');
+  const [pincode, setPincode] = useState('');
+  const [addressLine, setAddressLine] = useState('');
   const [location, setLocation] = useState('');
+
+  // Worker details
   const [category, setCategory] = useState<WorkerCategory>('Agriculture');
   const [skillsInput, setSkillsInput] = useState('');
   const [experienceYears, setExperienceYears] = useState('1');
+  const [dailyWage, setDailyWage] = useState('500');
+  const [experienceDescription, setExperienceDescription] = useState('');
+  const [preferredWorkLocation, setPreferredWorkLocation] = useState('');
+
+  // Profile management & states
+  const [hasExistingProfile, setHasExistingProfile] = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [existingProfileData, setExistingProfileData] = useState<Record<string, any> | null>(null);
+  const [existingWorkerData, setExistingWorkerData] = useState<Record<string, any> | null>(null);
   const [isAssisted, setIsAssisted] = useState(false);
+  const [assistedWorkerId, setAssistedWorkerId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
@@ -102,108 +141,243 @@ export function WorkerProfileModal({
 
   const loadExistingProfile = useCallback(async () => {
     if (!user) return;
-    const { data: profile } = await supabase
-      .from('profiles')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+    try {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-    if (profile) {
-      setFullName(profile.full_name || '');
-      setPhoneNumber(profile.phone_number || '');
-      if ('location' in profile && profile.location) {
-        setLocation(String(profile.location));
+      if (profile && profile.full_name) {
+        setExistingProfileData(profile);
+        setHasExistingProfile(true);
+        setIsEditing(false); // Default to read-only view when profile already exists
+
+        setFullName(profile.full_name || '');
+        setPhoneNumber(profile.phone_number || '');
+        setEmail(profile.email || '');
+        if (profile.gender) setGender(profile.gender as any);
+        if (profile.date_of_birth) setDateOfBirth(profile.date_of_birth);
+
+        setVillage(profile.village || '');
+        setCity(profile.city || '');
+        setDistrict(profile.district || '');
+        setStateName(profile.state || '');
+        setPincode(profile.pincode || '');
+        setAddressLine(profile.address_line || '');
+        if (profile.location) setLocation(String(profile.location));
+
+        if (profile.category) setCategory(profile.category as WorkerCategory);
+        if (profile.experience_years) setExperienceYears(String(profile.experience_years));
+        if (profile.daily_wage) setDailyWage(String(profile.daily_wage));
+      } else {
+        setHasExistingProfile(false);
+        setIsEditing(true); // First-time visit: show create form
       }
-    }
 
-    const { data: worker } = await supabase
-      .from('workers')
-      .select('*')
-      .eq('id', user.id)
-      .single();
+      const { data: worker } = await supabase
+        .from('workers')
+        .select('*')
+        .eq('id', user.id)
+        .single();
 
-    if (worker) {
-      setCategory(worker.category);
-      setSkillsInput((worker.skills || []).join(', '));
-      setExperienceYears(String(worker.experience_years || 1));
+      if (worker) {
+        setExistingWorkerData(worker);
+        if (worker.category) setCategory(worker.category);
+        if (worker.skills && worker.skills.length > 0) {
+          setSkillsInput(worker.skills.join(', '));
+        }
+        if (worker.experience_years) setExperienceYears(String(worker.experience_years));
+        if (worker.daily_wage) setDailyWage(String(worker.daily_wage));
+        if (worker.experience_description) setExperienceDescription(worker.experience_description);
+        if (worker.preferred_work_location) setPreferredWorkLocation(worker.preferred_work_location);
+      }
+    } catch (err) {
+      console.warn('Profile load notice:', err);
     }
   }, [user]);
 
   useEffect(() => {
     if (user && isOpen && !isAssisted) {
       loadExistingProfile();
+    } else if (isAssisted) {
+      // Clear inputs for clean assisted registration
+      setHasExistingProfile(false);
+      setIsEditing(true);
+      setFullName('');
+      setPhoneNumber('');
+      setEmail('');
+      setGender('');
+      setDateOfBirth('');
+      setVillage('');
+      setCity('');
+      setDistrict('');
+      setStateName('');
+      setPincode('');
+      setAddressLine('');
+      setLocation('');
+      setSkillsInput('');
+      setExperienceYears('1');
+      setDailyWage('500');
+      setExperienceDescription('');
+      setPreferredWorkLocation('');
+      setAssistedWorkerId(null);
     }
   }, [user, isOpen, isAssisted, loadExistingProfile]);
 
   if (!isOpen) return null;
 
   const handleSave = async () => {
-    if (!user) return;
+    if (!user) {
+      setFeedbackMsg({ type: 'error', text: 'You must be signed in to save a profile.' });
+      return;
+    }
     setFeedbackMsg(null);
 
-    if (!fullName.trim() || !phoneNumber.trim()) {
-      setFeedbackMsg({ type: 'error', text: t('enterNameAndPhone') });
+    // Safeguard: Never overwrite existing data with empty strings or null during partial updates
+    const cleanFullName = fullName.trim().normalize('NFC') || existingProfileData?.full_name || '';
+    const cleanPhoneNumber = phoneNumber.trim() || existingProfileData?.phone_number || '';
+
+    if (!cleanFullName || !cleanPhoneNumber) {
+      setFeedbackMsg({ type: 'error', text: t('enterNameAndPhone') || 'Please enter citizen name and phone number.' });
       return;
     }
 
     setSaving(true);
     try {
-      // Ensure user input entered in regional scripts (Hindi, Marathi, Telugu, Bengali)
-      // is cleanly NFC-normalized Unicode before saving to Supabase PostgreSQL
-      const cleanFullName = fullName.trim().normalize('NFC');
-      const cleanPhoneNumber = phoneNumber.trim();
-      const cleanLocation = location.trim().normalize('NFC');
+      const cleanVillage = village.trim().normalize('NFC') || existingProfileData?.village || '';
+      const cleanCity = city.trim().normalize('NFC') || existingProfileData?.city || '';
+      const cleanDistrict = district.trim().normalize('NFC') || existingProfileData?.district || '';
+      const cleanState = stateName.trim().normalize('NFC') || existingProfileData?.state || '';
+      const cleanPincode = pincode.trim().normalize('NFC') || existingProfileData?.pincode || '';
+      const cleanAddressLine = addressLine.trim().normalize('NFC') || existingProfileData?.address_line || '';
+      const cleanEmail = email.trim() || existingProfileData?.email || null;
+      const cleanGender = gender || existingProfileData?.gender || null;
+      const cleanDob = dateOfBirth || existingProfileData?.date_of_birth || null;
+      const cleanExpDesc = experienceDescription.trim().normalize('NFC') || existingWorkerData?.experience_description || null;
+      const cleanPreferredLoc = preferredWorkLocation.trim().normalize('NFC') || existingWorkerData?.preferred_work_location || null;
+      const cleanWage = Number(dailyWage) || existingProfileData?.daily_wage || 500;
+      const cleanYears = Number(experienceYears) || existingProfileData?.experience_years || 1;
+
+      // Construct composite location string
+      const locationParts = [cleanVillage, cleanDistrict, cleanState].filter(Boolean);
+      const computedLocation = locationParts.length > 0
+        ? locationParts.join(', ')
+        : (location.trim().normalize('NFC') || existingProfileData?.location || null);
+
       const parsedSkills = skillsInput
         .split(/[,،、]/)
         .map((s) => s.trim().normalize('NFC'))
         .filter(Boolean);
 
-      const profilePayload: ProfileInsert = {
-        id: user.id,
+      // Assisted profiles get a unique UUID so they never overwrite the intermediary!
+      const isSelf = !isAssisted;
+      const targetId = isSelf ? user.id : (assistedWorkerId || crypto.randomUUID());
+
+      // 1. Prepare profiles payload
+      const fullProfilePayload = {
+        id: targetId,
         full_name: cleanFullName,
         phone_number: cleanPhoneNumber,
-        role: 'worker',
+        email: cleanEmail,
+        gender: cleanGender,
+        date_of_birth: cleanDob,
+        address_line: cleanAddressLine || null,
+        village: cleanVillage || null,
+        city: cleanCity || null,
+        district: cleanDistrict || null,
+        state: cleanState || null,
+        pincode: cleanPincode || null,
+        location: computedLocation,
+        role: 'worker' as const,
+        category,
+        skills: parsedSkills.length > 0 ? parsedSkills : (existingProfileData?.skills || []),
+        experience_years: cleanYears,
+        daily_wage: cleanWage,
         is_assisted_profile: isAssisted,
         created_by: isAssisted ? user.id : null,
         account_status: 'active',
-        ...(cleanLocation ? { location: cleanLocation } : {}),
       };
 
-      let { error: profError } = await supabase.from('profiles').upsert(profilePayload);
-      // If the location column does not exist on remote database yet (code 42703), retry gracefully without it
-      if (profError && (profError.code === '42703' || profError.message?.includes('location'))) {
-        const fallbackPayload: ProfileInsert = {
-          id: user.id,
+      // Upsert profile
+      let profError: any = null;
+      const resProf = await supabase.from('profiles').upsert(fullProfilePayload as any);
+      profError = resProf.error;
+
+      // Graceful fallback if database schema has not executed additive migration yet
+      if (profError && (profError.code === '42703' || String(profError.message).includes('column'))) {
+        console.warn('Expanded columns not on database yet, saving baseline profile fields:', profError.message);
+        const baselinePayload = {
+          id: targetId,
           full_name: cleanFullName,
           phone_number: cleanPhoneNumber,
-          role: 'worker',
+          location: computedLocation,
+          role: 'worker' as const,
           is_assisted_profile: isAssisted,
           created_by: isAssisted ? user.id : null,
           account_status: 'active',
         };
-        const retry = await supabase.from('profiles').upsert(fallbackPayload);
-        profError = retry.error;
+        const retryRes = await supabase.from('profiles').upsert(baselinePayload as any);
+        profError = retryRes.error;
       }
-      if (profError) throw profError;
 
-      const { error: workerErr } = await supabase.from('workers').upsert({
-        id: user.id,
+      if (profError) {
+        throw profError;
+      }
+
+      // 2. Prepare workers payload
+      const fullWorkerPayload = {
+        id: targetId,
         category,
-        skills: parsedSkills,
-        experience_years: Number(experienceYears) || 1,
+        skills: parsedSkills.length > 0 ? parsedSkills : (existingWorkerData?.skills || []),
+        experience_years: cleanYears,
+        daily_wage: cleanWage,
+        experience_description: cleanExpDesc,
+        preferred_work_location: cleanPreferredLoc,
+        availability_status: 'available',
         is_available: true,
-      });
+        location: computedLocation,
+      };
 
-      if (workerErr) throw workerErr;
+      let workerErr: any = null;
+      const resWorker = await supabase.from('workers').upsert(fullWorkerPayload as any);
+      workerErr = resWorker.error;
 
-      setFeedbackMsg({ type: 'success', text: t('profileSavedSuccess') });
-      speakText(t('profileSavedSuccess'), currentLang);
-      setTimeout(() => {
-        onSaved();
-        onClose();
-      }, 900);
+      if (workerErr && (workerErr.code === '42703' || String(workerErr.message).includes('column'))) {
+        console.warn('Expanded worker columns not on database yet, saving baseline worker fields:', workerErr.message);
+        const baselineWorkerPayload = {
+          id: targetId,
+          category,
+          skills: parsedSkills.length > 0 ? parsedSkills : (existingWorkerData?.skills || []),
+          experience_years: cleanYears,
+          daily_wage: cleanWage,
+          is_available: true,
+          location: computedLocation,
+        };
+        const retryWorker = await supabase.from('workers').upsert(baselineWorkerPayload as any);
+        workerErr = retryWorker.error;
+      }
+
+      if (workerErr) {
+        throw workerErr;
+      }
+
+      // Update local state and return to Read-Only mode
+      setExistingProfileData(fullProfilePayload);
+      setExistingWorkerData(fullWorkerPayload);
+      setHasExistingProfile(true);
+      setIsEditing(false); // Return to read-only profile view after successful save!
+
+      const successNotice = hasExistingProfile
+        ? (t('profileSavedSuccess') || 'Profile updated successfully!')
+        : (t('profileSavedSuccess') || 'Profile created successfully!');
+
+      setFeedbackMsg({ type: 'success', text: successNotice });
+      speakText(successNotice, currentLang);
+      onSaved();
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      console.error('Profile save exception:', err);
+      const message = extractErrorMessage(err, 'An unexpected error occurred while saving your profile.');
       setFeedbackMsg({ type: 'error', text: 'Error saving profile: ' + message });
     } finally {
       setSaving(false);
@@ -215,7 +389,6 @@ export function WorkerProfileModal({
     setIsDeactivating(true);
     setFeedbackMsg(null);
     try {
-      // 1. Soft-delete: update profiles.account_status to 'deactivated'
       const { error: profileError } = await supabase
         .from('profiles')
         .update({ account_status: 'deactivated' })
@@ -223,7 +396,6 @@ export function WorkerProfileModal({
 
       if (profileError) throw profileError;
 
-      // 2. Hide worker from public directory while retaining relational job_records
       await supabase
         .from('workers')
         .update({ is_available: false })
@@ -231,7 +403,6 @@ export function WorkerProfileModal({
 
       speakText(t('accountDeactivatedSuccess'), currentLang);
 
-      // 3. Trigger sign out and parent state reset
       if (onDeactivateAccount) {
         await onDeactivateAccount();
       } else {
@@ -262,7 +433,7 @@ export function WorkerProfileModal({
           initial={{ opacity: 0, scale: 0.95, y: 20 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 20 }}
-          className="relative w-full max-w-md bg-white rounded-3xl shadow-2xl p-6 sm:p-8 overflow-hidden border border-slate-200 max-h-[90vh] overflow-y-auto"
+          className="relative w-full max-w-2xl bg-white rounded-3xl shadow-2xl p-6 sm:p-8 overflow-hidden border border-slate-200 max-h-[92vh] overflow-y-auto"
         >
           <button
             onClick={onClose}
@@ -275,18 +446,54 @@ export function WorkerProfileModal({
             <UserCheck className="w-6 h-6" />
           </div>
 
-          <div className="flex items-center gap-2 mb-1">
-            <h2 className="font-heading font-extrabold text-2xl text-slate-900">
-              {t('workerProfile')}
-            </h2>
-            <VoiceSpeakerButton
-              text={`${t('workerProfile')}. ${t('workerProfileModalDesc')}`}
-              lang={currentLang}
-              label="Listen to worker profile instructions"
-            />
+          <div className="flex items-center justify-between gap-3 mb-1">
+            <div className="flex items-center gap-2">
+              <h2 className="font-heading font-extrabold text-2xl text-slate-900">
+                {!isEditing && hasExistingProfile && !isAssisted
+                  ? t('workerProfile')
+                  : hasExistingProfile && !isAssisted
+                  ? 'Edit Worker Profile'
+                  : 'Create Worker Profile'}
+              </h2>
+              <VoiceSpeakerButton
+                text={`${t('workerProfile')}. ${t('workerProfileModalDesc')}`}
+                lang={currentLang}
+                label="Listen to worker profile instructions"
+              />
+            </div>
+
+            {hasExistingProfile && !isAssisted && (
+              isEditing ? (
+                <button
+                  type="button"
+                  onClick={() => setIsEditing(false)}
+                  className="px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-100 text-slate-600 font-bold text-xs flex items-center gap-1.5 transition-colors cursor-pointer"
+                >
+                  <ArrowLeft className="w-3.5 h-3.5" />
+                  <span>Back to View</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsEditing(true);
+                    speakText('Editing worker profile', currentLang);
+                  }}
+                  className="px-3.5 py-1.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+                >
+                  <Edit3 className="w-3.5 h-3.5" />
+                  <span>Edit Profile</span>
+                </button>
+              )
+            )}
           </div>
+
           <p className="text-xs sm:text-sm text-slate-500 mb-5">
-            {t('workerProfileModalDesc')}
+            {!isEditing && hasExistingProfile && !isAssisted
+              ? 'Your permanent verified rural worker account. Information updates immediately across QuickHire.'
+              : hasExistingProfile && !isAssisted
+              ? 'Make updates to your personal, address, and skills information below. Saving updates your existing record.'
+              : t('workerProfileModalDesc')}
           </p>
 
           {feedbackMsg && (
@@ -299,12 +506,184 @@ export function WorkerProfileModal({
             >
               {feedbackMsg.type === 'success' ? (
                 <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-              ) : null}
+              ) : (
+                <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
               <span>{feedbackMsg.text}</span>
             </div>
           )}
 
-          <div className="flex flex-col gap-4">
+          {!isEditing && hasExistingProfile && !isAssisted ? (
+            /* ================= READ-ONLY CITIZEN PROFILE VIEW ================= */
+            <div className="flex flex-col gap-5">
+              {/* Profile Card Header */}
+              <div className="bg-gradient-to-br from-emerald-50/80 via-white to-slate-50 border border-emerald-200/90 rounded-2xl p-5 shadow-2xs">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                  <div className="flex items-center gap-3.5">
+                    <div className="w-14 h-14 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-heading font-black text-xl shadow-xs shrink-0">
+                      {fullName ? fullName.charAt(0).toUpperCase() : 'W'}
+                    </div>
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-heading font-extrabold text-lg sm:text-xl text-slate-900">
+                          {fullName || 'QuickHire Worker'}
+                        </h3>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          Permanent Account
+                        </span>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500 mt-1">
+                        <span className="flex items-center gap-1">
+                          <Phone className="w-3.5 h-3.5 text-slate-400" />
+                          <strong className="text-slate-700">{phoneNumber || '—'}</strong>
+                        </span>
+                        {email && (
+                          <span className="flex items-center gap-1">
+                            <Mail className="w-3.5 h-3.5 text-slate-400" />
+                            <span>{email}</span>
+                          </span>
+                        )}
+                        {gender && (
+                          <span className="text-slate-400">• {gender}</span>
+                        )}
+                        {dateOfBirth && (
+                          <span className="text-slate-400">• Born {dateOfBirth}</span>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsEditing(true);
+                      speakText('Editing worker profile', currentLang);
+                    }}
+                    className="px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 self-start sm:self-auto cursor-pointer"
+                  >
+                    <Edit3 className="w-4 h-4" />
+                    <span>Edit Profile</span>
+                  </button>
+                </div>
+
+                {/* Metric Quick Stats */}
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 pt-4 border-t border-emerald-100/90">
+                  <div className="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Daily Wage</span>
+                    <span className="font-heading font-extrabold text-sm text-emerald-700 flex items-center gap-0.5">
+                      <IndianRupee className="w-3.5 h-3.5" />
+                      {dailyWage} / day
+                    </span>
+                  </div>
+                  <div className="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Experience</span>
+                    <span className="font-heading font-extrabold text-sm text-slate-800">
+                      {experienceYears} Years
+                    </span>
+                  </div>
+                  <div className="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Category</span>
+                    <span className="font-heading font-extrabold text-xs text-brand-700 truncate block">
+                      {category}
+                    </span>
+                  </div>
+                  <div className="bg-white/90 p-2.5 rounded-xl border border-slate-200/80 shadow-2xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Status</span>
+                    <span className="font-heading font-extrabold text-xs text-emerald-600 flex items-center gap-1">
+                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                      Available
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Location Card */}
+              <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-brand-600" />
+                  Address & Residential Details
+                </span>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs pt-1">
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">Village / Town</span>
+                    <span className="font-semibold text-slate-800">{village || '—'}</span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">District & State</span>
+                    <span className="font-semibold text-slate-800">
+                      {[district, stateName].filter(Boolean).join(', ') || '—'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="text-slate-400 block text-[11px]">PIN Code</span>
+                    <span className="font-semibold text-slate-800">{pincode || '—'}</span>
+                  </div>
+                </div>
+                {addressLine && (
+                  <div className="pt-2 border-t border-slate-200 text-xs">
+                    <span className="text-slate-400 block text-[11px]">Street / House Address</span>
+                    <span className="font-medium text-slate-700">{addressLine}</span>
+                  </div>
+                )}
+              </div>
+
+              {/* Skills & Experience Card */}
+              <div className="bg-white border border-slate-200 rounded-2xl p-4 space-y-3">
+                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 block">
+                  Verified Skills & Domain Specializations
+                </span>
+                {skillsInput ? (
+                  <div className="flex flex-wrap gap-2">
+                    {skillsInput
+                      .split(/[,،、]/)
+                      .map((s) => s.trim())
+                      .filter(Boolean)
+                      .map((skill, idx) => (
+                        <span
+                          key={idx}
+                          className="px-3 py-1.5 bg-emerald-50 text-emerald-800 border border-emerald-200 rounded-xl text-xs font-bold flex items-center gap-1.5 shadow-2xs"
+                        >
+                          <Sparkles className="w-3 h-3 text-emerald-600" />
+                          {skill}
+                        </span>
+                      ))}
+                  </div>
+                ) : (
+                  <p className="text-xs text-slate-400 italic">No skills listed yet. Tap Edit Profile to add skills.</p>
+                )}
+
+                {experienceDescription && (
+                  <div className="bg-amber-50/70 border border-amber-200/90 rounded-xl p-3 text-xs space-y-1 mt-2">
+                    <span className="font-bold text-amber-900 block">Experience & Work Notes:</span>
+                    <p className="text-amber-900/90 leading-relaxed">{experienceDescription}</p>
+                  </div>
+                )}
+
+                {preferredWorkLocation && (
+                  <div className="text-xs text-slate-600 flex items-center gap-1.5 pt-1">
+                    <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                    <span>Preferred work locations: <strong className="text-slate-800">{preferredWorkLocation}</strong></span>
+                  </div>
+                )}
+              </div>
+
+              {/* Edit Profile Action Button */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsEditing(true);
+                  speakText('Editing worker profile', currentLang);
+                }}
+                className="w-full py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-sm transition-all flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Edit3 className="w-4 h-4" />
+                <span>Edit Profile Information</span>
+              </button>
+            </div>
+          ) : (
+            /* ================= EDIT / CREATE FORM VIEW ================= */
+            <div className="flex flex-col gap-5">
             {/* ASSISTED PROFILE CHECKBOX */}
             <div className="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
               <label className="flex items-center gap-2.5 text-xs font-bold text-slate-800 cursor-pointer">
@@ -324,199 +703,378 @@ export function WorkerProfileModal({
               />
             </div>
 
-            {/* FULL NAME */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {t('workerName')} *
-                </label>
-                <VoiceSpeakerButton
-                  text={getVoiceGuidance('workerName', currentLang)}
-                  lang={currentLang}
-                  label="Listen to worker name instruction"
-                />
-              </div>
-              <input
-                type="text"
-                value={fullName}
-                onClick={() => speakText(getVoiceGuidance('workerName', currentLang), currentLang)}
-                onFocus={() => speakText(getVoiceGuidance('workerName', currentLang), currentLang)}
-                onChange={(e) => setFullName(e.target.value)}
-                placeholder={t('workerNamePlaceholder')}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl outline-none text-sm font-medium focus:border-brand-500 shadow-2xs"
-              />
-            </div>
+            {/* SECTION 1: PERSONAL DETAILS */}
+            <div className="space-y-3 pt-1 border-t border-slate-100">
+              <span className="text-xs font-bold uppercase tracking-wider text-brand-700 block">
+                👤 1. Citizen Personal Details
+              </span>
 
-            {/* PHONE NUMBER */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {t('phoneLabel')} *
-                </label>
-                <VoiceSpeakerButton
-                  text={getVoiceGuidance('phoneInput', currentLang)}
-                  lang={currentLang}
-                  label="Listen to phone number instruction"
-                />
-              </div>
-              <input
-                type="tel"
-                value={phoneNumber}
-                onClick={() => speakText(getVoiceGuidance('phoneInput', currentLang), currentLang)}
-                onFocus={() => speakText(getVoiceGuidance('phoneInput', currentLang), currentLang)}
-                onChange={(e) => setPhoneNumber(e.target.value)}
-                placeholder={t('phonePlaceholder')}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl outline-none text-sm font-medium focus:border-brand-500 shadow-2xs"
-              />
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* Full Name */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">
+                      {t('workerName')} *
+                    </label>
+                    <VoiceSpeakerButton
+                      text={getVoiceGuidance('workerName', currentLang)}
+                      lang={currentLang}
+                      label="Listen to name instruction"
+                    />
+                  </div>
+                  <input
+                    type="text"
+                    required
+                    value={fullName}
+                    onChange={(e) => setFullName(e.target.value)}
+                    placeholder={t('workerNamePlaceholder')}
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
 
-            {/* LOCATION */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {t('locationLabel') || t('pincodeLabel')}
-                </label>
-                <VoiceSpeakerButton
-                  text={getVoiceGuidance('jobLocation', currentLang)}
-                  lang={currentLang}
-                  label="Listen to location instruction"
-                />
+                {/* Phone Number */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">
+                      {t('phoneLabel')} *
+                    </label>
+                    <VoiceSpeakerButton
+                      text={getVoiceGuidance('phoneInput', currentLang)}
+                      lang={currentLang}
+                      label="Listen to phone instruction"
+                    />
+                  </div>
+                  <input
+                    type="tel"
+                    required
+                    value={phoneNumber}
+                    onChange={(e) => setPhoneNumber(e.target.value)}
+                    placeholder={t('phonePlaceholder')}
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
               </div>
-              <div className="flex items-center border border-slate-300 rounded-xl px-4 focus-within:border-brand-500 shadow-2xs bg-white">
-                <MapPin className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
-                <input
-                  type="text"
-                  value={location}
-                  onClick={() => speakText(getVoiceGuidance('jobLocation', currentLang), currentLang)}
-                  onFocus={() => speakText(getVoiceGuidance('jobLocation', currentLang), currentLang)}
-                  onChange={(e) => setLocation(e.target.value)}
-                  placeholder={t('locationPlaceholder') || t('pincodePlaceholder')}
-                  className="w-full py-3 text-sm font-medium text-slate-900 outline-none bg-transparent"
-                />
-              </div>
-            </div>
 
-            {/* CATEGORY */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {t('categoryLabel')} *
-                </label>
-                <VoiceSpeakerButton
-                  text={getVoiceGuidance('workerCategory', currentLang)}
-                  lang={currentLang}
-                  label="Listen to category options"
-                />
-              </div>
-              <select
-                value={category}
-                onClick={() => speakText(getVoiceGuidance('workerCategory', currentLang), currentLang)}
-                onFocus={() => speakText(getVoiceGuidance('workerCategory', currentLang), currentLang)}
-                onChange={(e) => setCategory(e.target.value as WorkerCategory)}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl outline-none text-sm font-semibold bg-white focus:border-brand-500 shadow-2xs"
-              >
-                <option value="Agriculture">{t('catAgri')}</option>
-                <option value="Construction">{t('catConst')}</option>
-                <option value="Daily work">{t('catDaily')}</option>
-                <option value="Skilled self-employed">{t('catSkilled')}</option>
-              </select>
-            </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Email Address */}
+                <div className="space-y-1 sm:col-span-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Email Address
+                  </label>
+                  <div className="flex items-center border border-slate-300 rounded-xl px-3 bg-white focus-within:border-brand-500 shadow-2xs">
+                    <Mail className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
+                    <input
+                      type="email"
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      placeholder="citizen@mail.com"
+                      className="w-full py-2.5 text-xs sm:text-sm font-medium outline-none bg-transparent"
+                    />
+                  </div>
+                </div>
 
-            {/* SKILLS */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {t('skillsLabel')}
-                </label>
-                <VoiceSpeakerButton
-                  text={getVoiceGuidance('workerSkills', currentLang)}
-                  lang={currentLang}
-                  label="Listen to skills instruction"
-                />
-              </div>
-              <input
-                type="text"
-                value={skillsInput}
-                onClick={() => speakText(getVoiceGuidance('workerSkills', currentLang), currentLang)}
-                onFocus={() => speakText(getVoiceGuidance('workerSkills', currentLang), currentLang)}
-                onChange={(e) => setSkillsInput(e.target.value)}
-                placeholder={t('skillsPlaceholderWorker')}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl outline-none text-sm font-medium focus:border-brand-500 shadow-2xs"
-              />
+                {/* Gender */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Gender
+                  </label>
+                  <select
+                    value={gender}
+                    onChange={(e) => setGender(e.target.value as any)}
+                    className="w-full px-3 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium bg-white focus:border-brand-500 shadow-2xs"
+                  >
+                    <option value="">Select Gender</option>
+                    <option value="Male">Male (पुरुष)</option>
+                    <option value="Female">Female (महिला)</option>
+                    <option value="Other">Other</option>
+                    <option value="Prefer not to say">Prefer not to say</option>
+                  </select>
+                </div>
 
-              {/* QUICK ONE-TAP SKILL CHIPS */}
-              <div className="pt-1.5">
-                <span className="text-[11px] font-bold text-slate-500 block mb-1.5">
-                  {t('clickToAddCommonSkills') || 'Tap to Add Skills:'}
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {((LOCALIZED_COMMON_SKILLS[normalizeLanguage(currentLang)] || COMMON_SKILLS_BY_CATEGORY)[category]).map((skill) => {
-                    const isSelected = skillsInput
-                      .split(/[,،、]/)
-                      .map((s) => s.trim().normalize('NFC'))
-                      .includes(skill);
-                    return (
-                      <button
-                        type="button"
-                        key={skill}
-                        onClick={() => addSkillChip(skill)}
-                        className={`text-xs px-2.5 py-1 rounded-lg border transition-colors font-medium ${
-                          isSelected
-                            ? 'bg-brand-500 text-white border-brand-600 font-bold'
-                            : 'bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-700 border-slate-200'
-                        }`}
-                      >
-                        {isSelected ? '✓ ' : '+ '}
-                        {skill}
-                      </button>
-                    );
-                  })}
+                {/* Date of Birth */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Date of Birth
+                  </label>
+                  <input
+                    type="date"
+                    value={dateOfBirth}
+                    onChange={(e) => setDateOfBirth(e.target.value)}
+                    className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium bg-white focus:border-brand-500 shadow-2xs"
+                  />
                 </div>
               </div>
             </div>
 
-            {/* YEARS OF EXPERIENCE */}
-            <div className="space-y-1.5">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
-                  {t('experienceYearsLabel')}
+            {/* SECTION 2: STRUCTURED RESIDENTIAL ADDRESS */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold uppercase tracking-wider text-brand-700 block">
+                📍 2. Rural Address & Location Details
+              </span>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* Village / Gram Panchayat */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Village / Gram Panchayat
+                  </label>
+                  <input
+                    type="text"
+                    value={village}
+                    onChange={(e) => setVillage(e.target.value)}
+                    placeholder="e.g. Rampur"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
+
+                {/* City / Block / Tehsil */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    City / Block / Tehsil
+                  </label>
+                  <input
+                    type="text"
+                    value={city}
+                    onChange={(e) => setCity(e.target.value)}
+                    placeholder="e.g. Block B / Haveli"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
+
+                {/* District */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    District
+                  </label>
+                  <input
+                    type="text"
+                    value={district}
+                    onChange={(e) => setDistrict(e.target.value)}
+                    placeholder="e.g. Pune / Varanasi"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                {/* State */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    State
+                  </label>
+                  <input
+                    type="text"
+                    value={stateName}
+                    onChange={(e) => setStateName(e.target.value)}
+                    placeholder="e.g. Maharashtra, UP"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
+
+                {/* PIN Code */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    PIN Code (6 Digits)
+                  </label>
+                  <input
+                    type="text"
+                    maxLength={6}
+                    value={pincode}
+                    onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
+                    placeholder="e.g. 411001"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
+
+                {/* Street / House Address Line */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Street / House / Landmark
+                  </label>
+                  <input
+                    type="text"
+                    value={addressLine}
+                    onChange={(e) => setAddressLine(e.target.value)}
+                    placeholder="Near Old Gram Panchayat"
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* SECTION 3: WORK DETAILS, SKILLS & WAGE */}
+            <div className="space-y-3 pt-2 border-t border-slate-100">
+              <span className="text-xs font-bold uppercase tracking-wider text-brand-700 block">
+                🛠️ 3. Work Domain, Skills & Experience
+              </span>
+
+              {/* CATEGORY */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">
+                    {t('categoryLabel')} *
+                  </label>
+                  <VoiceSpeakerButton
+                    text={getVoiceGuidance('workerCategory', currentLang)}
+                    lang={currentLang}
+                    label="Listen to category options"
+                  />
+                </div>
+                <select
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as WorkerCategory)}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-sm font-semibold bg-white focus:border-brand-500 shadow-2xs"
+                >
+                  <option value="Agriculture">{t('catAgri')}</option>
+                  <option value="Construction">{t('catConst')}</option>
+                  <option value="Daily work">{t('catDaily')}</option>
+                  <option value="Skilled self-employed">{t('catSkilled')}</option>
+                </select>
+              </div>
+
+              {/* SKILLS */}
+              <div className="space-y-1">
+                <div className="flex items-center justify-between">
+                  <label className="text-xs font-bold text-slate-700">
+                    {t('skillsLabel')}
+                  </label>
+                  <VoiceSpeakerButton
+                    text={getVoiceGuidance('workerSkills', currentLang)}
+                    lang={currentLang}
+                    label="Listen to skills instruction"
+                  />
+                </div>
+                <input
+                  type="text"
+                  value={skillsInput}
+                  onChange={(e) => setSkillsInput(e.target.value)}
+                  placeholder={t('skillsPlaceholderWorker')}
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-sm font-medium focus:border-brand-500 shadow-2xs"
+                />
+
+                {/* ONE-TAP CHIPS */}
+                <div className="pt-1">
+                  <span className="text-[11px] font-bold text-slate-500 block mb-1">
+                    {t('clickToAddCommonSkills') || 'Tap to Add Skills:'}
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {((LOCALIZED_COMMON_SKILLS[normalizeLanguage(currentLang)] || COMMON_SKILLS_BY_CATEGORY)[category]).map((skill) => {
+                      const isSelected = skillsInput
+                        .split(/[,،、]/)
+                        .map((s) => s.trim().normalize('NFC'))
+                        .includes(skill);
+                      return (
+                        <button
+                          type="button"
+                          key={skill}
+                          onClick={() => addSkillChip(skill)}
+                          className={`text-xs px-2.5 py-1 rounded-lg border transition-colors font-medium ${
+                            isSelected
+                              ? 'bg-brand-500 text-white border-brand-600 font-bold'
+                              : 'bg-slate-100 hover:bg-brand-50 hover:text-brand-700 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          {isSelected ? '✓ ' : '+ '}
+                          {skill}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {/* YEARS OF EXPERIENCE */}
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between">
+                    <label className="text-xs font-bold text-slate-700">
+                      {t('experienceYearsLabel')}
+                    </label>
+                    <VoiceSpeakerButton
+                      text={getVoiceGuidance('workerExperience', currentLang)}
+                      lang={currentLang}
+                      label="Listen to experience instruction"
+                    />
+                  </div>
+                  <input
+                    type="number"
+                    min="0"
+                    value={experienceYears}
+                    onChange={(e) => setExperienceYears(e.target.value)}
+                    placeholder={t('yearsExpPlaceholder')}
+                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-sm font-medium focus:border-brand-500 shadow-2xs"
+                  />
+                </div>
+
+                {/* EXPECTED DAILY WAGE (₹) */}
+                <div className="space-y-1">
+                  <label className="text-xs font-bold text-slate-700">
+                    Expected Daily Wage (₹ / day)
+                  </label>
+                  <div className="flex items-center border border-slate-300 rounded-xl px-3 bg-white focus-within:border-brand-500 shadow-2xs">
+                    <IndianRupee className="w-4 h-4 text-slate-400 mr-1.5 shrink-0" />
+                    <input
+                      type="number"
+                      min="0"
+                      step="50"
+                      value={dailyWage}
+                      onChange={(e) => setDailyWage(e.target.value)}
+                      placeholder="e.g. 500"
+                      className="w-full py-2.5 text-sm font-semibold text-slate-900 outline-none bg-transparent"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* EXPERIENCE DESCRIPTION */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">
+                  Experience & Specialization Details
                 </label>
-                <VoiceSpeakerButton
-                  text={getVoiceGuidance('workerExperience', currentLang)}
-                  lang={currentLang}
-                  label="Listen to experience instruction"
+                <textarea
+                  rows={2}
+                  value={experienceDescription}
+                  onChange={(e) => setExperienceDescription(e.target.value)}
+                  placeholder="e.g. 5 years operating Mahindra and Swaraj tractors, wheat harvesting and mango orchard care."
+                  className="w-full px-3.5 py-2 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs resize-none"
                 />
               </div>
-              <input
-                type="number"
-                min="0"
-                value={experienceYears}
-                onClick={() => speakText(getVoiceGuidance('workerExperience', currentLang), currentLang)}
-                onFocus={() => speakText(getVoiceGuidance('workerExperience', currentLang), currentLang)}
-                onChange={(e) => setExperienceYears(e.target.value)}
-                placeholder={t('yearsExpPlaceholder')}
-                className="w-full px-4 py-3 border border-slate-300 rounded-xl outline-none text-sm font-medium focus:border-brand-500 shadow-2xs"
-              />
+
+              {/* PREFERRED WORK LOCATION */}
+              <div className="space-y-1">
+                <label className="text-xs font-bold text-slate-700">
+                  Preferred Work Locations / Nearby Blocks
+                </label>
+                <input
+                  type="text"
+                  value={preferredWorkLocation}
+                  onChange={(e) => setPreferredWorkLocation(e.target.value)}
+                  placeholder="e.g. Within 15km of Rampur, Block 4 and adjoining villages"
+                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
+                />
+              </div>
             </div>
 
             {/* SUBMIT BUTTON */}
             <button
               onClick={handleSave}
               disabled={saving}
-              className="w-full py-3.5 mt-2 rounded-xl text-sm font-bold bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-sm disabled:opacity-70 flex items-center justify-center gap-2"
+              className="w-full py-3.5 mt-2 rounded-xl text-sm font-bold bg-brand-500 hover:bg-brand-600 text-white transition-all shadow-sm disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer"
             >
               {saving ? (
-                <span>{t('savingWorkerProfileBtn')}</span>
+                <span>{hasExistingProfile ? 'Updating Profile...' : t('savingWorkerProfileBtn')}</span>
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>{t('saveWorkerProfileBtn')}</span>
+                  <span>{hasExistingProfile ? 'Update Profile' : t('saveWorkerProfileBtn')}</span>
                 </>
               )}
             </button>
+          </div>
+        )}
 
-            {/* DANGER ZONE / ACCOUNT DEACTIVATION WITH DATA RETENTION */}
-            <div className="mt-6 pt-5 border-t border-slate-200">
+        {/* DANGER ZONE / ACCOUNT DEACTIVATION WITH DATA RETENTION */}
+        <div className="mt-4 pt-4 border-t border-slate-200">
               <div className="bg-rose-50/70 border border-rose-200 rounded-2xl p-4 space-y-3">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2 text-rose-800 font-bold text-xs sm:text-sm">
@@ -543,7 +1101,7 @@ export function WorkerProfileModal({
                   <button
                     type="button"
                     onClick={() => setShowDeactivateConfirm(true)}
-                    className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-rose-700 hover:text-rose-800 bg-white hover:bg-rose-100 border border-rose-300 transition-colors flex items-center justify-center gap-2 shadow-2xs"
+                    className="w-full py-2.5 px-3 rounded-xl text-xs font-bold text-rose-700 hover:text-rose-800 bg-white hover:bg-rose-100 border border-rose-300 transition-colors flex items-center justify-center gap-2 shadow-2xs cursor-pointer"
                   >
                     <Trash2 className="w-3.5 h-3.5 text-rose-600" />
                     <span>{t('deactivateAccount')}</span>
@@ -591,7 +1149,6 @@ export function WorkerProfileModal({
                 )}
               </div>
             </div>
-          </div>
         </motion.div>
       </div>
     </AnimatePresence>

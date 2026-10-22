@@ -25,6 +25,13 @@ import { DirectPaymentModal } from './components/DirectPaymentModal';
 import { speakText, getVoiceGuidance } from './lib/speech';
 import { VoiceSpeakerButton } from './components/VoiceSpeakerButton';
 import { AccessibleVoiceBar } from './components/AccessibleVoiceBar';
+import {
+  isLiveSmsEnabled,
+  toggleLiveSms,
+  subscribeToSmsConfig,
+  getSmsStatusLabel
+} from './lib/smsConfig';
+import { extractErrorMessage } from './lib/errorHandler';
 
 // Lazy-loaded tabs
 const HomeTab = lazy(() => import('./components/HomeTab'));
@@ -77,6 +84,58 @@ interface PostedJobItem {
 }
 
 import { translations } from './lib/translations';
+
+interface SmsAdminToggleBadgeProps {
+  onToggled?: (isLive: boolean) => void;
+  className?: string;
+}
+
+export function SmsAdminToggleBadge({ onToggled, className = '' }: SmsAdminToggleBadgeProps) {
+  const [isLive, setIsLive] = useState<boolean>(() => isLiveSmsEnabled());
+
+  useEffect(() => {
+    setIsLive(isLiveSmsEnabled());
+    return subscribeToSmsConfig((enabled) => {
+      setIsLive(enabled);
+    });
+  }, []);
+
+  const handleClick = () => {
+    const next = toggleLiveSms();
+    setIsLive(next);
+    if (onToggled) {
+      onToggled(next);
+    }
+  };
+
+  return (
+    <button
+      type="button"
+      onClick={handleClick}
+      title="Admin Control: Click to toggle between Live Fast2SMS delivery and SMS Demo Mode (saves credits)"
+      aria-label="Toggle Fast2SMS Provider Mode"
+      className={`group px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer select-none shadow-lg border backdrop-blur-md ${
+        isLive
+          ? 'bg-slate-900/95 text-emerald-300 border-emerald-500/60 hover:bg-slate-900 hover:border-emerald-400 hover:shadow-emerald-950/40 ring-1 ring-emerald-500/20'
+          : 'bg-slate-900/95 text-slate-200 border-slate-700 hover:bg-slate-800 hover:border-slate-500 hover:shadow-slate-900/40 ring-1 ring-slate-700/20'
+      } ${className}`}
+    >
+      <span className="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
+        {isLive ? (
+          <>
+            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
+            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
+          </>
+        ) : (
+          <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400" />
+        )}
+      </span>
+      <span className="tracking-tight whitespace-nowrap">
+        {getSmsStatusLabel(isLive)}
+      </span>
+    </button>
+  );
+}
 
 const COMMON_SKILLS_BY_CATEGORY: Record<WorkerCategory, string[]> = {
   Agriculture: ['Harvesting', 'Tractor Driving', 'Crop Sowing', 'Weeding', 'Pesticide Spraying', 'Orchard Pruning'],
@@ -264,6 +323,15 @@ export default function App() {
     [currentLang]
   );
 
+  // Real-time SMS toggle toast notification handler
+  const handleSmsToggleNotice = useCallback((isLive: boolean) => {
+    if (isLive) {
+      showToast('Live SMS: ON 🟢 — Fast2SMS active. Real text messages enabled.', 'success');
+    } else {
+      showToast('SMS Demo Mode ⚪ — Network calls skipped. OTP shown on-screen (wallet credits saved).', 'info');
+    }
+  }, [showToast]);
+
   // Jobs feed state
   const [activeJobs, setActiveJobs] = useState<JobItem[]>([]);
   const [appliedJobIds, setAppliedJobIds] = useState<Set<string>>(new Set());
@@ -329,8 +397,8 @@ export default function App() {
       let query = supabase
         .from('workers')
         .select(`
-          id, category, skills, experience_years, average_rating, is_available,
-          profiles ( id, full_name, phone_number, is_assisted_profile )
+          id, category, skills, experience_years, daily_wage, experience_description, preferred_work_location, availability_status, average_rating, is_available,
+          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state )
         `)
         .eq('is_available', true);
 
@@ -338,7 +406,19 @@ export default function App() {
         query = query.eq('category', selectedCategory as WorkerCategory);
       }
 
-      const { data, error } = await query;
+      let { data, error } = await query;
+      if (error && (error.code === '42703' || String(error.message).includes('column'))) {
+        const fallbackRes = await supabase
+          .from('workers')
+          .select(`
+            id, category, skills, experience_years, average_rating, is_available,
+            profiles ( id, full_name, phone_number, is_assisted_profile )
+          `)
+          .eq('is_available', true);
+        data = fallbackRes.data as any;
+        error = fallbackRes.error;
+      }
+
       if (!error && data) {
         setDirectoryWorkers(data as unknown as WorkerItem[]);
       }
@@ -474,6 +554,18 @@ export default function App() {
       if (profile?.role) {
         setUserRole(profile.role as 'worker' | 'employer');
       }
+
+      // Restore applied jobs from database so interest remains persistent across logins & reloads
+      const { data: appliedRecords } = await supabase
+        .from('job_records')
+        .select('job_id')
+        .eq('worker_id', activeUser.id);
+      if (appliedRecords && appliedRecords.length > 0) {
+        setAppliedJobIds(new Set(appliedRecords.map((r) => r.job_id)));
+      } else {
+        setAppliedJobIds(new Set());
+      }
+
       if (profile?.account_status === 'deactivated') {
         // Soft-delete restoration: restore account_status to active
         await supabase
@@ -506,6 +598,7 @@ export default function App() {
       localStorage.removeItem('quickhire_user_role');
       setUser(null);
       setUserRole(null);
+      setAppliedJobIds(new Set());
       setMyPostedJobs([]);
       setDirectoryWorkers([]);
       setEquipmentList([]);
@@ -587,7 +680,7 @@ export default function App() {
         setAppliedJobIds((prev) => new Set(prev).add(jobId));
       }
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = extractErrorMessage(err, 'Unknown error occurred while applying.');
       showToast('Error applying: ' + message, 'error');
     }
   };
@@ -607,6 +700,23 @@ export default function App() {
 
     setIsPostingJob(true);
     try {
+      // Ensure employer profile exists in public.profiles to satisfy foreign key constraint
+      const { data: profileCheck } = await supabase
+        .from('profiles')
+        .select('id')
+        .eq('id', user.id)
+        .single();
+
+      if (!profileCheck) {
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          role: 'employer',
+          full_name: user.user_metadata?.full_name || 'QuickHire Employer',
+          phone_number: user.phone || user.user_metadata?.phone_number || null,
+          account_status: 'active',
+        } as any);
+      }
+
       const parsedSkills = employerSkills
         .split(/[,،、]/)
         .map((s) => s.trim().normalize('NFC'))
@@ -653,7 +763,7 @@ export default function App() {
       setSearchQuery(primarySkill);
       setActiveTab('workers');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = extractErrorMessage(err, 'Failed to post job. Please try again.');
       showToast('Error posting job: ' + message, 'error');
     } finally {
       setIsPostingJob(false);
@@ -726,16 +836,61 @@ export default function App() {
   // MANDATORY LOGIN-FIRST AUTHENTICATION GATE
   if (!user) {
     return (
-      <Auth
-        isGate={true}
-        currentLang={currentLang}
-        onLangChange={handleLangChange}
-        onLoginSuccess={(loggedInUser, role) => {
-          setUser(loggedInUser);
-          setUserRole(role);
-          fetchUserData(loggedInUser);
-        }}
-      />
+      <div className="relative">
+        {/* FLOATING TOAST NOTIFICATIONS (ALSO FOR LOGIN GATE) */}
+        <div className="fixed top-4 right-4 z-[120] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
+          <AnimatePresence>
+            {toasts.map((toast) => (
+              <motion.div
+                key={toast.id}
+                initial={{ opacity: 0, y: -12, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -10, scale: 0.95 }}
+                className={`p-4 rounded-2xl shadow-xl border flex items-center justify-between gap-3 pointer-events-auto backdrop-blur-md ${
+                  toast.type === 'error'
+                    ? 'bg-rose-50/95 text-rose-900 border-rose-200'
+                    : toast.type === 'info'
+                    ? 'bg-amber-50/95 text-amber-900 border-amber-200'
+                    : 'bg-emerald-50/95 text-emerald-950 border-emerald-200'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  {toast.type === 'error' ? (
+                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
+                  ) : toast.type === 'info' ? (
+                    <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
+                  ) : (
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
+                  )}
+                  <span className="text-xs sm:text-sm font-bold leading-snug">{toast.message}</span>
+                </div>
+                <button
+                  onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
+                  className="text-slate-400 hover:text-slate-600 p-1 text-xs"
+                >
+                  ✕
+                </button>
+              </motion.div>
+            ))}
+          </AnimatePresence>
+        </div>
+
+        {/* FLOATING ADMIN SMS TOGGLE BADGE ON LOGIN GATE */}
+        <div className="fixed bottom-4 left-4 z-[999]">
+          <SmsAdminToggleBadge onToggled={handleSmsToggleNotice} />
+        </div>
+
+        <Auth
+          isGate={true}
+          currentLang={currentLang}
+          onLangChange={handleLangChange}
+          onLoginSuccess={(loggedInUser, role) => {
+            setUser(loggedInUser);
+            setUserRole(role);
+            fetchUserData(loggedInUser);
+          }}
+        />
+      </div>
     );
   }
 
@@ -1320,6 +1475,9 @@ export default function App() {
 
           {/* Right: Language Selector, User Role Badge, Profile, Logout */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            {/* Discreet Header Admin SMS Provider Toggle Badge */}
+            <SmsAdminToggleBadge onToggled={handleSmsToggleNotice} className="hidden lg:flex" />
+
             {/* 5-Language Selector */}
             <div className="relative shrink-0">
               <button
@@ -1770,11 +1928,13 @@ export default function App() {
             <DashboardTab
               currentLang={currentLang}
               user={user}
+              userRole={userRole}
               myPostedJobs={myPostedJobs}
               loadingMyJobs={loadingMyJobs}
               onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
               onRequireLogin={() => setIsLoginOpen(true)}
               onMarkJobCompleted={handleMarkJobCompleted}
+              onOpenWorkerProfile={() => setIsWorkerModalOpen(true)}
               onBrowseWorkers={(category) => {
                 setSelectedCategory(category);
                 setActiveTab('workers');
@@ -1980,6 +2140,11 @@ export default function App() {
           </div>
         </div>
       </footer>
+
+      {/* FLOATING ADMIN SMS TOGGLE BADGE */}
+      <div className="fixed bottom-4 left-4 z-[999]">
+        <SmsAdminToggleBadge onToggled={handleSmsToggleNotice} />
+      </div>
 
       {/* FLOATING ACCESSIBLE VOICE HELPER */}
       <AccessibleVoiceBar activeTab={activeTab} currentLang={currentLang} />

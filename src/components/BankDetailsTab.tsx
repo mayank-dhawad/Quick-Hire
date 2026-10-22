@@ -23,6 +23,7 @@ import { supabase } from '../lib/supabase';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
+import { extractErrorMessage } from '../lib/errorHandler';
 
 export interface PaymentRecord {
   id: string;
@@ -307,7 +308,7 @@ export function BankDetailsTab({
         setSaveSuccess(false);
       }, 4000);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const msg = extractErrorMessage(err, 'Failed to save bank details');
       setErrorMessage('Error saving details: ' + msg);
     } finally {
       setIsSaving(false);

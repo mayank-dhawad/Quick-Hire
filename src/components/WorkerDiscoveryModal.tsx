@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Star, Search, UserCheck } from 'lucide-react';
+import { Phone, Star, Search, UserCheck, MapPin, IndianRupee, Briefcase, Award } from 'lucide-react';
 import { speakText, getVoiceGuidance, getWorkerSpeechText } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
@@ -13,6 +13,12 @@ export interface WorkerProfileData {
   full_name: string | null;
   phone_number: string | null;
   is_assisted_profile: boolean | null;
+  location?: string | null;
+  village?: string | null;
+  city?: string | null;
+  district?: string | null;
+  state?: string | null;
+  pincode?: string | null;
 }
 
 export interface WorkerItem {
@@ -20,6 +26,10 @@ export interface WorkerItem {
   category: WorkerCategory;
   skills: string[];
   experience_years: number | null;
+  daily_wage?: number | null;
+  experience_description?: string | null;
+  preferred_work_location?: string | null;
+  availability_status?: string | null;
   average_rating: number | null;
   is_available: boolean | null;
   profiles?: WorkerProfileData | null;
@@ -57,23 +67,39 @@ export function WorkerDiscoveryModal({
 
   const fetchWorkers = useCallback(async () => {
     setLoading(true);
-    let query = supabase
-      .from('workers')
-      .select(`
-        id, category, skills, experience_years, average_rating, is_available,
-        profiles ( id, full_name, phone_number, is_assisted_profile )
-      `)
-      .eq('is_available', true);
+    try {
+      let query = supabase
+        .from('workers')
+        .select(`
+          id, category, skills, experience_years, daily_wage, experience_description, preferred_work_location, availability_status, average_rating, is_available,
+          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state )
+        `)
+        .eq('is_available', true);
 
-    if (categoryFilter !== 'All') {
-      query = query.eq('category', categoryFilter as WorkerCategory);
-    }
+      if (categoryFilter !== 'All') {
+        query = query.eq('category', categoryFilter as WorkerCategory);
+      }
 
-    const { data, error } = await query;
-    setLoading(false);
+      let { data, error } = await query;
+      if (error && (error.code === '42703' || String(error.message).includes('column'))) {
+        const fallbackRes = await supabase
+          .from('workers')
+          .select(`
+            id, category, skills, experience_years, average_rating, is_available,
+            profiles ( id, full_name, phone_number, is_assisted_profile )
+          `)
+          .eq('is_available', true);
+        data = fallbackRes.data as any;
+        error = fallbackRes.error;
+      }
 
-    if (!error && data) {
-      setWorkers(data as unknown as WorkerItem[]);
+      if (!error && data) {
+        setWorkers(data as unknown as WorkerItem[]);
+      }
+    } catch {
+      // Ignore network errors gracefully
+    } finally {
+      setLoading(false);
     }
   }, [categoryFilter]);
 
@@ -290,17 +316,34 @@ export function WorkerDiscoveryModal({
                       </span>
                     </div>
 
-                    <p className="text-xs text-ink-muted mb-3">
-                      {t('experienceLabel')}{' '}
-                      <strong>
-                        {worker.experience_years || 1}+ {t('yearsLabel')}
-                      </strong>
+                    <div className="flex items-center gap-2 flex-wrap text-xs text-ink-muted mb-3">
+                      <span>
+                        {t('experienceLabel')}{' '}
+                        <strong>
+                          {worker.experience_years || 1}+ {t('yearsLabel')}
+                        </strong>
+                      </span>
+                      {(worker.daily_wage || 0) > 0 && (
+                        <span className="font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200 text-[11px]">
+                          ₹{worker.daily_wage}/day
+                        </span>
+                      )}
+                      {(worker.profiles?.village || worker.profiles?.district || worker.profiles?.location) && (
+                        <span className="inline-flex items-center gap-1 text-[11px] text-slate-600 bg-slate-100 px-2 py-0.5 rounded">
+                          <MapPin className="w-3 h-3 text-slate-500 shrink-0" />
+                          <span>
+                            {worker.profiles?.village && worker.profiles?.district
+                              ? `${worker.profiles.village}, ${worker.profiles.district}`
+                              : worker.profiles?.district || worker.profiles?.location}
+                          </span>
+                        </span>
+                      )}
                       {worker.profiles?.is_assisted_profile && (
-                        <span className="ml-2 text-[10px] font-semibold bg-emerald-50 text-emerald-700 px-2 py-0.5 rounded">
+                        <span className="text-[10px] font-semibold bg-blue-50 text-blue-700 border border-blue-200 px-2 py-0.5 rounded">
                           {t('assistedBadge')}
                         </span>
                       )}
-                    </p>
+                    </div>
 
                     <div className="flex flex-wrap gap-1.5 mb-4">
                       {worker.skills?.map((skill: string, idx: number) => (
@@ -380,6 +423,48 @@ export function WorkerDiscoveryModal({
                     ))}
                   </div>
                 </div>
+
+                {/* Additional worker metadata */}
+                <div className="grid grid-cols-2 gap-2 mb-4">
+                  {(selectedWorker.daily_wage || 0) > 0 && (
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Expected Wage</span>
+                      <span className="text-xs font-bold text-emerald-700 flex items-center">
+                        <IndianRupee className="w-3.5 h-3.5 mr-0.5" />
+                        {selectedWorker.daily_wage} / day
+                      </span>
+                    </div>
+                  )}
+                  {(selectedWorker.profiles?.village || selectedWorker.profiles?.district || selectedWorker.profiles?.location) && (
+                    <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                      <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Work Region</span>
+                      <span className="text-xs font-semibold text-slate-800 flex items-center truncate">
+                        <MapPin className="w-3.5 h-3.5 mr-1 text-slate-400 shrink-0" />
+                        {selectedWorker.profiles?.village && selectedWorker.profiles?.district
+                          ? `${selectedWorker.profiles.village}, ${selectedWorker.profiles.district}`
+                          : selectedWorker.profiles?.district || selectedWorker.profiles?.location}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {selectedWorker.experience_description && (
+                  <div className="mb-4 bg-amber-50/70 border border-amber-200 p-3 rounded-xl">
+                    <span className="text-[10px] uppercase font-bold text-amber-800 block mb-1">
+                      Experience & Specialization
+                    </span>
+                    <p className="text-xs text-amber-950 font-medium leading-relaxed">
+                      {selectedWorker.experience_description}
+                    </p>
+                  </div>
+                )}
+
+                {selectedWorker.preferred_work_location && (
+                  <div className="mb-4 text-xs text-slate-600 flex items-center gap-1.5 bg-slate-50 p-2.5 rounded-xl border border-slate-200">
+                    <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+                    <span><strong>Preferred area:</strong> {selectedWorker.preferred_work_location}</span>
+                  </div>
+                )}
 
                 {selectedWorker.profiles?.phone_number ? (
                   <a

@@ -20,6 +20,7 @@ import { speakText } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
 import { PaymentRecord } from './BankDetailsTab';
+import { extractErrorMessage } from '../lib/errorHandler';
 
 interface DirectPaymentModalProps {
   isOpen: boolean;
@@ -230,7 +231,7 @@ export function DirectPaymentModal({
         onClose();
       }, 1500);
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Unknown error';
+      const msg = extractErrorMessage(err, 'Failed to record payment');
       setErrorMsg('Error recording payment: ' + msg);
     } finally {
       setIsRecording(false);
