@@ -14,7 +14,16 @@ export interface Database {
           id: string
           role: 'employer' | 'worker' | 'admin'
           full_name: string
+          email: string | null
           phone_number: string | null
+          date_of_birth: string | null
+          gender: string | null
+          address_line: string | null
+          village: string | null
+          city: string | null
+          district: string | null
+          state: string | null
+          pincode: string | null
           is_assisted_profile: boolean | null
           created_by: string | null
           bank_name: string | null
@@ -23,6 +32,10 @@ export interface Database {
           upi_id: string | null
           account_status: string | null
           location: string | null
+          category: string | null
+          skills: string[] | null
+          experience_years: number | null
+          daily_wage: number | null
           created_at: string | null
           updated_at: string | null
         }
@@ -30,7 +43,16 @@ export interface Database {
           id: string
           role?: 'employer' | 'worker' | 'admin'
           full_name: string
+          email?: string | null
           phone_number?: string | null
+          date_of_birth?: string | null
+          gender?: string | null
+          address_line?: string | null
+          village?: string | null
+          city?: string | null
+          district?: string | null
+          state?: string | null
+          pincode?: string | null
           is_assisted_profile?: boolean | null
           created_by?: string | null
           bank_name?: string | null
@@ -39,6 +61,10 @@ export interface Database {
           upi_id?: string | null
           account_status?: string | null
           location?: string | null
+          category?: string | null
+          skills?: string[] | null
+          experience_years?: number | null
+          daily_wage?: number | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -46,7 +72,16 @@ export interface Database {
           id?: string
           role?: 'employer' | 'worker' | 'admin'
           full_name?: string
+          email?: string | null
           phone_number?: string | null
+          date_of_birth?: string | null
+          gender?: string | null
+          address_line?: string | null
+          village?: string | null
+          city?: string | null
+          district?: string | null
+          state?: string | null
+          pincode?: string | null
           is_assisted_profile?: boolean | null
           created_by?: string | null
           bank_name?: string | null
@@ -55,6 +90,10 @@ export interface Database {
           upi_id?: string | null
           account_status?: string | null
           location?: string | null
+          category?: string | null
+          skills?: string[] | null
+          experience_years?: number | null
+          daily_wage?: number | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -66,6 +105,10 @@ export interface Database {
           category: 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed'
           skills: string[]
           experience_years: number | null
+          experience_description: string | null
+          preferred_work_location: string | null
+          availability_status: string | null
+          daily_wage: number | null
           average_rating: number | null
           is_available: boolean | null
           location: string | null
@@ -76,6 +119,10 @@ export interface Database {
           category: 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed'
           skills?: string[]
           experience_years?: number | null
+          experience_description?: string | null
+          preferred_work_location?: string | null
+          availability_status?: string | null
+          daily_wage?: number | null
           average_rating?: number | null
           is_available?: boolean | null
           location?: string | null
@@ -86,6 +133,10 @@ export interface Database {
           category?: 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed'
           skills?: string[]
           experience_years?: number | null
+          experience_description?: string | null
+          preferred_work_location?: string | null
+          availability_status?: string | null
+          daily_wage?: number | null
           average_rating?: number | null
           is_available?: boolean | null
           location?: string | null

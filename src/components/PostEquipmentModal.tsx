@@ -7,6 +7,7 @@ import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
 import { WorkerCategory } from './WorkerDiscoveryModal';
+import { extractErrorMessage } from '../lib/errorHandler';
 
 export interface EquipmentItem {
   id: string;
@@ -101,6 +102,18 @@ export function PostEquipmentModal({
     try {
       let createdItem: EquipmentItem;
 
+      // Ensure owner profile exists in public.profiles to satisfy foreign key constraint
+      const { data: profCheck } = await supabase.from('profiles').select('id').eq('id', user.id).single();
+      if (!profCheck) {
+        await supabase.from('profiles').upsert({
+          id: user.id,
+          role: 'employer',
+          full_name: user.user_metadata?.full_name || 'Equipment Owner',
+          phone_number: user.phone || user.user_metadata?.phone_number || null,
+          account_status: 'active'
+        } as any);
+      }
+
       // 1. Attempt insert directly into the equipment Supabase table
       const { data, error } = await supabase
         .from('equipment')
@@ -183,7 +196,7 @@ export function PostEquipmentModal({
         onClose();
       }, 1000);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Unknown error';
+      const message = extractErrorMessage(err, 'Failed to post equipment listing');
       setErrorMsg('Error posting equipment: ' + message);
     } finally {
       setIsSubmitting(false);

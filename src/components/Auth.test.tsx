@@ -211,5 +211,59 @@ describe('Auth Component with Fast2SMS & Dual Mode', () => {
     expect(screen.getByText(/Already have an account\?/i)).toBeInTheDocument();
     expect(screen.getByText(/Minimum 6 characters required/i)).toBeInTheDocument();
   });
+
+  it('calls Fast2SMS API when Live SMS is ON', async () => {
+    localStorage.setItem('quickhire_live_sms_enabled', 'true');
+    const fetchSpy = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ return: true, status_code: 200, message: ['Success'] }),
+    });
+    vi.stubGlobal('fetch', fetchSpy);
+
+    render(<Auth isOpen={true} isGate={false} currentLang="English" />);
+
+    const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
+    fireEvent.change(phoneInput, { target: { value: '9876543210' } });
+
+    const sendBtn = screen.getByRole('button', { name: /Send OTP/i });
+    fireEvent.click(sendBtn);
+
+    await waitFor(() => {
+      expect(fetchSpy).toHaveBeenCalledTimes(1);
+      expect(fetchSpy.mock.calls[0][0]).toContain('https://www.fast2sms.com/dev/bulkV2');
+      expect(screen.getByText(/OTP successfully sent to \+91 9876543210 via Fast2SMS/i)).toBeInTheDocument();
+    });
+  });
+
+  it('skips Fast2SMS network call and displays OTP on screen when Live SMS is OFF (Demo Mode)', async () => {
+    localStorage.setItem('quickhire_live_sms_enabled', 'false');
+    const fetchSpy = vi.fn();
+    vi.stubGlobal('fetch', fetchSpy);
+
+    render(<Auth isOpen={true} isGate={false} currentLang="English" />);
+
+    const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
+    fireEvent.change(phoneInput, { target: { value: '9876543210' } });
+
+    const sendBtn = screen.getByRole('button', { name: /Send OTP/i });
+    fireEvent.click(sendBtn);
+
+    await waitFor(() => {
+      // Fast2SMS network call MUST be skipped
+      expect(fetchSpy).not.toHaveBeenCalled();
+      // OTP notice must be displayed on screen
+      expect(screen.getByText(/\[SMS Demo Mode\] OTP:/i)).toBeInTheDocument();
+      // Demo OTP helper card with Auto-fill button must be visible
+      expect(screen.getByText(/Demo OTP:/i)).toBeInTheDocument();
+      expect(screen.getByRole('button', { name: /Auto-fill/i })).toBeInTheDocument();
+    });
+
+    // Test clicking Auto-fill populates the OTP input
+    const autoFillBtn = screen.getByRole('button', { name: /Auto-fill/i });
+    fireEvent.click(autoFillBtn);
+    const otpInput = screen.getByPlaceholderText(/Enter 6-digit OTP/i) as HTMLInputElement;
+    expect(otpInput.value.length).toBe(6);
+  });
 });
+
 
