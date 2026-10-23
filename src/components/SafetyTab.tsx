@@ -8,7 +8,12 @@ import {
   Scale,
   HeartHandshake,
   FileCheck,
-  BadgeAlert
+  BadgeAlert,
+  IndianRupee,
+  ExternalLink,
+  AlertCircle,
+  Building2,
+  BookOpen
 } from 'lucide-react';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
@@ -155,7 +160,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
             <span className="font-bold text-emerald-900">National Shramik Toll-Free Helpline: 14434</span>
-            <span className="text-emerald-700 hidden md:inline">— Wage dispute & exploitation reporting for unorganized workers</span>
+            <span className="text-emerald-700 hidden md:inline">— {t('shramikHelplineSub')}</span>
           </div>
           <a
             href="tel:14434"
@@ -168,42 +173,258 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
       </div>
 
       {/* SECTION 2: LEGAL & STATUTORY FRAMEWORK */}
-      <div className="space-y-4">
-        <div>
-          <span className="text-xs font-bold text-brand-600 uppercase tracking-wider block mb-1">
-            Indian Labor Rights
-          </span>
-          <h2 className="font-heading font-bold text-xl text-slate-900">
-            {t('legalRightsTitle')}
-          </h2>
-          <p className="text-xs text-slate-500">
-            {t('legalRightsSub')}
-          </p>
+      <div className="space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <span className="text-xs font-bold text-brand-600 uppercase tracking-wider block mb-1">
+              Indian Labour Rights
+            </span>
+            <h2 className="font-heading font-bold text-xl sm:text-2xl text-slate-900">
+              {t('legalRightsTitle')}
+            </h2>
+            <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+              {t('legalRightsSub')}
+            </p>
+          </div>
+          <VoiceSpeakerButton
+            text={`${t('legalRightsTitle')}. ${t('legalRightsSub')}`}
+            lang={currentLang}
+            label="Listen to Indian Labour Rights overview"
+          />
         </div>
 
+        {/* THREE MAJOR RIGHTS CARDS */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 text-amber-700 flex items-center justify-center">
-              <Scale className="w-5 h-5" />
+          {/* Card 1: Fair and Timely Wages */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-amber-400 hover:shadow-md transition-all space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-700 flex items-center justify-center border border-amber-200 shadow-2xs">
+                  <IndianRupee className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <VoiceSpeakerButton
+                  text={`${t('right1Title')}. ${t('right1Desc')}`}
+                  lang={currentLang}
+                  label="Listen to Fair and Timely Wages"
+                />
+              </div>
+              <h3 className="font-heading font-bold text-lg text-slate-900 leading-snug">
+                {t('right1Title')}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {t('right1Desc')}
+              </p>
             </div>
-            <h3 className="font-heading font-bold text-base text-slate-900">{t('right1Title')}</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">{t('right1Desc')}</p>
+            <div className="pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-amber-800">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span>Agreed Wages · Same-Day Payment · Wage Records</span>
+            </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center">
-              <ShieldCheck className="w-5 h-5" />
+          {/* Card 2: Safe Working Conditions */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-emerald-400 hover:shadow-md transition-all space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-700 flex items-center justify-center border border-emerald-200 shadow-2xs">
+                  <ShieldCheck className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <VoiceSpeakerButton
+                  text={`${t('right2Title')}. ${t('right2Desc')}`}
+                  lang={currentLang}
+                  label="Listen to Safe Working Conditions"
+                />
+              </div>
+              <h3 className="font-heading font-bold text-lg text-slate-900 leading-snug">
+                {t('right2Title')}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {t('right2Desc')}
+              </p>
             </div>
-            <h3 className="font-heading font-bold text-base text-slate-900">{t('right2Title')}</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">{t('right2Desc')}</p>
+            <div className="pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-emerald-800">
+              <span className="w-2 h-2 rounded-full bg-emerald-500" />
+              <span>Safe Equipment · Protective Gear · Water & Rest</span>
+            </div>
           </div>
 
-          <div className="bg-white p-6 rounded-2xl border border-slate-200 space-y-3">
-            <div className="w-10 h-10 rounded-xl bg-brand-50 text-brand-700 flex items-center justify-center">
-              <FileCheck className="w-5 h-5" />
+          {/* Card 3: Grievances and Social Security */}
+          <div className="bg-white p-6 rounded-2xl border border-slate-200 hover:border-brand-400 hover:shadow-md transition-all space-y-4 flex flex-col justify-between">
+            <div className="space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="w-12 h-12 rounded-2xl bg-brand-50 text-brand-700 flex items-center justify-center border border-brand-200 shadow-2xs">
+                  <Scale className="w-6 h-6 stroke-[2.5]" />
+                </div>
+                <VoiceSpeakerButton
+                  text={`${t('right3Title')}. ${t('right3Desc')}`}
+                  lang={currentLang}
+                  label="Listen to Grievances and Social Security"
+                />
+              </div>
+              <h3 className="font-heading font-bold text-lg text-slate-900 leading-snug">
+                {t('right3Title')}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-600 leading-relaxed">
+                {t('right3Desc')}
+              </p>
             </div>
-            <h3 className="font-heading font-bold text-base text-slate-900">{t('right3Title')}</h3>
-            <p className="text-xs text-slate-600 leading-relaxed">{t('right3Desc')}</p>
+            <div className="pt-3 border-t border-slate-100 flex items-center gap-1.5 text-[11px] font-semibold text-brand-800">
+              <span className="w-2 h-2 rounded-full bg-brand-500" />
+              <span>Dispute Assistance · e-Shram UAN · Emergency 112</span>
+            </div>
+          </div>
+        </div>
+
+        {/* OFFICIAL LABOUR RESOURCES IN INDIA */}
+        <div className="pt-4 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+            <div>
+              <span className="text-xs font-bold text-slate-500 uppercase tracking-wider block mb-1">
+                Verified Government Portals
+              </span>
+              <h3 className="font-heading font-bold text-lg sm:text-xl text-slate-900">
+                {t('officialResourcesTitle')}
+              </h3>
+              <p className="text-xs text-slate-500">
+                {t('officialResourcesSub')}
+              </p>
+            </div>
+            <VoiceSpeakerButton
+              text={`${t('officialResourcesTitle')}. ${t('officialResourcesSub')}`}
+              lang={currentLang}
+              label="Listen to official labour resources"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Resource 1: Ministry of Labour & Employment */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-brand-400 hover:shadow-sm transition-all flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-slate-100 text-slate-700">
+                    Govt of India
+                  </span>
+                  <Building2 className="w-4 h-4 text-brand-600" />
+                </div>
+                <h4 className="font-heading font-bold text-sm text-slate-900 leading-tight">
+                  {t('resourceMoleTitle')}
+                </h4>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {t('resourceMoleDesc')}
+                </p>
+              </div>
+              <a
+                href="https://labour.gov.in/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-between w-full pt-3 border-t border-slate-100 text-xs font-bold text-brand-700 hover:text-brand-800 group"
+              >
+                <span>labour.gov.in</span>
+                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+            </div>
+
+            {/* Resource 2: Maharashtra Labour Department */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-brand-400 hover:shadow-sm transition-all flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                    Maharashtra State
+                  </span>
+                  <Scale className="w-4 h-4 text-amber-600" />
+                </div>
+                <h4 className="font-heading font-bold text-sm text-slate-900 leading-tight">
+                  {t('resourceMahaTitle')}
+                </h4>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {t('resourceMahaDesc')}
+                </p>
+              </div>
+              <a
+                href="https://labour.maharashtra.gov.in/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-between w-full pt-3 border-t border-slate-100 text-xs font-bold text-amber-700 hover:text-amber-800 group"
+              >
+                <span>labour.maharashtra.gov.in</span>
+                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+            </div>
+
+            {/* Resource 3: India Code */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-brand-400 hover:shadow-sm transition-all flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                    Legislative Repository
+                  </span>
+                  <BookOpen className="w-4 h-4 text-blue-600" />
+                </div>
+                <h4 className="font-heading font-bold text-sm text-slate-900 leading-tight">
+                  {t('resourceIndiaCodeTitle')}
+                </h4>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {t('resourceIndiaCodeDesc')}
+                </p>
+              </div>
+              <a
+                href="https://www.indiacode.nic.in/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-between w-full pt-3 border-t border-slate-100 text-xs font-bold text-blue-700 hover:text-blue-800 group"
+              >
+                <span>indiacode.nic.in</span>
+                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+            </div>
+
+            {/* Resource 4: e-Shram Portal */}
+            <div className="bg-white p-5 rounded-2xl border border-slate-200 hover:border-brand-400 hover:shadow-sm transition-all flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    NDUW · UAN
+                  </span>
+                  <FileCheck className="w-4 h-4 text-emerald-600" />
+                </div>
+                <h4 className="font-heading font-bold text-sm text-slate-900 leading-tight">
+                  {t('resourceEshramTitle')}
+                </h4>
+                <p className="text-[11px] text-slate-600 leading-relaxed">
+                  {t('resourceEshramDesc')}
+                </p>
+              </div>
+              <a
+                href="https://eshram.gov.in/"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-between w-full pt-3 border-t border-slate-100 text-xs font-bold text-emerald-700 hover:text-emerald-800 group"
+              >
+                <span>eshram.gov.in</span>
+                <ExternalLink className="w-3.5 h-3.5 group-hover:translate-x-0.5 transition-transform" />
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* IMPORTANT LEGAL NOTICE & STATUTORY DISCLAIMER */}
+        <div className="bg-amber-50/90 border border-amber-200/90 rounded-2xl p-5 sm:p-6 text-xs text-amber-950 space-y-2.5">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-amber-900 text-sm">
+              <AlertCircle className="w-4 h-4 text-amber-700 shrink-0" />
+              <span>{t('legalDisclaimerTitle')}</span>
+            </div>
+            <VoiceSpeakerButton
+              text={`${t('legalDisclaimerTitle')}. ${t('legalDisclaimerText')}`}
+              lang={currentLang}
+              label="Listen to Important Legal Notice"
+            />
+          </div>
+          <p className="leading-relaxed text-slate-700 font-medium">
+            {t('legalDisclaimerText')}
+          </p>
+          <div className="pt-2 border-t border-amber-200/70 flex flex-wrap items-center gap-4 text-[11px] text-amber-900 font-semibold">
+            <span>✓ Platform Policy: 0% Commission & Free Direct Dialing</span>
+            <span>✓ Statutory Law: Minimum wages & safety rules governed by Indian legislation</span>
           </div>
         </div>
       </div>

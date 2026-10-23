@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, MapPin } from 'lucide-react';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, getLocalizedSkillsByCategory } from '../lib/translations';
 import { WorkerCategory } from './WorkerDiscoveryModal';
 
 interface PostJobTabProps {
@@ -186,7 +186,10 @@ export function PostJobTab({
               {t('clickToAddCommonSkills')}
             </span>
             <div className="flex flex-wrap gap-1.5">
-              {commonSkillsByCategory[employerCategory]?.map((skill) => (
+              {(getLocalizedSkillsByCategory(employerCategory, currentLang).length > 0
+                ? getLocalizedSkillsByCategory(employerCategory, currentLang)
+                : commonSkillsByCategory[employerCategory] || []
+              ).map((skill) => (
                 <button
                   type="button"
                   key={skill}

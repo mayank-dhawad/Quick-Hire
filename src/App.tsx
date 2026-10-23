@@ -62,6 +62,11 @@ interface JobRecordItem {
   worker_id?: string;
   status: string;
   created_at: string;
+  profiles?: {
+    id?: string;
+    phone_number?: string | null;
+    full_name?: string | null;
+  } | null;
   workers?: {
     id?: string;
     profiles?: {
@@ -83,7 +88,7 @@ interface PostedJobItem {
   job_records?: JobRecordItem[];
 }
 
-import { translations } from './lib/translations';
+import { translations, matchesSkillSearch, getTranslation } from './lib/translations';
 
 interface SmsAdminToggleBadgeProps {
   onToggled?: (isLive: boolean) => void;
@@ -282,6 +287,7 @@ export default function App() {
   const [selectedEquipCategory, setSelectedEquipCategory] = useState<string>('All');
   const [equipSearchQuery, setEquipSearchQuery] = useState('');
   const [isPostEquipModalOpen, setIsPostEquipModalOpen] = useState(false);
+  const [equipmentToEdit, setEquipmentToEdit] = useState<EquipmentItem | null>(null);
 
   // Direct Bank Settlement Modal state
   const [directPaymentModal, setDirectPaymentModal] = useState<{
@@ -352,7 +358,7 @@ export default function App() {
 
   const languages = ['English', 'हिंदी (Hindi)', 'मराठी (Marathi)', 'বাংলা (Bengali)', 'తెలుగు (Telugu)'];
   const t = useCallback((key: string): string => {
-    return translations[currentLang]?.[key] || translations['English'][key] || key;
+    return getTranslation(currentLang, key);
   }, [currentLang]);
 
   const handleLangChange = (lang: string) => {
@@ -433,15 +439,12 @@ export default function App() {
   const fetchMyPostedJobs = useCallback(async (currentUserId: string) => {
     setLoadingMyJobs(true);
     try {
-      const { data, error } = await supabase
-        .from('jobs')
+      const { data, error } = await (supabase.from('jobs') as any)
         .select(`
           id, title, category, offered_wages, description, status, created_at,
           job_records (
-            id, status, created_at,
-            workers (
-              profiles ( phone_number, full_name )
-            )
+            id, status, created_at, worker_id,
+            profiles ( phone_number, full_name )
           )
         `)
         .eq('employer_id', currentUserId)
@@ -449,6 +452,46 @@ export default function App() {
 
       if (!error && data) {
         setMyPostedJobs(data as unknown as PostedJobItem[]);
+        return;
+      }
+
+      // Resilient fallback if PostgREST relationship cache prefers flat query with ID resolution
+      const { data: fallbackData, error: fbError } = await (supabase.from('jobs') as any)
+        .select(`
+          id, title, category, offered_wages, description, status, created_at,
+          job_records (
+            id, status, created_at, worker_id
+          )
+        `)
+        .eq('employer_id', currentUserId)
+        .order('created_at', { ascending: false });
+
+      if (!fbError && fallbackData) {
+        const workerIds: string[] = Array.from(
+          new Set(
+            (fallbackData as any[])
+              .flatMap((j: any) => (j.job_records || []).map((r: any) => r.worker_id))
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+
+        const profilesMap = new Map<string, { phone_number: string | null; full_name: string | null }>();
+        if (workerIds.length > 0) {
+          const { data: profs } = await supabase
+            .from('profiles')
+            .select('id, full_name, phone_number')
+            .in('id', workerIds);
+          (profs || []).forEach((p) => profilesMap.set(p.id, p));
+        }
+
+        const enriched = (fallbackData as any[]).map((j: any) => ({
+          ...j,
+          job_records: (j.job_records || []).map((r: any) => ({
+            ...r,
+            profiles: profilesMap.get(r.worker_id) || null,
+          })),
+        }));
+        setMyPostedJobs(enriched as unknown as PostedJobItem[]);
       }
     } catch {
       // Ignore network errors gracefully
@@ -622,6 +665,11 @@ export default function App() {
       return null;
     };
 
+    // Always fetch public catalog for all visitors on initial mount
+    fetchOpenJobs();
+    fetchWorkers();
+    fetchEquipment();
+
     supabase.auth.getSession().then(({ data: { session } }) => {
       const currentUser = session?.user ?? getStoredFallbackUser();
       setUser(currentUser);
@@ -640,21 +688,17 @@ export default function App() {
       } else {
         setUserRole(null);
         setMyPostedJobs([]);
-        setDirectoryWorkers([]);
-        setEquipmentList([]);
-        setActiveJobs([]);
+        setAppliedJobIds(new Set());
       }
     });
 
     return () => subscription.unsubscribe();
-  }, [fetchUserData]);
+  }, [fetchUserData, fetchOpenJobs, fetchWorkers, fetchEquipment]);
 
-  // Refetch workers on category change only if user is logged in
+  // Refetch workers on category change unconditionally
   useEffect(() => {
-    if (user) {
-      fetchWorkers();
-    }
-  }, [fetchWorkers, user]);
+    fetchWorkers();
+  }, [fetchWorkers, selectedCategory]);
 
   // Handle worker expression of interest
   const handleApplyForJob = async (jobId: string) => {
@@ -801,14 +845,15 @@ export default function App() {
     }
   };
 
-  // Filtered directory workers
+  // Filtered directory workers using multilingual canonical skill match
   const filteredWorkers = directoryWorkers.filter((w) => {
     if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    const matchesSkill = w.skills?.some((s) => s.toLowerCase().includes(q));
-    const matchesName = w.profiles?.full_name?.toLowerCase().includes(q);
-    const matchesCategory = w.category?.toLowerCase().includes(q);
-    return matchesSkill || matchesName || matchesCategory;
+    const q = searchQuery.toLowerCase().trim().normalize('NFC');
+    const matchesSkill = matchesSkillSearch(w.skills || [], q);
+    const matchesName = (w.profiles?.full_name || '').toLowerCase().normalize('NFC').includes(q);
+    const matchesCategory = (w.category || '').toLowerCase().normalize('NFC').includes(q);
+    const matchesLoc = (w.profiles?.location || (w as any).location || '').toLowerCase().normalize('NFC').includes(q);
+    return matchesSkill || matchesName || matchesCategory || matchesLoc;
   });
 
   // Loading screen while session is being verified
@@ -833,66 +878,7 @@ export default function App() {
     );
   }
 
-  // MANDATORY LOGIN-FIRST AUTHENTICATION GATE
-  if (!user) {
-    return (
-      <div className="relative">
-        {/* FLOATING TOAST NOTIFICATIONS (ALSO FOR LOGIN GATE) */}
-        <div className="fixed top-4 right-4 z-[120] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
-          <AnimatePresence>
-            {toasts.map((toast) => (
-              <motion.div
-                key={toast.id}
-                initial={{ opacity: 0, y: -12, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: -10, scale: 0.95 }}
-                className={`p-4 rounded-2xl shadow-xl border flex items-center justify-between gap-3 pointer-events-auto backdrop-blur-md ${
-                  toast.type === 'error'
-                    ? 'bg-rose-50/95 text-rose-900 border-rose-200'
-                    : toast.type === 'info'
-                    ? 'bg-amber-50/95 text-amber-900 border-amber-200'
-                    : 'bg-emerald-50/95 text-emerald-950 border-emerald-200'
-                }`}
-              >
-                <div className="flex items-center gap-2.5">
-                  {toast.type === 'error' ? (
-                    <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0" />
-                  ) : toast.type === 'info' ? (
-                    <Sparkles className="w-5 h-5 text-amber-600 shrink-0" />
-                  ) : (
-                    <CheckCircle2 className="w-5 h-5 text-emerald-600 shrink-0" />
-                  )}
-                  <span className="text-xs sm:text-sm font-bold leading-snug">{toast.message}</span>
-                </div>
-                <button
-                  onClick={() => setToasts((prev) => prev.filter((t) => t.id !== toast.id))}
-                  className="text-slate-400 hover:text-slate-600 p-1 text-xs"
-                >
-                  ✕
-                </button>
-              </motion.div>
-            ))}
-          </AnimatePresence>
-        </div>
 
-        {/* FLOATING ADMIN SMS TOGGLE BADGE ON LOGIN GATE */}
-        <div className="fixed bottom-4 left-4 z-[999]">
-          <SmsAdminToggleBadge onToggled={handleSmsToggleNotice} />
-        </div>
-
-        <Auth
-          isGate={true}
-          currentLang={currentLang}
-          onLangChange={handleLangChange}
-          onLoginSuccess={(loggedInUser, role) => {
-            setUser(loggedInUser);
-            setUserRole(role);
-            fetchUserData(loggedInUser);
-          }}
-        />
-      </div>
-    );
-  }
 
   return (
     <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#0f2942] selection:text-white overflow-x-hidden w-full ${
@@ -965,11 +951,24 @@ export default function App() {
       />
       <PostEquipmentModal
         isOpen={isPostEquipModalOpen}
-        onClose={() => setIsPostEquipModalOpen(false)}
+        onClose={() => {
+          setIsPostEquipModalOpen(false);
+          setEquipmentToEdit(null);
+        }}
         user={user}
         currentLang={currentLang}
-        onEquipmentPosted={(newItem) => {
-          setEquipmentList((prev) => [newItem, ...prev]);
+        equipmentToEdit={equipmentToEdit}
+        onEquipmentPosted={(savedItem) => {
+          setEquipmentList((prev) => {
+            const idx = prev.findIndex((e) => e.id === savedItem.id);
+            if (idx >= 0) {
+              const copy = [...prev];
+              copy[idx] = savedItem;
+              return copy;
+            }
+            return [savedItem, ...prev];
+          });
+          fetchEquipment();
         }}
         onRequireLogin={() => setIsLoginOpen(true)}
       />
@@ -1882,7 +1881,22 @@ export default function App() {
               onSelectCategory={setSelectedEquipCategory}
               searchQuery={equipSearchQuery}
               onSearchQueryChange={setEquipSearchQuery}
-              onPostEquipmentClick={() => setIsPostEquipModalOpen(true)}
+              onPostEquipmentClick={() => {
+                if (!user) {
+                  setIsLoginOpen(true);
+                  return;
+                }
+                setEquipmentToEdit(null);
+                setIsPostEquipModalOpen(true);
+              }}
+              onEditEquipmentClick={(item) => {
+                if (!user) {
+                  setIsLoginOpen(true);
+                  return;
+                }
+                setEquipmentToEdit(item);
+                setIsPostEquipModalOpen(true);
+              }}
               onPayRentClick={(item) => {
                 setDirectPaymentModal({
                   isOpen: true,
@@ -1897,6 +1911,7 @@ export default function App() {
               onRequireLogin={() => setIsLoginOpen(true)}
               isLoggedIn={Boolean(user)}
               currentLang={currentLang}
+              currentUserId={user?.id}
             />
           )}
 

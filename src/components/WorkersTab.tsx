@@ -18,7 +18,7 @@ import {
 import { WorkerItem } from './WorkerDiscoveryModal';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance, getWorkerSpeechText } from '../lib/speech';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, getSuggestedSkillTags } from '../lib/translations';
 
 interface WorkersTabProps {
   currentLang?: string;
@@ -50,6 +50,7 @@ export function WorkersTab({
   onOpenWorkerDiscovery,
 }: WorkersTabProps) {
   const t = (key: string): string => getTranslation(currentLang, key);
+  const suggestedTags = getSuggestedSkillTags(currentLang);
 
   return (
     <motion.div
@@ -129,22 +130,29 @@ export function WorkersTab({
           </div>
         </div>
 
-        {/* QUICK TAG CHIPS */}
+        {/* QUICK TAG CHIPS - REACTIVELY LOCALIZED */}
         <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
-          <span className="text-slate-400 font-bold whitespace-nowrap">Suggested Tags:</span>
-          {['Tractor Driving', 'Harvesting', 'Masonry', 'Plastering', 'Plumbing', 'Electrician', 'Loading', 'Welding'].map((tag) => (
-            <button
-              key={tag}
-              onClick={() => onSearchQueryChange(tag)}
-              className={`px-3 py-1 rounded-lg border whitespace-nowrap font-semibold transition-colors ${
-                searchQuery === tag
-                  ? 'bg-brand-500 text-white border-brand-500'
-                  : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-              }`}
-            >
-              {tag}
-            </button>
-          ))}
+          <span className="text-slate-500 font-bold whitespace-nowrap">
+            {t('suggestedTags')}
+          </span>
+          {suggestedTags.map((tag) => {
+            const isSelected =
+              searchQuery.trim().toLowerCase() === tag.label.toLowerCase() ||
+              searchQuery.trim().toLowerCase() === tag.canonicalName.toLowerCase();
+            return (
+              <button
+                key={tag.id}
+                onClick={() => onSearchQueryChange(isSelected ? '' : tag.label)}
+                className={`px-3 py-1 rounded-lg border whitespace-nowrap font-semibold transition-colors ${
+                  isSelected
+                    ? 'bg-brand-500 text-white border-brand-500 shadow-xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                }`}
+              >
+                {tag.label}
+              </button>
+            );
+          })}
         </div>
       </div>
 

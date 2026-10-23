@@ -369,7 +369,52 @@ export const translations: Record<string, Record<string, string>> = {
     "npciCompliant": "NPCI / IMPS Compliant",
     "bankActiveNotice": "Direct UPI / IMPS Active",
     "noUpiSaved": "No UPI ID saved",
-    "notConfiguredYet": "Not configured yet"
+    "notConfiguredYet": "Not configured yet",
+    "legalRightsTitle": "Indian Labour Rights",
+    "legalRightsSub": "Essential legal protections and standards for workers and employers under Indian labour laws.",
+    "right1Title": "Fair and Timely Wages",
+    "right1Desc": "Workers should receive the wages legally due to them, including applicable minimum-wage protections. Before work begins, workers and employers should agree on the work, rate, working hours, and payment date. Keep records of payments and any unpaid wages.",
+    "right2Title": "Safe Working Conditions",
+    "right2Desc": "Workers deserve a safe working environment. Employers and contractors should follow applicable workplace-safety requirements and provide necessary protective equipment and facilities as required by law. Workers should report unsafe conditions through appropriate channels.",
+    "right3Title": "Grievances and Social Security",
+    "right3Desc": "Workers should keep evidence of unpaid wages, unsafe working conditions, and workplace disputes. They can approach the appropriate labour authorities for assistance and check their eligibility for applicable social-security schemes. Contact emergency services if there is immediate danger.",
+    "officialResourcesTitle": "Official Labour Resources in India",
+    "officialResourcesSub": "Verified Central and State Government portals for labour welfare, registration, laws, and official grievance redressal.",
+    "resourceMoleTitle": "Ministry of Labour and Employment",
+    "resourceMoleDesc": "Apex Central Ministry formulating national employment policies, safety standards, and unorganized worker welfare schemes.",
+    "resourceMahaTitle": "Maharashtra Labour Department",
+    "resourceMahaDesc": "State department administering local minimum wage notifications, dispute conciliation, and labour welfare boards across Maharashtra.",
+    "resourceIndiaCodeTitle": "India Code",
+    "resourceIndiaCodeDesc": "Official digital repository of all Central and State legislative statutes, gazetted labour Acts, and constitutional rules.",
+    "resourceEshramTitle": "e-Shram Portal",
+    "resourceEshramDesc": "National portal for unorganized worker registration, issuance of 12-digit UAN cards, and direct social security integration.",
+    "openOfficialPortal": "Open Official Portal",
+    "legalDisclaimerTitle": "Important Legal Notice",
+    "legalDisclaimerText": "This page provides general information to help workers and employers understand workplace rights and responsibilities in India. It is not a substitute for legal advice. The applicability of labour laws, minimum wages, working hours, social-security benefits, and grievance procedures depends on the circumstances and applicable legislation. QuickHire is a platform for connecting workers and employers and does not guarantee the outcome of employment disputes. Please consult the appropriate government authority or a qualified legal professional for advice about your specific situation.",
+    "communityCodeTitle": "Workplace Standards & Guidelines",
+    "communityCodeSub": "Fair, transparent practices agreed by the QuickHire community for dignity, safety, and 0% commission.",
+    "shramikHelplineSub": "e-Shram Portal & Unorganized Workers Support · MoLE, Govt of India (Toll-Free 14434)",
+    "suggestedTags": "Suggested Tags:",
+    "skills.tractorDriving": "Tractor Driving",
+    "skills.harvesting": "Harvesting",
+    "skills.masonry": "Masonry",
+    "skills.plastering": "Plastering",
+    "skills.plumbing": "Plumbing",
+    "skills.electrician": "Electrician",
+    "skills.loading": "Loading / Unloading",
+    "skills.welding": "Welding",
+    "skills.cropSowing": "Crop Sowing",
+    "skills.weeding": "Weeding",
+    "skills.spraying": "Pesticide Spraying",
+    "skills.concreteMixing": "Concrete Mixing",
+    "skills.carpenter": "Carpentry",
+    "editListing": "Edit Listing",
+    "editEquipmentTitle": "Edit Equipment Listing",
+    "updateEquipmentBtn": "Update Listing",
+    "updatingEquipmentBtn": "Updating Listing...",
+    "equipUpdatedSuccess": "Equipment listing updated successfully in database!",
+    "editProfile": "Edit Profile",
+    "createProfile": "Create Profile"
   },
   "हिंदी (Hindi)": {
     "tabHome": "होम",
@@ -738,7 +783,52 @@ export const translations: Record<string, Record<string, string>> = {
     "npciCompliant": "NPCI / IMPS प्रमाणित",
     "bankActiveNotice": "डायरेक्ट UPI / IMPS सक्रिय",
     "noUpiSaved": "कोई UPI ID सहेजा नहीं गया",
-    "notConfiguredYet": "अभी कॉन्फ़िगर नहीं किया गया"
+    "notConfiguredYet": "अभी कॉन्फ़िगर नहीं किया गया",
+    "legalRightsTitle": "भारतीय श्रम अधिकार",
+    "legalRightsSub": "भारतीय श्रम कानूनों के तहत कामगारों और नियोक्ताओं के लिए आवश्यक कानूनी अधिकार व मानक।",
+    "right1Title": "उचित एवं समय पर मजदूरी",
+    "right1Desc": "श्रमिकों को कानूनन देय मजदूरी प्राप्त होनी चाहिए, जिसमें लागू न्यूनतम वेतन संरक्षण शामिल हैं। काम शुरू होने से पहले, कामगार और नियोक्ता को काम के स्वरूप, मजदूरी दर, कार्य के घंटे और भुगतान की तारीख पर सहमति बनानी चाहिए। सभी भुगतानों और बकाया राशि का रिकॉर्ड रखें।",
+    "right2Title": "सुरक्षित कार्य परिस्थितियां",
+    "right2Desc": "श्रमिक एक सुरक्षित कार्य वातावरण के हकदार हैं। नियोक्ताओं और ठेकेदारों को लागू कार्यस्थल-सुरक्षा नियमों का पालन करना चाहिए और कानूनन आवश्यक सुरक्षा उपकरण व सुविधाएं प्रदान करनी चाहिए। असुरक्षित परिस्थितियों की शिकायत उचित माध्यमों से करनी चाहिए।",
+    "right3Title": "शिकायत निवारण व सामाजिक सुरक्षा",
+    "right3Desc": "श्रमिकों को बकाया मजदूरी, असुरक्षित कार्य परिस्थितियों और कार्यस्थल विवादों के प्रमाण सुरक्षित रखने चाहिए। वे सहायता के लिए संबंधित श्रम प्राधिकारियों से संपर्क कर सकते हैं और लागू सामाजिक सुरक्षा योजनाओं में अपनी पात्रता की जांच कर सकते हैं। आपात स्थिति में तुरंत 112 पर कॉल करें।",
+    "officialResourcesTitle": "भारत में आधिकारिक श्रम संसाधन",
+    "officialResourcesSub": "श्रम कल्याण, पंजीकरण, कानूनों और आधिकारिक शिकायत निवारण के लिए सत्यापित केंद्र और राज्य सरकार के पोर्टल।",
+    "resourceMoleTitle": "श्रम एवं रोजगार मंत्रालय (MoLE)",
+    "resourceMoleDesc": "राष्ट्रीय रोजगार नीतियों, सुरक्षा मानकों और असंगठित कामगार कल्याण योजनाओं के लिए शीर्ष केंद्रीय मंत्रालय।",
+    "resourceMahaTitle": "महाराष्ट्र श्रम विभाग",
+    "resourceMahaDesc": "महाराष्ट्र में स्थानीय न्यूनतम वेतन अधिसूचनाओं, विवाद समाधान और कामगार कल्याण बोर्डों का संचालन करने वाला राज्य विभाग।",
+    "resourceIndiaCodeTitle": "इंडिया कोड डिजिटल रिपोजिटरी",
+    "resourceIndiaCodeDesc": "सभी केंद्रीय और राज्य विधायी अधिनियमों, श्रम संहिताओं और गजट नियमों का आधिकारिक डिजिटल संग्रह।",
+    "resourceEshramTitle": "ई-श्रम राष्ट्रीय डेटाबेस",
+    "resourceEshramDesc": "असंगठित कामगारों के पंजीकरण, 12-अंकीय UAN कार्ड जारी करने और सरकारी सामाजिक सुरक्षा योजनाओं के लिए राष्ट्रीय पोर्टल।",
+    "openOfficialPortal": "आधिकारिक पोर्टल खोलें",
+    "legalDisclaimerTitle": "महत्वपूर्ण कानूनी सूचना",
+    "legalDisclaimerText": "यह पृष्ठ भारत में कार्यस्थल अधिकारों और जिम्मेदारियों को समझने में कामगारों और नियोक्ताओं की मदद करने के लिए सामान्य जानकारी प्रदान करता है। यह कानूनी सलाह का विकल्प नहीं है। श्रम कानूनों, न्यूनतम वेतन, कार्य के घंटों, सामाजिक सुरक्षा लाभों और शिकायत निवारण प्रक्रियाओं की प्रयोज्यता परिस्थितियों और संबंधित कानून पर निर्भर करती है। क्विकहायर कामगारों और नियोक्ताओं को जोड़ने का एक मंच है और यह रोजगार विवादों के परिणाम की गारंटी नहीं देता है। अपनी विशिष्ट स्थिति की सलाह के लिए कृपया उपयुक्त सरकारी प्राधिकरण या योग्य कानूनी विशेषज्ञ से परामर्श लें।",
+    "communityCodeTitle": "कार्यस्थल मानक व दिशानिर्देश",
+    "communityCodeSub": "गरिमा, सुरक्षा और 0% दलाली के लिए क्विकहायर समुदाय द्वारा स्वीकृत पारदर्शी नियम।",
+    "shramikHelplineSub": "ई-श्रम पोर्टल व असंगठित कामगार सहायता · MoLE, भारत सरकार (टोल-फ्री 14434)",
+    "suggestedTags": "सुझाए गए टैग:",
+    "skills.tractorDriving": "ट्रैक्टर चलाना",
+    "skills.harvesting": "फसल कटाई",
+    "skills.masonry": "राजमिस्त्री",
+    "skills.plastering": "प्लास्टर",
+    "skills.plumbing": "प्लंबिंग",
+    "skills.electrician": "इलेक्ट्रीशियन",
+    "skills.loading": "लोडिंग / अनलोडिंग",
+    "skills.welding": "वेल्डिंग",
+    "skills.cropSowing": "बुवाई",
+    "skills.weeding": "निराई",
+    "skills.spraying": "कीटनाशक छिड़काव",
+    "skills.concreteMixing": "कंक्रीट मिक्सिंग",
+    "skills.carpenter": "बढ़ई काम",
+    "editListing": "लिस्टिंग संपादित करें",
+    "editEquipmentTitle": "उपकरण लिस्टिंग संपादित करें",
+    "updateEquipmentBtn": "लिस्टिंग अपडेट करें",
+    "updatingEquipmentBtn": "अपडेट हो रहा है...",
+    "equipUpdatedSuccess": "डेटाबेस में उपकरण लिस्टिंग सफलतापूर्वक अपडेट की गई!",
+    "editProfile": "प्रोफ़ाइल संपादित करें",
+    "createProfile": "प्रोफ़ाइल बनाएं"
   },
   "मराठी (Marathi)": {
     "tabHome": "होम",
@@ -1107,7 +1197,52 @@ export const translations: Record<string, Record<string, string>> = {
     "npciCompliant": "NPCI / IMPS सुसंगत",
     "bankActiveNotice": "थेट UPI / IMPS सक्रिय",
     "noUpiSaved": "कोणताही UPI ID जतन केलेला नाही",
-    "notConfiguredYet": "अद्याप सेट केलेले नाही"
+    "notConfiguredYet": "अद्याप सेट केलेले नाही",
+    "legalRightsTitle": "भारतीय कामगार हक्क",
+    "legalRightsSub": "भारतीय कामगार कायद्यांतर्गत कामगार आणि मालकांसाठी आवश्यक कायदेशीर संरक्षण आणि मानके.",
+    "right1Title": "वाजवी आणि वेळेवर मजुरी",
+    "right1Desc": "कामगारांना कायद्यानुसार लागू असलेले किमान वेतन व देय मजुरी वेळेवर मिळायला हवी. काम सुरू होण्यापूर्वी, कामगार आणि मालकांनी कामाचे स्वरूप, मजुरीचा दर, कामाचे तास आणि देयकाची तारीख निश्चित करावी. मिळालेल्या मजुरीची आणि कोणत्याही थकीत रकमेची नोंद ठेवावी.",
+    "right2Title": "सुरक्षित कामाची परिस्थिती",
+    "right2Desc": "कामगारांना सुरक्षित कामाचे वातावरण मिळणे हा त्यांचा हक्क आहे. मालक आणि कंत्राटदारांनी कार्यस्थळावरील सुरक्षा नियमांचे पालन करावे आणि कायद्यानुसार आवश्यक सुरक्षा उपकरणे व प्राथमिक सुविधा पुरवाव्यात. असुरक्षित परिस्थितीची तक्रार अधिकृत यंत्रणेकडे करावी.",
+    "right3Title": "तक्रार निवारण आणि सामाजिक सुरक्षा",
+    "right3Desc": "कामगारांनी थकीत मजुरी, असुरक्षित काम आणि कार्यस्थळावरील विवादांचे पुरावे जतन करावेत. ते मदतीसाठी संबंधित कामगार विभागाकडे जाऊ शकतात आणि सामाजिक सुरक्षा योजनांच्या पात्रतेची तपासणी करू शकतात. तत्काळ धोक्याच्या वेळी आपत्कालीन सेवेशी (११२) संपर्क साधावा.",
+    "officialResourcesTitle": "भारतातील अधिकृत कामगार संसाधने",
+    "officialResourcesSub": "कामगार कल्याण, नोंदणी, कायदे आणि अधिकृत तक्रार निवारणासाठी पडताळणी केलेले केंद्र आणि राज्य शासन पोर्टल.",
+    "resourceMoleTitle": "कामगार आणि रोजगार मंत्रालय (MoLE)",
+    "resourceMoleDesc": "राष्ट्रीय रोजगार धोरणे, सुरक्षा मानके आणि असंघटित कामगार कल्याण योजनांसाठी सर्वोच्च केंद्रीय मंत्रालय.",
+    "resourceMahaTitle": "महाराष्ट्र कामगार विभाग",
+    "resourceMahaDesc": "महाराष्ट्रात स्थानिक किमान वेतन अधिसूचना, विवाद निवारण आणि कामगार कल्याण मंडळांचे नियमन करणारा राज्य विभाग.",
+    "resourceIndiaCodeTitle": "इंडिया कोड डिजिटल संग्रह",
+    "resourceIndiaCodeDesc": "सर्व केंद्र आणि राज्य कायदे, कामगार संहिता आणि अधिकृत नियमांचे अधिकृत डिजिटल भांडार.",
+    "resourceEshramTitle": "ई-श्रम राष्ट्रीय डेटाबेस",
+    "resourceEshramDesc": "असंघटित कामगारांची नोंदणी, १२ अंकी UAN कार्ड वाटप आणि थेट शासकीय सामाजिक सुरक्षा लाभांसाठी राष्ट्रीय पोर्टल.",
+    "openOfficialPortal": "अधिकृत पोर्टल उघडा",
+    "legalDisclaimerTitle": "महत्त्वाची कायदेशीर सूचना",
+    "legalDisclaimerText": "हे पृष्ठ भारतातील कामाच्या ठिकाणचे हक्क आणि जबाबदाऱ्या समजून घेण्यासाठी कामगार आणि मालकांना सामान्य माहिती प्रदान करते. हा कायदेशीर सल्ल्याचा पर्याय नाही. कामगार कायदे, किमान वेतन, कामाचे तास, सामाजिक सुरक्षा लाभ आणि तक्रार निवारण प्रक्रियांची व्याप्ती परिस्थितीनुसार आणि लागू कायद्यानुसार बदलते. क्विकहायर हा कामगार आणि मालकांना जोडणारा मंच असून तो रोजगाराच्या वादांच्या निकालाची हमी देत नाही. आपल्या विशिष्ट परिस्थितीच्या सल्ल्यासाठी कृपया संबंधित शासकीय प्राधिकरणाचा किंवा पात्र कायदेतज्ज्ञांचा सल्ला घ्यावा.",
+    "communityCodeTitle": "कामाच्या ठिकाणाचे निकष व मार्गदर्शक तत्त्वे",
+    "communityCodeSub": "सन्मान, सुरक्षितता आणि ०% दलालीसाठी क्विकहायर समुदायाने मान्य केलेले पारदर्शक नियम.",
+    "shramikHelplineSub": "ई-श्रम पोर्टल व असंघटित कामगार सहाय्य · MoLE, भारत सरकार (टोल-फ्री १४४३४)",
+    "suggestedTags": "सुचवलेले टॅग्ज:",
+    "skills.tractorDriving": "ट्रॅक्टर चालवणे",
+    "skills.harvesting": "पीक कापणी",
+    "skills.masonry": "गवंडी काम",
+    "skills.plastering": "प्लॅस्टर",
+    "skills.plumbing": "प्लंबिंग",
+    "skills.electrician": "इलेक्ट्रिशियन",
+    "skills.loading": "हमाली / लोडिंग",
+    "skills.welding": "वेल्डिंग",
+    "skills.cropSowing": "पेरणी",
+    "skills.weeding": "खुरपणी",
+    "skills.spraying": "औषध फवारणी",
+    "skills.concreteMixing": "काँक्रीट मिक्सिंग",
+    "skills.carpenter": "सुतार काम",
+    "editListing": "नोंदणी संपादित करा",
+    "editEquipmentTitle": "यंत्र नोंदणी संपादित करा",
+    "updateEquipmentBtn": "नोंदणी अद्ययावत करा",
+    "updatingEquipmentBtn": "अद्ययावत होत आहे...",
+    "equipUpdatedSuccess": "डेटाबेसमध्ये यंत्राची नोंदणी यशस्वीरित्या अद्ययावत केली!",
+    "editProfile": "प्रोफाइल संपादित करा",
+    "createProfile": "नवीन प्रोफाइल तयार करा"
   },
   "বাংলা (Bengali)": {
     "tabHome": "হোম",
@@ -1476,7 +1611,52 @@ export const translations: Record<string, Record<string, string>> = {
     "npciCompliant": "NPCI / IMPS মানসম্মত",
     "bankActiveNotice": "সরাসরি UPI / IMPS সক্রিয়",
     "noUpiSaved": "কোনো UPI ID সংরক্ষিত নেই",
-    "notConfiguredYet": "এখনো যুক্ত করা হয়নি"
+    "notConfiguredYet": "এখনো যুক্ত করা হয়নি",
+    "legalRightsTitle": "ভারতীয় শ্রম অধিকার",
+    "legalRightsSub": "ভারতীয় শ্রম আইনের অধীনে কর্মী এবং নিয়োগকর্তাদের জন্য প্রয়োজনীয় আইনি সুরক্ষা ও মানদণ্ড।",
+    "right1Title": "ন্যায্য এবং সময়মতো মজুরি",
+    "right1Desc": "শ্রমিকদের আইনগতভাবে প্রাপ্য মজুরি পাওয়া উচিত, যার মধ্যে প্রযোজ্য ন্যূনতম মজুরি সুরক্ষা অন্তর্ভুক্ত। কাজ শুরু হওয়ার আগে, শ্রমিক এবং নিয়োগকর্তাদের কাজ, মজুরির হার, কাজের সময় এবং অর্থ প্রদানের তারিখ নির্ধারণ করা উচিত। অর্থপ্রদানের প্রমাণ রাখুন।",
+    "right2Title": "নিরাপদ কাজের পরিবেশ",
+    "right2Desc": "শ্রমিকরা একটি নিরাপদ কাজের পরিবেশ পাওয়ার যোগ্য। নিয়োগকর্তা ও ঠিকাদারদের প্রযোজ্য কর্মক্ষেত্রের সুরক্ষা প্রয়োজনীয়তা অনুসরণ করা উচিত এবং আইন অনুসারে প্রয়োজনীয় সুরক্ষামূলক সরঞ্জাম সরবরাহ করা উচিত। অনিরাপদ পরিস্থিতি যথাযথ চ্যানেলের মাধ্যমে রিপোর্ট করুন।",
+    "right3Title": "অভিযোগ ও সামাজিক নিরাপত্তা",
+    "right3Desc": "শ্রমিকদের অপরিশোধিত মজুরি, অনিরাপদ কাজের অবস্থা এবং কর্মক্ষেত্রের বিরোধের প্রমাণ রাখা উচিত। তারা সহায়তার জন্য উপযুক্ত শ্রম কর্তৃপক্ষের সাথে যোগাযোগ করতে পারেন এবং প্রযোজ্য সামাজিক নিরাপত্তা প্রকল্পের যোগ্যতা পরীক্ষা করতে পারেন। জরুরি প্রয়োজনে ১১২-এ কল করুন।",
+    "officialResourcesTitle": "ভারতে সরকারি শ্রম সংস্থান",
+    "officialResourcesSub": "শ্রম কল্যাণ, নিবন্ধন, আইন এবং আনুষ্ঠানিক অভিযোগ প্রতিকারের জন্য যাচাইকৃত কেন্দ্র ও রাজ্য সরকারের পোর্টাল।",
+    "resourceMoleTitle": "শ্রম ও কর্মসংস্থান মন্ত্রক (MoLE)",
+    "resourceMoleDesc": "জাতীয় কর্মসংস্থান নীতি, সুরক্ষা মান এবং অসংগঠিত কর্মী কল্যাণ প্রকল্প প্রণয়নের শীর্ষ কেন্দ্রীয় মন্ত্রক।",
+    "resourceMahaTitle": "মহারাষ্ট্র শ্রম বিভাগ",
+    "resourceMahaDesc": "মহারাষ্ট্র জুড়ে স্থানীয় ন্যূনতম মজুরি বিজ্ঞপ্তি, বিরোধ মীমাংসা এবং কর্মী কল্যাণ বোর্ড পরিচালনাকারী রাজ্য বিভাগ।",
+    "resourceIndiaCodeTitle": "ইন্ডিয়া কোড আইন সংগ্রহ",
+    "resourceIndiaCodeDesc": "সমস্ত কেন্দ্রীয় ও রাজ্য আইন, শ্রম কোড এবং বিধিবদ্ধ নিয়মের সরকারি ডিজিটাল ভান্ডার।",
+    "resourceEshramTitle": "ই-শ্রম জাতীয় ডেটাবেস",
+    "resourceEshramDesc": "অসংগঠিত কর্মীদের নিবন্ধন, ১২-সংখ্যার UAN কার্ড প্রদান এবং সরাসরি সামাজিক সুরক্ষা প্রকল্পের জন্য জাতীয় পোর্টাল।",
+    "openOfficialPortal": "সরকারি পোর্টাল খুলুন",
+    "legalDisclaimerTitle": "গুরুত্বপূর্ণ আইনি বিজ্ঞপ্তি",
+    "legalDisclaimerText": "এই পৃষ্ঠাটি ভারতের কর্মক্ষেত্রের অধিকার ও দায়িত্ব বোঝার জন্য কর্মী ও নিয়োগকর্তাদের সাধারণ তথ্য প্রদান করে। এটি আইনি পরামর্শের বিকল্প নয়। শ্রম আইন, ন্যূনতম মজুরি, কাজের সময়, সামাজিক নিরাপত্তা সুবিধা এবং অভিযোগ প্রতিকার পদ্ধতির প্রয়োগ পরিস্থিতি ও প্রাসঙ্গিক আইনের ওপর নির্ভর করে। কুইকহায়ার কর্মী ও নিয়োগকর্তাদের যুক্ত করার একটি প্ল্যাটফর্ম এবং কর্মসংস্থান বিরোধের ফলাফলের গ্যারান্টি দেয় না। আপনার নির্দিষ্ট পরিস্থিতিতে পরামর্শের জন্য উপযুক্ত সরকারি কর্তৃপক্ষ বা যোগ্য আইনি পেশাদারের সাথে পরামর্শ করুন।",
+    "communityCodeTitle": "কর্মক্ষেত্রের মান ও নির্দেশিকা",
+    "communityCodeSub": "মর্যাদা, নিরাপত্তা এবং ০% কমিশনের জন্য কুইকহায়ার সম্প্রদায়ের দ্বারা সম্মত স্বচ্ছ নিয়ম।",
+    "shramikHelplineSub": "ই-শ্রম পোর্টাল ও অসংগঠিত কর্মী সহায়তা · MoLE, ভারত সরকার (টোল-ফ্রি ১৪৪৩৪)",
+    "suggestedTags": "প্রস্তাবিত ট্যাগ:",
+    "skills.tractorDriving": "ট্রাক্টর চালানো",
+    "skills.harvesting": "ফসল কাটা",
+    "skills.masonry": "রাজমিস্ত্রি",
+    "skills.plastering": "প্লাস্টার",
+    "skills.plumbing": "প্লাম্বিং",
+    "skills.electrician": "ইলেকট্রিশিয়ান",
+    "skills.loading": "লোড / আনলোড",
+    "skills.welding": "ওয়েল্ডিং",
+    "skills.cropSowing": "বীজ বপন",
+    "skills.weeding": "নিড়ানি",
+    "skills.spraying": "কীটনাশক স্প্রে",
+    "skills.concreteMixing": "কংক্রিট মিক্সিং",
+    "skills.carpenter": "ছুতোরের কাজ",
+    "editListing": "তালিকা সম্পাদনা করুন",
+    "editEquipmentTitle": "যন্ত্রের তালিকা সম্পাদনা করুন",
+    "updateEquipmentBtn": "তালিকা আপডেট করুন",
+    "updatingEquipmentBtn": "আপডেট হচ্ছে...",
+    "equipUpdatedSuccess": "ডাটাবেসে যন্ত্রের তালিকা সফলভাবে আপডেট হয়েছে!",
+    "editProfile": "প্রোফাইল সম্পাদনা করুন",
+    "createProfile": "নতুন প্রোফাইল তৈরি করুন"
   },
   "తెలుగు (Telugu)": {
     "tabHome": "హోమ్",
@@ -1845,8 +2025,73 @@ export const translations: Record<string, Record<string, string>> = {
     "npciCompliant": "NPCI / IMPS ప్రామాణికం",
     "bankActiveNotice": "డైరెక్ట్ UPI / IMPS యాక్టివ్",
     "noUpiSaved": "UPI ID సేవ్ చేయలేదు",
-    "notConfiguredYet": "ఇంకా సెట్ చేయలేదు"
+    "notConfiguredYet": "ఇంకా సెట్ చేయలేదు",
+    "legalRightsTitle": "భారతీయ కార్మిక హక్కులు",
+    "legalRightsSub": "భారతీయ కార్మిక చట్టాల ప్రకారం కార్మికులు మరియు యజమానులకు అవసరమైన చట్టపరమైన రక్షణలు మరియు ప్రమాణాలు.",
+    "right1Title": "సరైన మరియు సకాలంలో వేతనాలు",
+    "right1Desc": "కార్మికులకు చట్టబద్ధంగా అందాల్సిన వేతనాలు, వర్తించే కనీస వేతన రక్షణలతో సహా అందాలి. పని ప్రారంభం కావడానికి ముందే పని, రేటు, పని గంటలు మరియు చెల్లింపు తేదీని కార్మికులు మరియు యజమానులు పరస్పరం నిర్ణయించుకోవాలి. చెల్లింపులు మరియు బకాయిల రికార్డులను భద్రపరుచుకోండి.",
+    "right2Title": "సురక్షిత పని పరిస్థితులు",
+    "right2Desc": "కార్మికులకు సురక్షితమైన పని వాతావరణం పొందే హక్కు ఉంది. యజమానులు మరియు కాంట్రాక్టర్లు చట్టపరమైన కార్యాలయ భద్రతా నిబంధనలను పాటించాలి మరియు అవసరమైన రక్షణ పరికరాలను అందించాలి. అసురక్షిత పరిస్థితులను సంబంధిత అధికారులకు నివేదించాలి.",
+    "right3Title": "ఫిర్యాదులు మరియు సామాజిక భద్రత",
+    "right3Desc": "కార్మికులు చెల్లించని వేతనాలు, అసురక్షిత పని పరిస్థితులు మరియు వివాదాల రుజువులను భద్రపరుచుకోవాలి. సహాయం కోసం సంబంధిత కార్మిక అధికారులను సంప్రదించవచ్చు మరియు ప్రభుత్వ సామాజిక భద్రతా పథకాల అర్హతను తనిఖీ చేయవచ్చు. తక్షణ ప్రమాదం ఉన్నట్లయితే అత్యవసర సేవలను (112) సంప్రదించండి.",
+    "officialResourcesTitle": "భారతదేశంలో అధికారిక కార్మిక వనరులు",
+    "officialResourcesSub": "కార్మిక సంక్షేమం, నమోదు, చట్టాలు మరియు అధికారిక ఫిర్యాదుల పరిష్కారం కోసం కేంద్ర మరియు రాష్ట్ర ప్రభుత్వ అధికారిక పోర్టల్‌లు.",
+    "resourceMoleTitle": "కార్మిక మరియు ఉపాధి మంత్రిత్వ శాఖ (MoLE)",
+    "resourceMoleDesc": "జాతీయ ఉపాధి విధానాలు, భద్రతా ప్రమాణాలు మరియు అసంఘటిత కార్మిక సంక్షేమ పథకాలను రూపొందించే అత్యున్నత కేంద్ర మంత్రిత్వ శాఖ.",
+    "resourceMahaTitle": "మహారాష్ట్ర కార్మిక శాఖ",
+    "resourceMahaDesc": "మహారాష్ట్రలో స్థానిక కనీస వేతన నోటిఫికేషన్లు, వివాద పరిష్కారం మరియు కార్మిక సంక్షేమ బోర్డులను నిర్వహించే రాష్ట్ర శాఖ.",
+    "resourceIndiaCodeTitle": "ఇండియా కోడ్ లెజిస్లేటివ్ రిపోజిటరీ",
+    "resourceIndiaCodeDesc": "అన్ని కేంద్ర మరియు రాష్ట్ర చట్టాలు, కార్మిక నియమావళి మరియు అధికారిక నిబంధనల అధికారిక డిజిటల్ రిపోజిటరీ.",
+    "resourceEshramTitle": "ఇ-శ్రమ్ జాతీయ డేటాబేస్",
+    "resourceEshramDesc": "అసంఘటిత కార్మికుల నమోదు, 12 అంకెల UAN కార్డుల జారీ మరియు ప్రత్యక్ష సామాజిక భద్రతా ప్రయోజనాల కోసం జాతీయ పోర్టల్.",
+    "openOfficialPortal": "అధికారిక పోర్టల్ తెరవండి",
+    "legalDisclaimerTitle": "ముఖ్యమైన చట్టపరమైన నోటీసు",
+    "legalDisclaimerText": "ఈ పేజీ భారతదేశంలో పని ప్రదేశ హక్కులు మరియు బాధ్యతలను అర్థం చేసుకోవడంలో కార్మికులకు మరియు యజమానులకు సహాయపడే సాధారణ సమాచారాన్ని అందిస్తుంది. ఇది చట్టపరమైన సలహాకు ప్రత్యామ్నాయం కాదు. కార్మిక చట్టాలు, కనీస వేతనాలు, పని గంటలు, సామాజిక భద్రతా ప్రయోజనాలు మరియు ఫిర్యాదుల పరిష్కార విధానాల వర్తింపు పరిస్థితులు మరియు సంబంధిత చట్టాలపై ఆధారపడి ఉంటుంది. క్విక్‌హైర్ అనేది కార్మికులు మరియు యజమానులను కలిపే ఒక వేదిక మాత్రమే మరియు ఉపాధి వివాదాల ఫలితాలకు హామీ ఇవ్వదు. మీ నిర్దిష్ట పరిస్థితిపై సలహా కోసం దయచేసి సంబంధిత ప్రభుత్వ అధికారిని లేదా అర్హత కలిగిన న్యాయ నిపుణుడిని సంప్రదించండి.",
+    "communityCodeTitle": "పని ప్రదేశ ప్రమాణాలు & మార్గదర్శకాలు",
+    "communityCodeSub": "గౌరవం, భద్రత మరియు 0% కమీషన్ కోసం క్విక్‌హైర్ కమ్యూనిటీ అంగీకరించిన పారదర్శక నిబంధనలు.",
+    "shramikHelplineSub": "ఇ-శ్రమ్ పోర్టల్ & అసంఘటిత కార్మిక సహాయం · MoLE, భారత ప్రభుత్వం (టోల్-ఫ్రీ 14434)",
+    "suggestedTags": "సూచించబడిన ట్యాగ్‌లు:",
+    "skills.tractorDriving": "ట్రాక్టర్ డ్రైవింగ్",
+    "skills.harvesting": "పంట కోత",
+    "skills.masonry": "మేస్త్రీ పని",
+    "skills.plastering": "ప్లాస్టరింగ్",
+    "skills.plumbing": "ప్లంబింగ్",
+    "skills.electrician": "ఎలక్ట్రీషియన్",
+    "skills.loading": "లోడింగ్ / అన్‌లోడింగ్",
+    "skills.welding": "వెల్డింగ్",
+    "skills.cropSowing": "విత్తనాలు నాటడం",
+    "skills.weeding": "కలుపు తీయడం",
+    "skills.spraying": "మందుల పిచికారీ",
+    "skills.concreteMixing": "కాంక్రీట్ మిక్సింగ్",
+    "skills.carpenter": "వడ్రంగి పని",
+    "editListing": "జాబితాను సవరించండి",
+    "editEquipmentTitle": "పరికరాల జాబితాను సవరించండి",
+    "updateEquipmentBtn": "జాబితాను అప్‌డేట్ చేయండి",
+    "updatingEquipmentBtn": "అప్‌డేట్ అవుతోంది...",
+    "equipUpdatedSuccess": "డేటాబేస్‌లో పరికరాల జాబితా విజయవంతంగా అప్‌డేట్ చేయబడింది!",
+    "editProfile": "ప్రొఫైల్‌ను సవరించండి",
+    "createProfile": "ప్రొఫైల్ సృష్టించండి"
   }
+};
+
+
+// Fallback mapping for critical UI keys to prevent raw camelCase display
+const RAW_KEY_FALLBACKS: Record<string, string> = {
+  legalRightsTitle: 'Indian Labour Rights',
+  legalRightsSub: 'Essential legal protections and standards for workers and employers under Indian labour laws.',
+  right1Title: 'Fair and Timely Wages',
+  right1Desc: 'Workers should receive the wages legally due to them, including applicable minimum-wage protections. Before work begins, workers and employers should agree on the work, rate, working hours, and payment date. Keep records of payments and any unpaid wages.',
+  right2Title: 'Safe Working Conditions',
+  right2Desc: 'Workers deserve a safe working environment. Employers and contractors should follow applicable workplace-safety requirements and provide necessary protective equipment and facilities as required by law. Workers should report unsafe conditions through appropriate channels.',
+  right3Title: 'Grievances and Social Security',
+  right3Desc: 'Workers should keep evidence of unpaid wages, unsafe working conditions, and workplace disputes. They can approach the appropriate labour authorities for assistance and check their eligibility for applicable social-security schemes. Contact emergency services if there is immediate danger.',
+  communityCodeTitle: 'Workplace Standards & Guidelines',
+  communityCodeSub: 'Fair, transparent practices agreed by the QuickHire community for dignity, safety, and 0% commission.',
+  officialResourcesTitle: 'Official Labour Resources in India',
+  officialResourcesSub: 'Verified Central and State Government portals for labour welfare, registration, laws, and official grievance redressal.',
+  legalDisclaimerTitle: 'Important Legal Notice',
+  legalDisclaimerText: 'This page provides general information to help workers and employers understand workplace rights and responsibilities in India. It is not a substitute for legal advice. The applicability of labour laws, minimum wages, working hours, social-security benefits, and grievance procedures depends on the circumstances and applicable legislation. QuickHire is a platform for connecting workers and employers and does not guarantee the outcome of employment disputes. Please consult the appropriate government authority or a qualified legal professional for advice about your specific situation.',
+  suggestedTags: 'Suggested Tags:'
 };
 
 export function normalizeLanguage(lang: string = 'English'): string {
@@ -1861,7 +2106,7 @@ export function normalizeLanguage(lang: string = 'English'): string {
 
 export function getTranslation(lang: string = 'English', key: string): string {
   const norm = normalizeLanguage(lang);
-  return translations[norm]?.[key] || translations['English']?.[key] || key;
+  return translations[norm]?.[key] || translations['English']?.[key] || RAW_KEY_FALLBACKS[key] || key;
 }
 
 export const SUPPORTED_LANGUAGES = [
@@ -1871,3 +2116,109 @@ export const SUPPORTED_LANGUAGES = [
   'বাংলা (Bengali)',
   'తెలుగు (Telugu)'
 ];
+
+export interface SuggestedSkillTag {
+  id: string;
+  canonicalName: string;
+  key: string;
+}
+
+export const SUGGESTED_SKILL_TAGS: SuggestedSkillTag[] = [
+  { id: 'tractor_driving', canonicalName: 'Tractor Driving', key: 'skills.tractorDriving' },
+  { id: 'harvesting', canonicalName: 'Harvesting', key: 'skills.harvesting' },
+  { id: 'masonry', canonicalName: 'Masonry', key: 'skills.masonry' },
+  { id: 'plastering', canonicalName: 'Plastering', key: 'skills.plastering' },
+  { id: 'plumbing', canonicalName: 'Plumbing', key: 'skills.plumbing' },
+  { id: 'electrician', canonicalName: 'Electrician', key: 'skills.electrician' },
+  { id: 'loading', canonicalName: 'Loading / Unloading', key: 'skills.loading' },
+  { id: 'welding', canonicalName: 'Welding', key: 'skills.welding' },
+];
+
+export function getSuggestedSkillTags(lang = 'English'): { id: string; canonicalName: string; label: string }[] {
+  return SUGGESTED_SKILL_TAGS.map(tag => ({
+    id: tag.id,
+    canonicalName: tag.canonicalName,
+    label: getTranslation(lang, tag.key) || tag.canonicalName
+  }));
+}
+
+/**
+ * Matches a worker's skills against a search query, matching both canonical English
+ * names and localized labels in any supported language.
+ */
+export function matchesSkillSearch(workerSkills: string[] = [], searchQuery: string): boolean {
+  if (!searchQuery.trim()) return true;
+  const q = searchQuery.toLowerCase().trim().normalize('NFC');
+  
+  // 1. Direct match on worker's skills array
+  if (workerSkills.some(s => s.toLowerCase().normalize('NFC').includes(q))) {
+    return true;
+  }
+  
+  // 2. Check if the search query matches any canonical skill tag or its localized label in any language
+  for (const tag of SUGGESTED_SKILL_TAGS) {
+    const canonicalLower = tag.canonicalName.toLowerCase();
+    const isTagMatchedByQuery = canonicalLower.includes(q) ||
+      SUPPORTED_LANGUAGES.some(lang => {
+        const localized = (translations[lang]?.[tag.key] || '').toLowerCase().normalize('NFC');
+        return localized && (localized.includes(q) || q.includes(localized));
+      });
+      
+    if (isTagMatchedByQuery) {
+      // Check if worker has this tag in either canonical or localized form
+      const hasSkill = workerSkills.some(s => {
+        const sLower = s.toLowerCase().normalize('NFC');
+        return sLower.includes(canonicalLower) ||
+          SUPPORTED_LANGUAGES.some(lang => {
+            const loc = (translations[lang]?.[tag.key] || '').toLowerCase().normalize('NFC');
+            return loc && sLower.includes(loc);
+          });
+      });
+      if (hasSkill) return true;
+    }
+  }
+  return false;
+}
+
+export type WorkerCategory = 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed';
+
+export const COMMON_SKILLS_BY_CATEGORY: Record<WorkerCategory, string[]> = {
+  Agriculture: ['Harvesting', 'Tractor Driving', 'Crop Sowing', 'Weeding', 'Pesticide Spraying', 'Orchard Pruning'],
+  Construction: ['Masonry', 'Plastering', 'Concrete Mixing', 'Tile Laying', 'Bar Bending', 'Scaffolding'],
+  'Daily work': ['Loading / Unloading', 'Market Porter', 'Warehouse Helper', 'Field Clearing', 'Packaging'],
+  'Skilled self-employed': ['Electrician', 'Plumbing', 'Carpentry', 'Welder', 'Borewell Mechanic', 'Painter']
+};
+
+export const LOCALIZED_COMMON_SKILLS: Record<string, Record<WorkerCategory, string[]>> = {
+  English: COMMON_SKILLS_BY_CATEGORY,
+  'हिंदी (Hindi)': {
+    Agriculture: ['फसल कटाई', 'ट्रैक्टर चलाना', 'बुवाई', 'निराई', 'कीटनाशक छिड़काव', 'बागवानी'],
+    Construction: ['राजमिस्त्री', 'प्लास्टर', 'कंक्रीट मिक्सिंग', 'टाइल लगाना', 'सरिया बांधना', 'शटरिंग'],
+    'Daily work': ['लोडिंग / अनलोडिंग', 'मंडी मजदूर', 'सहायक / हेल्पर', 'गोदाम सहायक', 'खेत सफाई'],
+    'Skilled self-employed': ['इलेक्ट्रीशियन', 'प्लंबिंग', 'बढ़ई काम', 'वेल्डर', 'बोरवेल मैकेनिक', 'पेंटर']
+  },
+  'मराठी (Marathi)': {
+    Agriculture: ['पीक कापणी', 'ट्रॅक्टर चालवणे', 'पेरणी', 'खुरपणी', 'औषध फवारणी', 'बागेचे काम'],
+    Construction: ['गवंडी काम', 'प्लॅस्टर', 'काँक्रीट मिक्सिंग', 'टाईल्स बसवणे', 'सळई बांधणे', 'मदतनीस'],
+    'Daily work': ['हमाली / लोडिंग', 'मार्केट मदतनीस', 'हेल्पर', 'गोदाम कामगार', 'शेत स्वच्छता'],
+    'Skilled self-employed': ['इलेक्ट्रिशियन', 'प्लंबिंग', 'सुतार काम', 'वेल्डर', 'बोअरवेल मेकॅनिक', 'पेंटर']
+  },
+  'বাংলা (Bengali)': {
+    Agriculture: ['ফসল কাটা', 'ট্রাক্টর চালানো', 'বীজ বপন', 'নিড়ানি', 'কীটনাশক স্প্রে', 'বাগান পরিচর্যা'],
+    Construction: ['রাজমিস্ত্রি', 'প্লাস্টার', 'কংক্রিট মিক্সিং', 'টাইলস বসানো', 'রড বাইন্ডিং', 'সহকারী'],
+    'Daily work': ['লোড / আনলোড', 'বাজার কুলি', 'সহায়ক', 'গুদাম কর্মী', 'মাঠ পরিষ্কার'],
+    'Skilled self-employed': ['ইলেকট্রিশিয়ান', 'প্লাম্বিং', 'ছুতোরের কাজ', 'ওয়েল্ডার', 'বোরওয়েল মেকানিক', 'রংমিস্ত্রি']
+  },
+  'తెలుగు (Telugu)': {
+    Agriculture: ['పంట కోత', 'ట్రాక్టర్ డ్రైవింగ్', 'విత్తనాలు నాటడం', 'కలుపు తీయడం', 'మందుల పిచికారీ', 'తోట పని'],
+    Construction: ['మేస్త్రీ పని', 'ప్లాస్టరింగ్', 'కాంక్రీట్ మిక్సింగ్', 'టైల్స్ వేయడం', 'రాడ్ బెండింగ్', 'సహాయకుడు'],
+    'Daily work': ['లోడింగ్ / అన్‌లోడింగ్', 'మార్కెట్ కూలీ', 'హెల్పర్', 'గోదాము సహాయకుడు', 'పొలం శుభ్రత'],
+    'Skilled self-employed': ['ఎలక్ట్రీషియన్', 'ప్లంబింగ్', 'వడ్రంగి పని', 'వెల్డర్', 'బోర్‌వెల్ మెకానిక్', 'పెయింటర్']
+  }
+};
+
+export function getLocalizedSkillsByCategory(category: WorkerCategory, lang = 'English'): string[] {
+  const norm = normalizeLanguage(lang);
+  const dict = LOCALIZED_COMMON_SKILLS[norm] || LOCALIZED_COMMON_SKILLS['English'];
+  return dict[category] || COMMON_SKILLS_BY_CATEGORY[category] || [];
+}

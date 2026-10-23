@@ -34,6 +34,11 @@ export interface JobRecordItem {
   worker_id?: string;
   status: string;
   created_at: string;
+  profiles?: {
+    id?: string;
+    phone_number?: string | null;
+    full_name?: string | null;
+  } | null;
   workers?: {
     id?: string;
     profiles?: {
@@ -903,8 +908,8 @@ export function DashboardTab({
                       ) : (
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           {applicants.map((rec) => {
-                            const workerName = rec.workers?.profiles?.full_name || t('interestedWorkerFallback');
-                            const phone = rec.workers?.profiles?.phone_number;
+                            const workerName = rec.profiles?.full_name || rec.workers?.profiles?.full_name || t('interestedWorkerFallback');
+                            const phone = rec.profiles?.phone_number || rec.workers?.profiles?.phone_number;
 
                             return (
                               <div
