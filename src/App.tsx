@@ -25,12 +25,6 @@ import { DirectPaymentModal } from './components/DirectPaymentModal';
 import { speakText, getVoiceGuidance } from './lib/speech';
 import { VoiceSpeakerButton } from './components/VoiceSpeakerButton';
 import { AccessibleVoiceBar } from './components/AccessibleVoiceBar';
-import {
-  isLiveSmsEnabled,
-  toggleLiveSms,
-  subscribeToSmsConfig,
-  getSmsStatusLabel
-} from './lib/smsConfig';
 import { extractErrorMessage } from './lib/errorHandler';
 
 // Lazy-loaded tabs
@@ -41,6 +35,29 @@ const PostJobTab = lazy(() => import('./components/PostJobTab'));
 const DashboardTab = lazy(() => import('./components/DashboardTab'));
 const BankDetailsTab = lazy(() => import('./components/BankDetailsTab'));
 const SafetyTab = lazy(() => import('./components/SafetyTab'));
+
+// Admin Router & Auth
+import {
+  getCurrentRoute,
+  subscribeToRoute,
+  navigateTo,
+  isAdminPath,
+  AppRoute,
+  AdminRoute,
+} from './lib/adminRouter';
+import { getStoredAdminSession } from './lib/adminAuth';
+
+// Lazy-loaded Admin modules
+const AdminLogin = lazy(() => import('./components/admin/AdminLogin'));
+const AdminLayout = lazy(() => import('./components/admin/AdminLayout'));
+const AdminOverview = lazy(() => import('./components/admin/AdminOverview'));
+const UserManagement = lazy(() => import('./components/admin/UserManagement'));
+const JobManagement = lazy(() => import('./components/admin/JobManagement'));
+const EquipmentManagement = lazy(() => import('./components/admin/EquipmentManagement'));
+const ComplaintsManagement = lazy(() => import('./components/admin/ComplaintsManagement'));
+const ContentManagement = lazy(() => import('./components/admin/ContentManagement'));
+const AnalyticsView = lazy(() => import('./components/admin/AnalyticsView'));
+const AuditLogsView = lazy(() => import('./components/admin/AuditLogsView'));
 
 type WorkerCategory = 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed';
 type ActiveTab = 'home' | 'workers' | 'equipment' | 'post-job' | 'my-jobs' | 'dashboard' | 'bank' | 'safety';
@@ -88,59 +105,9 @@ interface PostedJobItem {
   job_records?: JobRecordItem[];
 }
 
-import { translations, matchesSkillSearch, getTranslation } from './lib/translations';
+import { matchesSkillSearch, getTranslation } from './lib/translations';
 
-interface SmsAdminToggleBadgeProps {
-  onToggled?: (isLive: boolean) => void;
-  className?: string;
-}
 
-export function SmsAdminToggleBadge({ onToggled, className = '' }: SmsAdminToggleBadgeProps) {
-  const [isLive, setIsLive] = useState<boolean>(() => isLiveSmsEnabled());
-
-  useEffect(() => {
-    setIsLive(isLiveSmsEnabled());
-    return subscribeToSmsConfig((enabled) => {
-      setIsLive(enabled);
-    });
-  }, []);
-
-  const handleClick = () => {
-    const next = toggleLiveSms();
-    setIsLive(next);
-    if (onToggled) {
-      onToggled(next);
-    }
-  };
-
-  return (
-    <button
-      type="button"
-      onClick={handleClick}
-      title="Admin Control: Click to toggle between Live Fast2SMS delivery and SMS Demo Mode (saves credits)"
-      aria-label="Toggle Fast2SMS Provider Mode"
-      className={`group px-3.5 py-1.5 rounded-full text-xs font-bold transition-all duration-200 flex items-center gap-2 cursor-pointer select-none shadow-lg border backdrop-blur-md ${
-        isLive
-          ? 'bg-slate-900/95 text-emerald-300 border-emerald-500/60 hover:bg-slate-900 hover:border-emerald-400 hover:shadow-emerald-950/40 ring-1 ring-emerald-500/20'
-          : 'bg-slate-900/95 text-slate-200 border-slate-700 hover:bg-slate-800 hover:border-slate-500 hover:shadow-slate-900/40 ring-1 ring-slate-700/20'
-      } ${className}`}
-    >
-      <span className="relative flex h-2.5 w-2.5 items-center justify-center shrink-0">
-        {isLive ? (
-          <>
-            <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75" />
-            <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500" />
-          </>
-        ) : (
-          <span className="relative inline-flex rounded-full h-2 w-2 bg-slate-400" />
-        )}
-      </span>
-      <span className="tracking-tight whitespace-nowrap">
-        {getSmsStatusLabel(isLive)}
-      </span>
-    </button>
-  );
-}
 
 const COMMON_SKILLS_BY_CATEGORY: Record<WorkerCategory, string[]> = {
   Agriculture: ['Harvesting', 'Tractor Driving', 'Crop Sowing', 'Weeding', 'Pesticide Spraying', 'Orchard Pruning'],
@@ -251,12 +218,21 @@ const INITIAL_EQUIPMENT_DATA: EquipmentItem[] = [
 ];
 
 export default function App() {
+  const [appRoute, setAppRoute] = useState<AppRoute>(() => getCurrentRoute().route);
+  const [adminSearchQuery, setAdminSearchQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('home');
   const [currentLang, setCurrentLang] = useState<string>(() => {
     return localStorage.getItem('quickhire_lang') || 'English';
   });
   const [langMenuOpen, setLangMenuOpen] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+
+  // Subscribe to URL path changes for deep linking (/admin, /admin/login, etc.)
+  useEffect(() => {
+    return subscribeToRoute((newRoute) => {
+      setAppRoute(newRoute);
+    });
+  }, []);
 
   // Modals state
   const [isLoginOpen, setIsLoginOpen] = useState(false);
@@ -273,7 +249,7 @@ export default function App() {
   // Auth & user state
   const [user, setUser] = useState<User | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
-  const [userRole, setUserRole] = useState<'worker' | 'employer' | null>(null);
+  const [userRole, setUserRole] = useState<'worker' | 'employer' | 'admin' | null>(null);
 
   // Workers directory state
   const [directoryWorkers, setDirectoryWorkers] = useState<WorkerItem[]>([]);
@@ -329,14 +305,6 @@ export default function App() {
     [currentLang]
   );
 
-  // Real-time SMS toggle toast notification handler
-  const handleSmsToggleNotice = useCallback((isLive: boolean) => {
-    if (isLive) {
-      showToast('Live SMS: ON 🟢 — Fast2SMS active. Real text messages enabled.', 'success');
-    } else {
-      showToast('SMS Demo Mode ⚪ — Network calls skipped. OTP shown on-screen (wallet credits saved).', 'info');
-    }
-  }, [showToast]);
 
   // Jobs feed state
   const [activeJobs, setActiveJobs] = useState<JobItem[]>([]);
@@ -878,7 +846,132 @@ export default function App() {
     );
   }
 
+  // Dedicated Admin Login Page (/admin/login)
+  if (appRoute === 'admin-login') {
+    return (
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
+            Loading Admin Security Portal...
+          </div>
+        }
+      >
+        <AdminLogin
+          onLoginSuccess={() => setAppRoute('admin-overview')}
+          onNavigatePublic={() => {
+            navigateTo('/');
+            setAppRoute('public');
+          }}
+        />
+      </Suspense>
+    );
+  }
 
+  // Dedicated Admin Dashboard Suite (/admin, /admin/users, /admin/jobs, etc.)
+  if (isAdminPath()) {
+    const adminSession = getStoredAdminSession();
+
+    // 1. If not authenticated as an authorized administrator
+    if (!adminSession) {
+      // If user is a logged-in regular worker or employer trying to reach /admin directly
+      if (user && userRole !== 'admin') {
+        return (
+          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+            <div className="max-w-md w-full bg-slate-900 border border-rose-900/60 p-8 rounded-3xl shadow-2xl space-y-4">
+              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <h2 className="text-xl font-heading font-black text-white">403 — Unauthorized Access</h2>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Your current session ({user.email || 'Citizen'}) is authorized as a <strong>{userRole || 'standard user'}</strong>. Administrator authorization in <code className="text-rose-300 font-mono">admin_users</code> and two-step verification are required to open the security governance suite.
+              </p>
+              <div className="pt-2 flex items-center gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigateTo('/');
+                    setAppRoute('public');
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer"
+                >
+                  Return to Dashboard
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    navigateTo('/admin/login');
+                    setAppRoute('admin-login');
+                  }}
+                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
+                >
+                  Admin Login
+                </button>
+              </div>
+            </div>
+          </div>
+        );
+      }
+
+      // If not authenticated, redirect to /admin/login
+      return (
+        <Suspense
+          fallback={
+            <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
+              Loading Admin Security Portal...
+            </div>
+          }
+        >
+          <AdminLogin
+            onLoginSuccess={() => setAppRoute('admin-overview')}
+            onNavigatePublic={() => {
+              navigateTo('/');
+              setAppRoute('public');
+            }}
+          />
+        </Suspense>
+      );
+    }
+
+    // 2. Authorized Administrator: Render AdminLayout with sub-module
+    const currentAdminNav: AdminRoute =
+      (appRoute as string) === 'public' || (appRoute as string) === 'admin-login'
+        ? 'admin-overview'
+        : (appRoute as AdminRoute);
+
+    return (
+      <Suspense
+        fallback={
+          <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
+            Loading Admin Governance Suite...
+          </div>
+        }
+      >
+        <AdminLayout
+          currentRoute={currentAdminNav}
+          globalSearchQuery={adminSearchQuery}
+          onGlobalSearchChange={setAdminSearchQuery}
+          onLogout={() => {
+            showToast('Administrator session closed safely.', 'info');
+            navigateTo('/admin/login');
+            setAppRoute('admin-login');
+          }}
+          onNavigatePublic={() => {
+            navigateTo('/');
+            setAppRoute('public');
+          }}
+        >
+          {currentAdminNav === 'admin-overview' && <AdminOverview />}
+          {currentAdminNav === 'admin-users' && <UserManagement />}
+          {currentAdminNav === 'admin-jobs' && <JobManagement />}
+          {currentAdminNav === 'admin-equipment' && <EquipmentManagement />}
+          {currentAdminNav === 'admin-complaints' && <ComplaintsManagement />}
+          {currentAdminNav === 'admin-content' && <ContentManagement />}
+          {currentAdminNav === 'admin-analytics' && <AnalyticsView />}
+          {currentAdminNav === 'admin-audit-logs' && <AuditLogsView />}
+        </AdminLayout>
+      </Suspense>
+    );
+  }
 
   return (
     <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#0f2942] selection:text-white overflow-x-hidden w-full ${
@@ -1467,15 +1560,13 @@ export default function App() {
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-600 font-medium">
-                National Rural Workforce, Skill Discovery & Agricultural Equipment Registry
+                Rural Workforce, Skill Discovery & Agricultural Equipment Platform (Independent DPI Initiative)
               </p>
             </div>
           </div>
 
           {/* Right: Language Selector, User Role Badge, Profile, Logout */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            {/* Discreet Header Admin SMS Provider Toggle Badge */}
-            <SmsAdminToggleBadge onToggled={handleSmsToggleNotice} className="hidden lg:flex" />
 
             {/* 5-Language Selector */}
             <div className="relative shrink-0">
@@ -1943,7 +2034,7 @@ export default function App() {
             <DashboardTab
               currentLang={currentLang}
               user={user}
-              userRole={userRole}
+              userRole={userRole === 'admin' ? 'employer' : userRole}
               myPostedJobs={myPostedJobs}
               loadingMyJobs={loadingMyJobs}
               onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
@@ -2149,17 +2240,33 @@ export default function App() {
             </div>
           </div>
 
-          <div className="pt-8 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
+          {/* GIGW 3.0 Statutory Public Service Disclaimer */}
+          <div className="pt-6 pb-2 text-[11px] text-slate-400 border-t border-slate-800/80 leading-relaxed text-center sm:text-left">
+            <p>
+              <strong className="text-slate-300">Public Service Disclaimer:</strong> QuickHire is an independent, non-governmental rural digital public infrastructure platform connecting citizens for livelihood and agricultural equipment rental opportunities. It is not affiliated with, operated by, or endorsed by the Government of India or any state government ministry. All helpline numbers (112, 108, 1091, 14434, 1800-180-1551) are provided as public safety references for direct citizen access.
+            </p>
+          </div>
+
+          <div className="pt-4 border-t border-slate-800/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
             <span>Designed for Rural Digital Empowerment • Accessible Voice-Enabled Interface • 0% Commission Direct Settlement</span>
-            <span>© {new Date().getFullYear()} QuickHire National Rural Portal. All Rights Reserved.</span>
+            <div className="flex items-center gap-4">
+              <span>© {new Date().getFullYear()} QuickHire Rural DPI Initiative. All Rights Reserved.</span>
+              <a
+                href="/admin/login"
+                onClick={(e) => {
+                  e.preventDefault();
+                  navigateTo('/admin/login');
+                  setAppRoute('admin-login');
+                }}
+                className="text-slate-400 hover:text-emerald-400 font-bold transition flex items-center gap-1 cursor-pointer"
+              >
+                <span>Admin Portal</span>
+              </a>
+            </div>
           </div>
         </div>
       </footer>
 
-      {/* FLOATING ADMIN SMS TOGGLE BADGE */}
-      <div className="fixed bottom-4 left-4 z-[999]">
-        <SmsAdminToggleBadge onToggled={handleSmsToggleNotice} />
-      </div>
 
       {/* FLOATING ACCESSIBLE VOICE HELPER */}
       <AccessibleVoiceBar activeTab={activeTab} currentLang={currentLang} />

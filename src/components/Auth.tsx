@@ -21,12 +21,14 @@ import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation, normalizeLanguage, SUPPORTED_LANGUAGES } from '../lib/translations';
 import { AccessibleVoiceBar } from './AccessibleVoiceBar';
-import {
-  isLiveSmsEnabled,
-  subscribeToSmsConfig,
-  toggleLiveSms,
-  getSmsStatusLabel
-} from '../lib/smsConfig';
+const COUNTRY_CODES = [
+  { code: '+91', country: 'India', flag: '🇮🇳' },
+  { code: '+1', country: 'US / Canada', flag: '🇺🇸' },
+  { code: '+44', country: 'UK', flag: '🇬🇧' },
+  { code: '+971', country: 'UAE', flag: '🇦🇪' },
+  { code: '+977', country: 'Nepal', flag: '🇳🇵' },
+  { code: '+880', country: 'Bangladesh', flag: '🇧🇩' },
+];
 
 interface AuthProps {
   isOpen?: boolean;
@@ -48,10 +50,12 @@ export function Auth({
   // 1. Dual authentication mode: 'phone' or 'email'
   const [authType, setAuthType] = useState<'phone' | 'email'>('phone');
 
-  // Phone Authentication states
+  // Phone Authentication states (Fast2SMS SMS Hook via Supabase Auth)
+  const [countryCode, setCountryCode] = useState('+91');
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
   const [step, setStep] = useState<'request' | 'verify'>('request');
+  const [resendCooldown, setResendCooldown] = useState(0);
 
   // Email Authentication states
   const [email, setEmail] = useState('');
@@ -65,16 +69,14 @@ export function Auth({
   const [selectedRole, setSelectedRole] = useState<'worker' | 'employer'>('worker');
   const [langMenuOpen, setLangMenuOpen] = useState(false);
 
-  // Live Fast2SMS vs Demo mode state
-  const [isLiveSms, setIsLiveSms] = useState<boolean>(() => isLiveSmsEnabled());
-  const [demoOtpCode, setDemoOtpCode] = useState<string>('');
-
+  // Resend OTP cooldown timer
   useEffect(() => {
-    setIsLiveSms(isLiveSmsEnabled());
-    return subscribeToSmsConfig((enabled) => {
-      setIsLiveSms(enabled);
-    });
-  }, []);
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => (prev > 0 ? prev - 1 : 0));
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   const phonePrompt = getVoiceGuidance('phoneInput', currentLang);
   const otpPrompt = getVoiceGuidance('otpInput', currentLang);
@@ -90,8 +92,8 @@ export function Auth({
     setAuthError('');
     setAuthNotice('');
     setOtp('');
-    setDemoOtpCode('');
     setPassword('');
+    setResendCooldown(0);
   };
 
   const handleRoleSelect = (role: 'worker' | 'employer') => {
@@ -132,12 +134,14 @@ export function Auth({
           .single();
         existingProfile = data;
 
+        const normalizedPhone = authUser.phone || (phone ? `${countryCode}${phone.replace(/\D/g, '')}` : null);
+
         if (!existingProfile) {
           const profileEmail = authUser.email && !authUser.email.endsWith('@quickhire.local') ? authUser.email : null;
           const newProfilePayload: Record<string, unknown> = {
             id: authUser.id,
             full_name: authUser.user_metadata?.full_name || (selectedRole === 'worker' ? 'QuickHire Worker' : 'QuickHire Employer'),
-            phone_number: authUser.phone || (phone ? '+91' + phone.replace(/\D/g, '') : null),
+            phone_number: normalizedPhone,
             role: selectedRole,
             account_status: 'active',
           };
@@ -161,14 +165,21 @@ export function Auth({
           }
         } else {
           const wasDeactivated = existingProfile.account_status === 'deactivated';
-          const updatePayload: Record<string, unknown> = {
-            role: selectedRole,
-          };
+          const updatePayload: Record<string, unknown> = {};
+
+          // CRITICAL SECURITY FIX: Never overwrite an existing administrator's role
+          if (existingProfile.role !== 'admin') {
+            updatePayload.role = selectedRole;
+          }
+
           if (wasDeactivated) {
             updatePayload.account_status = 'active';
           }
           if (authUser.email && !authUser.email.endsWith('@quickhire.local')) {
             updatePayload.email = authUser.email;
+          }
+          if (normalizedPhone) {
+            updatePayload.phone_number = normalizedPhone;
           }
 
           const { error: updErr } = await supabase
@@ -213,10 +224,10 @@ export function Auth({
       setLoading(false);
       setPhone('');
       setOtp('');
-      setDemoOtpCode('');
       setEmail('');
       setPassword('');
       setStep('request');
+      setResendCooldown(0);
       setAuthError('');
       setAuthNotice('');
 
@@ -226,8 +237,9 @@ export function Auth({
         speakText(`${t('loginGateTitle')}. ${selectedRole === 'worker' ? t('roleWorker') : t('roleEmployer')}`, currentLang);
       }
 
+      const effectiveRole = (existingProfile?.role === 'admin' ? 'worker' : selectedRole) as 'worker' | 'employer';
       if (onLoginSuccess) {
-        onLoginSuccess(authUser, selectedRole);
+        onLoginSuccess(authUser, effectiveRole);
       }
       if (onClose) {
         onClose();
@@ -244,14 +256,19 @@ export function Auth({
     }
   };
 
-  // Fast2SMS API key configuration (reads from .env or fallback placeholder)
-  const FAST2SMS_API_KEY = import.meta.env.VITE_FAST2SMS_API_KEY || 'YOUR_FAST2SMS_API_KEY';
+  // Mobile Phone OTP: Step 1 (Send OTP via Supabase Auth with Fast2SMS SMS Hook)
+  const handleSendOtp = async (isResend = false) => {
+    if (isResend && resendCooldown > 0) return;
 
-  // Mobile Phone OTP: Step 1 (Send OTP via Fast2SMS)
-  const handleSendOtp = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
-    if (!cleanPhone || cleanPhone.length !== 10) {
+    const cleanDigits = phone.replace(/\D/g, '');
+    if (countryCode === '+91' && cleanDigits.length !== 10) {
       const errMsg = t('invalidPhone') || 'Please enter a valid 10-digit mobile number.';
+      setAuthError(errMsg);
+      speakText(errMsg, currentLang);
+      return;
+    }
+    if (cleanDigits.length < 7 || cleanDigits.length > 15) {
+      const errMsg = 'Please enter a valid mobile number (7-15 digits).';
       setAuthError(errMsg);
       speakText(errMsg, currentLang);
       return;
@@ -261,99 +278,37 @@ export function Auth({
     setAuthError('');
     setAuthNotice('');
 
-    // Generate random 6-digit numeric OTP code
-    const generatedOtp = Math.floor(100000 + Math.random() * 900000).toString();
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+    const e164 = `${countryCode}${cleanDigits}`;
 
     try {
-      // 1. Temporarily store OTP code and clean phone in Supabase phone_otps table
-      try {
-        await supabase
-          .from('phone_otps')
-          .delete()
-          .eq('phone', cleanPhone);
+      const { error } = await supabase.auth.signInWithOtp({
+        phone: e164,
+        options: {
+          channel: 'sms',
+        },
+      });
 
-        const { error: dbError } = await supabase
-          .from('phone_otps')
-          .insert({
-            phone: cleanPhone,
-            otp: generatedOtp,
-            expires_at: expiresAt,
-          });
-
-        if (dbError) {
-          console.warn('Could not store OTP in Supabase phone_otps table:', dbError.message);
-        }
-      } catch (dbErr) {
-        console.warn('Database error while saving OTP:', dbErr);
-      }
-
-      // Store in local sessionStorage as fallback in case database table isn't migrated yet
-      try {
-        sessionStorage.setItem(
-          `quickhire_otp_${cleanPhone}`,
-          JSON.stringify({
-            otp: generatedOtp,
-            expiresAt: Date.now() + 10 * 60 * 1000,
-          })
-        );
-      } catch (storageErr) {
-        console.warn('Local session storage warning:', storageErr);
-      }
-
-      // Check real-time SMS toggle state
-      const liveSmsActive = isLiveSmsEnabled();
-      setDemoOtpCode(generatedOtp);
-
-      if (liveSmsActive) {
-        // 2. Dispatch real-time SMS via Fast2SMS bulk API endpoint
-        let smsDelivered = false;
-        let fast2smsNotice = '';
-
-        try {
-          const fast2smsUrl = `https://www.fast2sms.com/dev/bulkV2?authorization=${FAST2SMS_API_KEY}&route=otp&variables_values=${generatedOtp}&numbers=${cleanPhone}`;
-          const response = await fetch(fast2smsUrl, {
-            method: 'GET',
-            headers: {
-              Accept: 'application/json',
-            },
-          });
-
-          const resData = await response.json().catch(() => null);
-          if (response.ok && (resData?.return === true || resData?.status_code === 200)) {
-            smsDelivered = true;
-          } else {
-            fast2smsNotice = Array.isArray(resData?.message)
-              ? resData.message.join(', ')
-              : (resData?.message || 'Fast2SMS returned a delivery notice');
-          }
-        } catch (apiErr: unknown) {
-          const errMessage = apiErr instanceof Error ? apiErr.message : 'Network error reaching Fast2SMS';
-          fast2smsNotice = errMessage;
-          console.warn('Fast2SMS fetch error:', apiErr);
-        }
-
+      if (error) {
         setLoading(false);
-        setStep('verify');
-
-        if (smsDelivered) {
-          setAuthNotice(`OTP successfully sent to +91 ${cleanPhone} via Fast2SMS.`);
-          speakText(otpPrompt, currentLang);
-        } else if (FAST2SMS_API_KEY === 'YOUR_FAST2SMS_API_KEY') {
-          setAuthNotice(`[Demo Mode] OTP: ${generatedOtp} (Add VITE_FAST2SMS_API_KEY to .env for real SMS delivery).`);
-          speakText(`Your verification code is ${generatedOtp.split('').join(' ')}`, currentLang);
-        } else {
-          setAuthNotice(`OTP generated: ${generatedOtp} (${fast2smsNotice || 'Fast2SMS dispatch notification'}).`);
-          speakText(otpPrompt, currentLang);
+        let friendlyError = error.message;
+        const lower = error.message.toLowerCase();
+        if (lower.includes('rate limit') || lower.includes('over_sms_provider_quota') || lower.includes('too many')) {
+          friendlyError = 'Too many attempts. Please wait a few minutes before requesting another code.';
+        } else if (lower.includes('unsupported') || lower.includes('not enabled') || lower.includes('provider')) {
+          friendlyError = 'SMS verification service is temporarily unavailable. Please verify provider settings or contact support.';
+        } else if (lower.includes('invalid phone') || lower.includes('e.164')) {
+          friendlyError = 'Invalid phone number format. Please check your country code and mobile number.';
         }
-      } else {
-        // Live SMS is OFF (to save wallet credits):
-        // Skips the network call, saves OTP to database & session, and displays OTP on screen
-        setLoading(false);
-        setStep('verify');
-        setAuthNotice(`[SMS Demo Mode] OTP: ${generatedOtp} (Live SMS disabled to save credits).`);
-        speakText(`Your verification code is ${generatedOtp.split('').join(' ')}`, currentLang);
+        setAuthError(friendlyError);
+        speakText(friendlyError, currentLang);
+        return;
       }
+
+      setLoading(false);
+      setStep('verify');
+      setResendCooldown(60);
+      setAuthNotice('');
+      speakText(otpPrompt, currentLang);
     } catch (err: unknown) {
       setLoading(false);
       const msg = err instanceof Error ? err.message : 'System error occurred while sending OTP.';
@@ -362,9 +317,9 @@ export function Auth({
     }
   };
 
-  // Mobile Phone OTP: Step 2 (Verify OTP & Authenticate Session)
+  // Mobile Phone OTP: Step 2 (Verify OTP & Establish Authenticated Supabase Session)
   const handleVerifyOtp = async () => {
-    const cleanPhone = phone.replace(/\D/g, '');
+    const cleanDigits = phone.replace(/\D/g, '');
     const cleanOtp = otp.trim();
 
     if (!cleanOtp || cleanOtp.length !== 6) {
@@ -378,131 +333,35 @@ export function Auth({
     setAuthError('');
     setAuthNotice('');
 
+    const e164 = `${countryCode}${cleanDigits}`;
+
     try {
-      // 1. Query Supabase phone_otps table to match entered code with stored phone
-      let isValidOtp = false;
+      const { data, error } = await supabase.auth.verifyOtp({
+        phone: e164,
+        token: cleanOtp,
+        type: 'sms',
+      });
 
-      try {
-        const { data: records, error: fetchError } = await supabase
-          .from('phone_otps')
-          .select('*')
-          .eq('phone', cleanPhone)
-          .eq('otp', cleanOtp)
-          .gt('expires_at', new Date().toISOString())
-          .order('created_at', { ascending: false })
-          .limit(1);
-
-        if (!fetchError && records && records.length > 0) {
-          isValidOtp = true;
-          // Delete used OTP
-          await supabase.from('phone_otps').delete().eq('phone', cleanPhone);
-        }
-      } catch (dbErr) {
-        console.warn('Error querying phone_otps table:', dbErr);
-      }
-
-      // Check fallback session storage if database lookup did not match
-      if (!isValidOtp) {
-        try {
-          const raw = sessionStorage.getItem(`quickhire_otp_${cleanPhone}`);
-          if (raw) {
-            const parsed = JSON.parse(raw);
-            if (parsed.otp === cleanOtp && parsed.expiresAt > Date.now()) {
-              isValidOtp = true;
-              sessionStorage.removeItem(`quickhire_otp_${cleanPhone}`);
-            }
-          }
-        } catch (storageErr) {
-          console.warn('Error checking session storage fallback:', storageErr);
-        }
-      }
-
-      if (!isValidOtp) {
+      if (error || !data?.user) {
         setLoading(false);
-        const errMsg = 'Invalid or expired OTP code. Please try again.';
+        let errMsg = 'Invalid or expired OTP code. Please try again.';
+        if (error?.message) {
+          const lower = error.message.toLowerCase();
+          if (lower.includes('expired')) {
+            errMsg = 'The verification code has expired. Please request a new code.';
+          } else if (lower.includes('invalid') || lower.includes('token') || lower.includes('code')) {
+            errMsg = 'Invalid verification code. Please enter the 6-digit code received on your phone.';
+          } else {
+            errMsg = error.message;
+          }
+        }
         setAuthError(errMsg);
         speakText(errMsg, currentLang);
         return;
       }
 
-      // 2. Seamlessly authenticate or create user session in Supabase Auth
-      // Map cleanPhone deterministically to Supabase Auth credentials
-      const mappedEmail = `${cleanPhone}@quickhire.local`;
-      const deterministicPassword = `QuickHire_Otp_${cleanPhone}_SecuredKey!2026`;
-
-      // Try signing in first with deterministic credentials
-      const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
-        email: mappedEmail,
-        password: deterministicPassword,
-      });
-
-      if (!signInError && signInData?.user) {
-        await handleAuthSuccess(signInData.user);
-        return;
-      }
-
-      // If sign in failed because user does not exist, sign up the user
-      const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
-        email: mappedEmail,
-        password: deterministicPassword,
-        options: {
-          data: {
-            role: selectedRole,
-            full_name: selectedRole === 'worker' ? 'QuickHire Worker' : 'QuickHire Employer',
-            phone_number: '+91' + cleanPhone,
-          },
-        },
-      });
-
-      if (signUpError) {
-        // Retry sign in once more in case user already existed
-        const retrySignIn = await supabase.auth.signInWithPassword({
-          email: mappedEmail,
-          password: deterministicPassword,
-        });
-
-        if (retrySignIn.data?.user) {
-          await handleAuthSuccess(retrySignIn.data.user);
-          return;
-        }
-
-        // Resilient fallback: Create authenticated session for verified phone with valid UUID
-        const phoneUuid = `00000000-0000-4000-8000-${cleanPhone.padStart(12, '0')}`;
-        const fallbackUser: User = {
-          id: phoneUuid,
-          app_metadata: { provider: 'phone' },
-          user_metadata: {
-            role: selectedRole,
-            full_name: selectedRole === 'worker' ? 'QuickHire Worker' : 'QuickHire Employer',
-            phone_number: '+91' + cleanPhone,
-          },
-          aud: 'authenticated',
-          created_at: new Date().toISOString(),
-        };
-        await handleAuthSuccess(fallbackUser);
-        return;
-      }
-
-      if (signUpData?.user) {
-        if (!signUpData.session) {
-          // If auto-session wasn't returned on signup, sign in immediately
-          const retrySignIn = await supabase.auth.signInWithPassword({
-            email: mappedEmail,
-            password: deterministicPassword,
-          });
-
-          if (retrySignIn.data?.user) {
-            await handleAuthSuccess(retrySignIn.data.user);
-            return;
-          }
-        }
-
-        await handleAuthSuccess(signUpData.user);
-        return;
-      }
-
-      setLoading(false);
-      setAuthError('Authentication could not be completed.');
+      // Establish real authenticated Supabase session and synchronize profile
+      await handleAuthSuccess(data.user);
     } catch (err: unknown) {
       setLoading(false);
       const msg = err instanceof Error ? err.message : 'Error verifying credentials.';
@@ -726,7 +585,7 @@ export function Auth({
       {/* 3. CONDITIONAL RENDER: PHONE OTP vs EMAIL */}
       {authType === 'phone' ? (
         step === 'request' ? (
-          /* AUTH STEP 1: MOBILE NUMBER */
+          /* AUTH STEP 1: MOBILE NUMBER & COUNTRY CODE */
           <div className="space-y-4">
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -734,18 +593,6 @@ export function Auth({
                   {t('mobileNumberLabel')}
                 </label>
                 <div className="flex items-center gap-2">
-                  <button
-                    type="button"
-                    onClick={() => toggleLiveSms()}
-                    title="Click to toggle SMS provider between Live Fast2SMS and Demo Mode"
-                    className={`text-[10px] font-extrabold px-2.5 py-0.5 rounded-full border transition-all cursor-pointer ${
-                      isLiveSms
-                        ? 'bg-emerald-50 text-emerald-800 border-emerald-300 hover:bg-emerald-100'
-                        : 'bg-slate-100 text-slate-600 border-slate-300 hover:bg-slate-200'
-                    }`}
-                  >
-                    {getSmsStatusLabel(isLiveSms)}
-                  </button>
                   <VoiceSpeakerButton
                     text={phonePrompt}
                     lang={currentLang}
@@ -753,31 +600,48 @@ export function Auth({
                   />
                 </div>
               </div>
-              <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3.5 focus-within:border-brand-500 shadow-2xs bg-white">
-                <span className="text-sm font-bold text-slate-500 mr-3 select-none">+91</span>
+              <div className="flex items-center border border-slate-300 rounded-xl focus-within:border-brand-500 shadow-2xs bg-white overflow-hidden">
+                <div className="relative border-r border-slate-200 bg-slate-50">
+                  <select
+                    value={countryCode}
+                    onChange={(e) => setCountryCode(e.target.value)}
+                    aria-label="Country Code"
+                    className="appearance-none bg-transparent pl-3 pr-7 py-3.5 text-xs sm:text-sm font-bold text-slate-700 outline-none cursor-pointer"
+                  >
+                    {COUNTRY_CODES.map((c) => (
+                      <option key={c.code} value={c.code}>
+                        {c.flag} {c.code} ({c.country})
+                      </option>
+                    ))}
+                  </select>
+                  <div className="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400 text-[10px]">
+                    ▼
+                  </div>
+                </div>
                 <input
                   type="tel"
-                  maxLength={10}
+                  inputMode="numeric"
+                  maxLength={countryCode === '+91' ? 10 : 15}
                   value={phone}
                   onClick={() => speakText(phonePrompt, currentLang)}
                   onFocus={() => speakText(phonePrompt, currentLang)}
                   onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
-                  placeholder={t('mobilePlaceholder')}
-                  className="w-full outline-none text-sm font-medium text-slate-900 bg-transparent"
+                  placeholder={countryCode === '+91' ? t('mobilePlaceholder') : 'Enter mobile number'}
+                  className="w-full px-4 py-3.5 outline-none text-sm font-medium text-slate-900 bg-transparent"
                 />
               </div>
             </div>
 
             <button
               type="button"
-              onClick={handleSendOtp}
+              onClick={() => handleSendOtp(false)}
               disabled={loading}
-              className="w-full py-3.5 rounded-xl text-sm font-bold bg-[#0f2942] hover:bg-[#1a3d60] text-white transition-all shadow-md shadow-[#0f2942]/20 disabled:opacity-70 flex items-center justify-center gap-2"
+              className="w-full py-3.5 rounded-xl text-sm font-bold bg-[#0f2942] hover:bg-[#1a3d60] text-white transition-all shadow-md shadow-[#0f2942]/20 disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  <span>{isLiveSms ? t('sendingFast2sms') : 'Generating Demo OTP...'}</span>
+                  <span>Sending verification SMS...</span>
                 </span>
               ) : (
                 <>
@@ -790,34 +654,20 @@ export function Auth({
             </button>
           </div>
         ) : (
-          /* AUTH STEP 2: OTP VERIFICATION */
+          /* AUTH STEP 2: DEDICATED 6-DIGIT OTP ENTRY & VERIFICATION */
           <div className="space-y-4">
-            {/* On-screen OTP Display for Easy Testing and Presentations */}
-            {(!isLiveSms || FAST2SMS_API_KEY === 'YOUR_FAST2SMS_API_KEY') && demoOtpCode && (
-              <div className="p-3.5 bg-amber-50/90 border border-amber-300/80 rounded-2xl flex items-center justify-between text-xs text-amber-950 shadow-xs">
-                <div className="space-y-0.5">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-[11px] font-black uppercase tracking-wider text-amber-800">
-                      🧪 Demo OTP:
-                    </span>
-                    <span className="font-mono font-black text-sm tracking-widest text-slate-900 bg-white px-2 py-0.5 rounded-md border border-amber-300 shadow-2xs">
-                      {demoOtpCode}
-                    </span>
-                  </div>
-                  <p className="text-[10px] text-amber-700">Fast2SMS call skipped to save wallet credits.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setOtp(demoOtpCode);
-                    speakText(`Code entered: ${demoOtpCode.split('').join(' ')}`, currentLang);
-                  }}
-                  className="px-2.5 py-1.5 bg-amber-200 hover:bg-amber-300 text-amber-900 rounded-xl font-bold text-xs transition-colors shrink-0 shadow-2xs cursor-pointer"
-                >
-                  Auto-fill
-                </button>
+            {/* Informational security card with masked phone number */}
+            <div className="p-3.5 bg-blue-50/90 border border-blue-200 rounded-xl flex items-start gap-2.5 text-xs text-blue-950 shadow-2xs">
+              <ShieldCheck className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+              <div className="space-y-1">
+                <p className="font-semibold text-slate-800 leading-tight">
+                  If the number is eligible, a verification code will be sent by SMS.
+                </p>
+                <p className="text-[11px] text-slate-600">
+                  Sent to: <span className="font-mono font-bold text-slate-900">{`${countryCode} ******${phone.replace(/\D/g, '').slice(-4)}`}</span>
+                </p>
               </div>
-            )}
+            </div>
 
             <div className="space-y-1.5">
               <div className="flex items-center justify-between">
@@ -832,6 +682,8 @@ export function Auth({
               </div>
               <input
                 type="text"
+                inputMode="numeric"
+                autoComplete="one-time-code"
                 maxLength={6}
                 value={otp}
                 onClick={() => speakText(otpPrompt, currentLang)}
@@ -845,8 +697,8 @@ export function Auth({
             <button
               type="button"
               onClick={handleVerifyOtp}
-              disabled={loading}
-              className="w-full py-3.5 rounded-xl text-sm font-bold bg-[#138808] hover:bg-[#0f6f06] text-white transition-all shadow-md shadow-[#138808]/20 disabled:opacity-70 flex items-center justify-center gap-2"
+              disabled={loading || otp.trim().length !== 6}
+              className="w-full py-3.5 rounded-xl text-sm font-bold bg-[#138808] hover:bg-[#0f6f06] text-white transition-all shadow-md shadow-[#138808]/20 disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer"
             >
               {loading ? (
                 <span className="flex items-center gap-2">
@@ -861,17 +713,28 @@ export function Auth({
               )}
             </button>
 
-            <button
-              type="button"
-              onClick={() => {
-                setStep('request');
-                setOtp('');
-                setAuthError('');
-              }}
-              className="w-full py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 transition-colors"
-            >
-              {t('changePhoneBtn')}
-            </button>
+            <div className="flex items-center justify-between text-xs pt-1">
+              <button
+                type="button"
+                onClick={() => handleSendOtp(true)}
+                disabled={loading || resendCooldown > 0}
+                className="font-bold text-emerald-700 hover:text-emerald-800 disabled:text-slate-400 disabled:cursor-not-allowed transition-colors cursor-pointer"
+              >
+                {resendCooldown > 0 ? `Resend code in ${resendCooldown}s` : 'Resend SMS code'}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setStep('request');
+                  setOtp('');
+                  setAuthError('');
+                  setAuthNotice('');
+                }}
+                className="font-semibold text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              >
+                {t('changePhoneBtn')}
+              </button>
+            </div>
           </div>
         )
       ) : (
@@ -1258,7 +1121,7 @@ export function Auth({
                   : t('signInWithEmailDesc')
                 : step === 'request'
                 ? t('otpSendDesc')
-                : `${t('codeSentTo')} +91 ${phone}`}
+                : `${t('codeSentTo')} ${countryCode} ******${phone.replace(/\D/g, '').slice(-4)}`}
             </p>
 
             {formContent}

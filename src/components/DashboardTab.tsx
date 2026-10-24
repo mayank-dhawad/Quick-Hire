@@ -9,19 +9,16 @@ import {
   ArrowRight,
   PhoneCall,
   Landmark,
-  UserCheck,
   Edit3,
   IndianRupee,
-  Calendar,
   CheckCircle2,
-  Clock,
   Sparkles,
   Tractor,
   Star,
   Bell,
-  AlertCircle,
   RefreshCw,
-  Phone
+  Phone,
+  X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
@@ -168,6 +165,19 @@ export function DashboardTab({
   const [notifications, setNotifications] = useState<NotificationRecordItem[]>([]);
   const [loadingWorkerData, setLoadingWorkerData] = useState(false);
   const [workerFetchError, setWorkerFetchError] = useState<string | null>(null);
+  const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
+
+  const handleUpdateApplicantStatus = async (recordId: string, newStatus: string) => {
+    try {
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: newStatus }));
+      await supabase
+        .from('job_records')
+        .update({ status: newStatus })
+        .eq('id', recordId);
+    } catch (err) {
+      console.warn('Error updating applicant status:', err);
+    }
+  };
 
   // Fetch comprehensive worker history
   const fetchWorkerHistory = useCallback(async () => {
@@ -911,25 +921,41 @@ export function DashboardTab({
                             const workerName = rec.profiles?.full_name || rec.workers?.profiles?.full_name || t('interestedWorkerFallback');
                             const phone = rec.profiles?.phone_number || rec.workers?.profiles?.phone_number;
 
+                            const currentStatus = applicantStatusOverrides[rec.id] || rec.status || 'contacted';
+
                             return (
                               <div
                                 key={rec.id}
-                                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex items-center justify-between gap-2"
+                                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
                               >
                                 <div>
-                                  <h4 className="font-bold text-xs sm:text-sm text-slate-900">
-                                    {workerName}
-                                  </h4>
+                                  <div className="flex items-center gap-2">
+                                    <h4 className="font-bold text-xs sm:text-sm text-slate-900">
+                                      {workerName}
+                                    </h4>
+                                    <span
+                                      className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded ${
+                                        currentStatus === 'hired'
+                                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                          : currentStatus === 'rejected'
+                                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                          : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                      }`}
+                                    >
+                                      {currentStatus}
+                                    </span>
+                                  </div>
                                   <span className="text-[10px] text-slate-500">
                                     {t('appliedOn')}: {new Date(rec.created_at).toLocaleDateString()}
                                   </span>
                                 </div>
 
-                                <div className="flex items-center gap-1.5 shrink-0">
+                                <div className="flex items-center gap-1.5 flex-wrap shrink-0">
                                   {phone ? (
                                     <a
                                       href={`tel:${phone}`}
-                                      className="px-3 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors"
+                                      className="px-2.5 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                                      title="Call worker"
                                     >
                                       <PhoneCall className="w-3.5 h-3.5" />
                                       <span>{t('call')}</span>
@@ -938,6 +964,29 @@ export function DashboardTab({
                                     <span className="text-[10px] text-slate-400 font-medium">
                                       {t('numberNotShared')}
                                     </span>
+                                  )}
+
+                                  {currentStatus !== 'hired' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateApplicantStatus(rec.id, 'hired')}
+                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                                      title="Hire / Accept this worker"
+                                    >
+                                      <CheckCircle2 className="w-3.5 h-3.5" />
+                                      <span>Hire</span>
+                                    </button>
+                                  )}
+
+                                  {currentStatus !== 'rejected' && currentStatus !== 'hired' && (
+                                    <button
+                                      type="button"
+                                      onClick={() => handleUpdateApplicantStatus(rec.id, 'rejected')}
+                                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                      title="Decline applicant"
+                                    >
+                                      <X className="w-3.5 h-3.5" />
+                                    </button>
                                   )}
 
                                   <button
@@ -954,7 +1003,7 @@ export function DashboardTab({
                                         job.offered_wages || 500
                                       );
                                     }}
-                                    className="px-3 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1.5 border border-emerald-200 transition-colors cursor-pointer"
+                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1 border border-emerald-200 transition-colors cursor-pointer"
                                   >
                                     <Landmark className="w-3.5 h-3.5 text-emerald-700" />
                                     <span>₹ {t('payWageToBank')}</span>

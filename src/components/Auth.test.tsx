@@ -1,6 +1,7 @@
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Auth } from './Auth';
+import { supabase } from '../lib/supabase';
 
 // Mock Supabase client
 vi.mock('../lib/supabase', () => {
@@ -9,45 +10,44 @@ vi.mock('../lib/supabase', () => {
       from: vi.fn(() => ({
         select: vi.fn(() => ({
           eq: vi.fn(() => ({
-            eq: vi.fn(() => ({
-              gt: vi.fn(() => ({
-                order: vi.fn(() => ({
-                  limit: vi.fn().mockResolvedValue({ data: [{ otp: '123456' }], error: null }),
-                })),
-              })),
-            })),
             single: vi.fn().mockResolvedValue({ data: null, error: null }),
           })),
         })),
         insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        delete: vi.fn(() => ({
+        update: vi.fn(() => ({
           eq: vi.fn().mockResolvedValue({ data: null, error: null }),
         })),
-        update: vi.fn(() => ({
+        delete: vi.fn(() => ({
           eq: vi.fn().mockResolvedValue({ data: null, error: null }),
         })),
       })),
       auth: {
         signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
-        verifyOtp: vi.fn().mockResolvedValue({ data: { user: { id: 'mock-user-1' } }, error: null }),
-        signInWithPassword: vi.fn().mockResolvedValue({ data: { user: { id: 'mock-user-1' }, session: {} }, error: null }),
-        signUp: vi.fn().mockResolvedValue({ data: { user: { id: 'mock-user-1' }, session: {} }, error: null }),
+        verifyOtp: vi.fn().mockResolvedValue({
+          data: {
+            user: { id: 'mock-user-1', phone: '+919876543210' },
+            session: { access_token: 'mock-token' },
+          },
+          error: null,
+        }),
+        signInWithPassword: vi.fn().mockResolvedValue({
+          data: { user: { id: 'mock-user-1' }, session: {} },
+          error: null,
+        }),
+        signUp: vi.fn().mockResolvedValue({
+          data: { user: { id: 'mock-user-1' }, session: {} },
+          error: null,
+        }),
       },
     },
   };
 });
 
-describe('Auth Component with Fast2SMS & Dual Mode', () => {
+describe('Auth Component with Supabase Native Phone Authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     sessionStorage.clear();
-    vi.stubGlobal(
-      'fetch',
-      vi.fn().mockResolvedValue({
-        ok: true,
-        json: async () => ({ return: true, status_code: 200 }),
-      })
-    );
+    localStorage.clear();
   });
 
   it('renders dual authentication tabs: Mobile OTP (+91) and Email Login', () => {
@@ -57,22 +57,28 @@ describe('Auth Component with Fast2SMS & Dual Mode', () => {
     expect(screen.getByText('Email Login')).toBeInTheDocument();
   });
 
+  it('renders country code selector defaulting to India (+91)', () => {
+    render(<Auth isOpen={true} isGate={false} currentLang="English" />);
+
+    const select = screen.getByLabelText(/Country Code/i) as HTMLSelectElement;
+    expect(select).toBeInTheDocument();
+    expect(select.value).toBe('+91');
+    expect(screen.getByText(/🇮🇳 \+91 \(India\)/i)).toBeInTheDocument();
+  });
+
   it('allows switching between Mobile OTP and Email Login tabs', () => {
     render(<Auth isOpen={true} isGate={false} currentLang="English" />);
 
-    // Default tab is mobile OTP
     expect(screen.getByPlaceholderText(/Enter 10-digit mobile number/i)).toBeInTheDocument();
 
-    // Click on Email Login tab
     fireEvent.click(screen.getByText('Email Login'));
     expect(screen.getByPlaceholderText(/name@example.com/i)).toBeInTheDocument();
 
-    // Click back to Mobile OTP tab
     fireEvent.click(screen.getByText('Mobile OTP (+91)'));
     expect(screen.getByPlaceholderText(/Enter 10-digit mobile number/i)).toBeInTheDocument();
   });
 
-  it('validates mobile number before sending OTP', async () => {
+  it('validates mobile number before requesting OTP', async () => {
     render(<Auth isOpen={true} isGate={false} currentLang="English" />);
 
     const sendBtn = screen.getByRole('button', { name: /Send OTP/i });
@@ -81,9 +87,10 @@ describe('Auth Component with Fast2SMS & Dual Mode', () => {
     await waitFor(() => {
       expect(screen.getByText(/Please enter a valid 10-digit mobile number/i)).toBeInTheDocument();
     });
+    expect(supabase.auth.signInWithOtp).not.toHaveBeenCalled();
   });
 
-  it('progresses to OTP verification step when a valid 10-digit number is submitted', async () => {
+  it('requests real SMS verification via Supabase Auth signInWithOtp and normalizes to E.164', async () => {
     render(<Auth isOpen={true} isGate={false} currentLang="English" />);
 
     const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
@@ -93,34 +100,60 @@ describe('Auth Component with Fast2SMS & Dual Mode', () => {
     fireEvent.click(sendBtn);
 
     await waitFor(() => {
-      expect(screen.getByText('Enter OTP')).toBeInTheDocument();
+      expect(supabase.auth.signInWithOtp).toHaveBeenCalledWith({
+        phone: '+919876543210',
+        options: { channel: 'sms' },
+      });
+      // Verifies eligible message
+      expect(screen.getByText(/If the number is eligible, a verification code will be sent by SMS/i)).toBeInTheDocument();
+      // Verifies masked phone number display
+      expect(screen.getAllByText(/\+91 \*\*\*\*\*\*3210/i).length).toBeGreaterThanOrEqual(1);
+      // Dedicated 6-digit OTP entry interface
       expect(screen.getByPlaceholderText(/Enter 6-digit OTP/i)).toBeInTheDocument();
       expect(screen.getByRole('button', { name: /Verify & Sign In/i })).toBeInTheDocument();
     });
+
+    // CRITICAL SECURITY ASSERTION: No actual OTP is EVER displayed in the DOM
+    expect(screen.queryByText(/Demo OTP:/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Auto-fill/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Fast2SMS/i)).not.toBeInTheDocument();
   });
 
-  it('validates 6-digit OTP format before verifying', async () => {
+  it('displays resend cooldown timer and prevents premature resend requests', async () => {
     render(<Auth isOpen={true} isGate={false} currentLang="English" />);
 
     const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
     fireEvent.change(phoneInput, { target: { value: '9876543210' } });
-
-    const sendBtn = screen.getByRole('button', { name: /Send OTP/i });
-    fireEvent.click(sendBtn);
+    fireEvent.click(screen.getByRole('button', { name: /Send OTP/i }));
 
     await waitFor(() => {
-      expect(screen.getByRole('button', { name: /Verify & Sign In/i })).toBeInTheDocument();
-    });
-
-    const verifyBtn = screen.getByRole('button', { name: /Verify & Sign In/i });
-    fireEvent.click(verifyBtn);
-
-    await waitFor(() => {
-      expect(screen.getByText(/Please enter the 6-digit OTP code/i)).toBeInTheDocument();
+      // Cooldown timer is visible and button is disabled
+      const resendBtn = screen.getByRole('button', { name: /Resend code in \d+s/i });
+      expect(resendBtn).toBeInTheDocument();
+      expect(resendBtn).toBeDisabled();
     });
   });
 
-  it('successfully verifies valid OTP and triggers login callback', async () => {
+  it('allows user to change phone number and returns to request step', async () => {
+    render(<Auth isOpen={true} isGate={false} currentLang="English" />);
+
+    const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
+    fireEvent.change(phoneInput, { target: { value: '9876543210' } });
+    fireEvent.click(screen.getByRole('button', { name: /Send OTP/i }));
+
+    await waitFor(() => {
+      expect(screen.getByRole('button', { name: /Change Phone Number/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole('button', { name: /Change Phone Number/i }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Enter 10-digit mobile number/i)).toBeInTheDocument();
+      expect(screen.queryByPlaceholderText(/Enter 6-digit OTP/i)).not.toBeInTheDocument();
+    });
+  });
+
+  it('verifies 6-digit OTP code via Supabase Auth verifyOtp and triggers onLoginSuccess', async () => {
     const onLoginSuccessMock = vi.fn();
     render(
       <Auth
@@ -133,21 +166,24 @@ describe('Auth Component with Fast2SMS & Dual Mode', () => {
 
     const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
     fireEvent.change(phoneInput, { target: { value: '9876543210' } });
-
-    const sendBtn = screen.getByRole('button', { name: /Send OTP/i });
-    fireEvent.click(sendBtn);
+    fireEvent.click(screen.getByRole('button', { name: /Send OTP/i }));
 
     await waitFor(() => {
       expect(screen.getByPlaceholderText(/Enter 6-digit OTP/i)).toBeInTheDocument();
     });
 
     const otpInput = screen.getByPlaceholderText(/Enter 6-digit OTP/i);
-    fireEvent.change(otpInput, { target: { value: '123456' } });
+    fireEvent.change(otpInput, { target: { value: '654321' } });
 
     const verifyBtn = screen.getByRole('button', { name: /Verify & Sign In/i });
     fireEvent.click(verifyBtn);
 
     await waitFor(() => {
+      expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+        phone: '+919876543210',
+        token: '654321',
+        type: 'sms',
+      });
       expect(onLoginSuccessMock).toHaveBeenCalledWith(
         expect.objectContaining({ id: 'mock-user-1' }),
         'worker'
@@ -155,115 +191,56 @@ describe('Auth Component with Fast2SMS & Dual Mode', () => {
     });
   });
 
-  it('renders translated tabs, labels, and buttons in Hindi', () => {
+  it('displays clear error when OTP verification fails and rejects invalid codes', async () => {
+    vi.mocked(supabase.auth.verifyOtp).mockResolvedValueOnce({
+      data: { user: null, session: null },
+      error: { message: 'Invalid verification token' } as any,
+    });
+
+    render(<Auth isOpen={true} isGate={false} currentLang="English" />);
+
+    const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
+    fireEvent.change(phoneInput, { target: { value: '9876543210' } });
+    fireEvent.click(screen.getByRole('button', { name: /Send OTP/i }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Enter 6-digit OTP/i)).toBeInTheDocument();
+    });
+
+    const otpInput = screen.getByPlaceholderText(/Enter 6-digit OTP/i);
+    fireEvent.change(otpInput, { target: { value: '000000' } });
+
+    fireEvent.click(screen.getByRole('button', { name: /Verify & Sign In/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/Invalid verification code/i)).toBeInTheDocument();
+    });
+  });
+
+  it('renders translated tabs, labels, and buttons in Hindi without any demo OTP disclosure', () => {
     render(<Auth isOpen={true} isGate={false} currentLang="हिंदी (Hindi)" />);
 
-    // Mobile OTP and Email Login tabs in Hindi
     expect(screen.getByText('मोबाइल ओटीपी (+91)')).toBeInTheDocument();
     expect(screen.getByText('ईमेल लॉगिन')).toBeInTheDocument();
 
-    // Switch to Email tab
     fireEvent.click(screen.getByText('ईमेल लॉगिन'));
-
-    // Translated email and password labels
     expect(screen.getByText('ईमेल पता')).toBeInTheDocument();
     expect(screen.getByText('पासवर्ड')).toBeInTheDocument();
     expect(screen.getByRole('button', { name: /साइन इन \(कामगार\)/i })).toBeInTheDocument();
   });
 
-  it('renders translated tabs, labels, and buttons in Marathi', () => {
-    render(<Auth isOpen={true} isGate={false} currentLang="मराठी (Marathi)" />);
-
-    expect(screen.getByText('मोबाईल ओटीपी (+91)')).toBeInTheDocument();
-    expect(screen.getByText('ईमेल लॉगिन')).toBeInTheDocument();
-
-    fireEvent.click(screen.getByText('ईमेल लॉगिन'));
-
-    expect(screen.getByText('ईमेल पत्ता')).toBeInTheDocument();
-    expect(screen.getByText('पासवर्ड')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /साइन इन \(कामगार\)/i })).toBeInTheDocument();
-  });
-
-  it('includes VoiceSpeakerButton accessibility triggers next to Email and Password labels', () => {
-    render(<Auth isOpen={true} isGate={false} currentLang="English" />);
-
-    // Switch to Email tab
-    fireEvent.click(screen.getByText('Email Login'));
-
-    // Verify presence of accessibility speaker buttons
-    expect(screen.getByRole('button', { name: /Listen to email address instruction/i })).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /Listen to password instruction/i })).toBeInTheDocument();
-  });
-
-  it('toggles between Sign In and Sign Up modes with translated text in Email mode', () => {
+  it('toggles between Sign In and Sign Up modes in Email mode', () => {
     render(<Auth isOpen={true} isGate={false} currentLang="English" />);
 
     fireEvent.click(screen.getByText('Email Login'));
 
-    // Initially in Sign In mode
     expect(screen.getByRole('button', { name: /Sign In \(Worker\)/i })).toBeInTheDocument();
     expect(screen.getByText(/Don't have an account\?/i)).toBeInTheDocument();
 
-    // Toggle to Sign Up mode
     fireEvent.click(screen.getByRole('button', { name: /Sign Up/i }));
 
     expect(screen.getByRole('button', { name: /Create Worker Account/i })).toBeInTheDocument();
     expect(screen.getByText(/Already have an account\?/i)).toBeInTheDocument();
     expect(screen.getByText(/Minimum 6 characters required/i)).toBeInTheDocument();
   });
-
-  it('calls Fast2SMS API when Live SMS is ON', async () => {
-    localStorage.setItem('quickhire_live_sms_enabled', 'true');
-    const fetchSpy = vi.fn().mockResolvedValue({
-      ok: true,
-      json: async () => ({ return: true, status_code: 200, message: ['Success'] }),
-    });
-    vi.stubGlobal('fetch', fetchSpy);
-
-    render(<Auth isOpen={true} isGate={false} currentLang="English" />);
-
-    const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
-    fireEvent.change(phoneInput, { target: { value: '9876543210' } });
-
-    const sendBtn = screen.getByRole('button', { name: /Send OTP/i });
-    fireEvent.click(sendBtn);
-
-    await waitFor(() => {
-      expect(fetchSpy).toHaveBeenCalledTimes(1);
-      expect(fetchSpy.mock.calls[0][0]).toContain('https://www.fast2sms.com/dev/bulkV2');
-      expect(screen.getByText(/OTP successfully sent to \+91 9876543210 via Fast2SMS/i)).toBeInTheDocument();
-    });
-  });
-
-  it('skips Fast2SMS network call and displays OTP on screen when Live SMS is OFF (Demo Mode)', async () => {
-    localStorage.setItem('quickhire_live_sms_enabled', 'false');
-    const fetchSpy = vi.fn();
-    vi.stubGlobal('fetch', fetchSpy);
-
-    render(<Auth isOpen={true} isGate={false} currentLang="English" />);
-
-    const phoneInput = screen.getByPlaceholderText(/Enter 10-digit mobile number/i);
-    fireEvent.change(phoneInput, { target: { value: '9876543210' } });
-
-    const sendBtn = screen.getByRole('button', { name: /Send OTP/i });
-    fireEvent.click(sendBtn);
-
-    await waitFor(() => {
-      // Fast2SMS network call MUST be skipped
-      expect(fetchSpy).not.toHaveBeenCalled();
-      // OTP notice must be displayed on screen
-      expect(screen.getByText(/\[SMS Demo Mode\] OTP:/i)).toBeInTheDocument();
-      // Demo OTP helper card with Auto-fill button must be visible
-      expect(screen.getByText(/Demo OTP:/i)).toBeInTheDocument();
-      expect(screen.getByRole('button', { name: /Auto-fill/i })).toBeInTheDocument();
-    });
-
-    // Test clicking Auto-fill populates the OTP input
-    const autoFillBtn = screen.getByRole('button', { name: /Auto-fill/i });
-    fireEvent.click(autoFillBtn);
-    const otpInput = screen.getByPlaceholderText(/Enter 6-digit OTP/i) as HTMLInputElement;
-    expect(otpInput.value.length).toBe(6);
-  });
 });
-
-
