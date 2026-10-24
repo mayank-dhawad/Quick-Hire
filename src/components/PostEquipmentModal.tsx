@@ -43,6 +43,7 @@ interface PostEquipmentModalProps {
   currentLang?: string;
   onEquipmentPosted: (item: EquipmentItem) => void;
   onRequireLogin: () => void;
+  equipmentToEdit?: EquipmentItem | null;
 }
 
 const COMMON_MACHINES_BY_CATEGORY: Record<WorkerCategory, string[]> = {
@@ -61,6 +62,7 @@ export function PostEquipmentModal({
   currentLang = 'English',
   onEquipmentPosted,
   onRequireLogin,
+  equipmentToEdit = null,
 }: PostEquipmentModalProps) {
   const [title, setTitle] = useState('');
   const [category, setCategory] = useState<WorkerCategory>('Agriculture');
@@ -76,6 +78,34 @@ export function PostEquipmentModal({
     (key: string): string => getTranslation(currentLang, key),
     [currentLang]
   );
+
+  React.useEffect(() => {
+    if (equipmentToEdit) {
+      setTitle(equipmentToEdit.title || '');
+      setCategory(equipmentToEdit.category || 'Agriculture');
+      setDailyRent(String(equipmentToEdit.daily_rent ?? equipmentToEdit.daily_rate ?? ''));
+      setDeposit(
+        equipmentToEdit.deposit_required != null
+          ? String(equipmentToEdit.deposit_required)
+          : equipmentToEdit.security_deposit != null
+          ? String(equipmentToEdit.security_deposit)
+          : ''
+      );
+      setLocation(equipmentToEdit.location || '');
+      setDescription(equipmentToEdit.description || '');
+      setErrorMsg('');
+      setSuccessMsg('');
+    } else {
+      setTitle('');
+      setCategory('Agriculture');
+      setDailyRent('');
+      setDeposit('');
+      setLocation('');
+      setDescription('');
+      setErrorMsg('');
+      setSuccessMsg('');
+    }
+  }, [equipmentToEdit, isOpen]);
 
   if (!isOpen) return null;
 
@@ -100,8 +130,6 @@ export function PostEquipmentModal({
     setIsSubmitting(true);
 
     try {
-      let createdItem: EquipmentItem;
-
       // Ensure owner profile exists in public.profiles to satisfy foreign key constraint
       const { data: profCheck } = await supabase.from('profiles').select('id').eq('id', user.id).single();
       if (!profCheck) {
@@ -113,6 +141,81 @@ export function PostEquipmentModal({
           account_status: 'active'
         } as any);
       }
+
+      // If updating an existing listing
+      if (equipmentToEdit?.id) {
+        let updatedItem: EquipmentItem;
+        const updatePayload: {
+          title: string;
+          category: WorkerCategory;
+          description: string | null;
+          daily_rent: number;
+          deposit_required: number;
+          location: string;
+          status: 'available' | 'rented' | 'maintenance';
+        } = {
+          title: cleanTitle,
+          category,
+          description: cleanDescription,
+          daily_rent: Number(dailyRent),
+          deposit_required: deposit ? Number(deposit) : 0,
+          location: cleanLocation,
+          status:
+            equipmentToEdit.status === 'rented' || equipmentToEdit.status === 'maintenance'
+              ? equipmentToEdit.status
+              : 'available',
+        };
+
+        const { data: upData, error: upError } = await supabase
+          .from('equipment')
+          .update(updatePayload)
+          .eq('id', equipmentToEdit.id)
+          .select();
+
+        if (upError) {
+          console.warn('Note on Supabase equipment update (local fallback active):', upError.message);
+        }
+
+        if (upData && upData[0]) {
+          updatedItem = upData[0] as unknown as EquipmentItem;
+        } else {
+          updatedItem = {
+            ...equipmentToEdit,
+            ...updatePayload,
+            daily_rate: Number(dailyRent),
+            security_deposit: deposit ? Number(deposit) : 0,
+            updated_at: new Date().toISOString(),
+          };
+        }
+
+        try {
+          const stored = localStorage.getItem('quickhire_user_equipment');
+          const list: EquipmentItem[] = stored ? JSON.parse(stored) : [];
+          const idx = list.findIndex((e) => e.id === equipmentToEdit.id);
+          if (idx >= 0) {
+            list[idx] = updatedItem;
+          } else {
+            list.unshift(updatedItem);
+          }
+          localStorage.setItem('quickhire_user_equipment', JSON.stringify(list));
+        } catch {
+          // Ignore
+        }
+
+        const msg = t('equipUpdatedSuccess') || 'Equipment listing updated successfully!';
+        setSuccessMsg(msg);
+        speakText(msg, currentLang);
+        onEquipmentPosted(updatedItem);
+
+        setTimeout(() => {
+          setIsSubmitting(false);
+          setSuccessMsg('');
+          onClose();
+        }, 1000);
+        return;
+      }
+
+      let createdItem: EquipmentItem;
 
       // 1. Attempt insert directly into the equipment Supabase table
       const { data, error } = await supabase
@@ -233,9 +336,11 @@ export function PostEquipmentModal({
             </div>
             <div>
               <h2 className="font-heading font-extrabold text-2xl text-slate-900">
-                {t('postEquipmentTitle')}
+                {equipmentToEdit ? t('editEquipmentTitle') : t('postEquipmentTitle')}
               </h2>
-              <p className="text-xs text-slate-500">{t('postEquipmentSub')}</p>
+              <p className="text-xs text-slate-500">
+                {equipmentToEdit ? t('editListing') : t('postEquipmentSub')}
+              </p>
             </div>
           </div>
 
@@ -462,7 +567,15 @@ export function PostEquipmentModal({
               className="w-full py-3.5 rounded-xl text-sm font-bold bg-emerald-600 hover:bg-emerald-700 text-white transition-all shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-70 mt-3"
             >
               <CheckCircle2 className="w-4 h-4" />
-              <span>{isSubmitting ? t('listingEquipment') : t('listEquipmentSubmitBtn')}</span>
+              <span>
+                {equipmentToEdit
+                  ? isSubmitting
+                    ? t('updatingEquipmentBtn')
+                    : t('updateEquipmentBtn')
+                  : isSubmitting
+                  ? t('listingEquipment')
+                  : t('listEquipmentSubmitBtn')}
+              </span>
             </button>
           </form>
         </motion.div>

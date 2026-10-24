@@ -1,44 +1,21 @@
-import { render, screen, fireEvent } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { SmsAdminToggleBadge } from '../App';
-import { setLiveSmsEnabled, SMS_LIVE_STORAGE_KEY } from '../lib/smsConfig';
+import { render, screen } from '@testing-library/react';
+import { describe, it, expect } from 'vitest';
+import App from '../App';
 
-describe('SmsAdminToggleBadge in App.tsx', () => {
-  beforeEach(() => {
-    localStorage.clear();
-    vi.clearAllMocks();
+describe('Zero OTP Disclosure & Production Security Guards', () => {
+  it('does not render any demo SMS toggle button in the application', () => {
+    render(<App />);
+
+    // Assert that the old demo toggle button does NOT exist anywhere in the UI
+    expect(screen.queryByRole('button', { name: /Toggle Fast2SMS Provider Mode/i })).not.toBeInTheDocument();
+    expect(screen.queryByText(/SMS Demo Mode/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Live SMS: ON/i)).not.toBeInTheDocument();
   });
 
-  it('renders "Live SMS: ON 🟢" when live SMS is enabled by default', () => {
-    setLiveSmsEnabled(true);
-    render(<SmsAdminToggleBadge />);
-    expect(screen.getByText('Live SMS: ON 🟢')).toBeInTheDocument();
-  });
+  it('guarantees that no demo OTP or auto-fill buttons appear in initial view', () => {
+    render(<App />);
 
-  it('renders "SMS Demo Mode ⚪" when live SMS is disabled', () => {
-    setLiveSmsEnabled(false);
-    render(<SmsAdminToggleBadge />);
-    expect(screen.getByText('SMS Demo Mode ⚪')).toBeInTheDocument();
-  });
-
-  it('toggles SMS state on click and fires onToggled callback', () => {
-    setLiveSmsEnabled(true);
-    const onToggledMock = vi.fn();
-    render(<SmsAdminToggleBadge onToggled={onToggledMock} />);
-
-    const badge = screen.getByRole('button', { name: /Toggle Fast2SMS Provider Mode/i });
-    expect(screen.getByText('Live SMS: ON 🟢')).toBeInTheDocument();
-
-    // Click to toggle to Demo mode
-    fireEvent.click(badge);
-    expect(onToggledMock).toHaveBeenCalledWith(false);
-    expect(localStorage.getItem(SMS_LIVE_STORAGE_KEY)).toBe('false');
-    expect(screen.getByText('SMS Demo Mode ⚪')).toBeInTheDocument();
-
-    // Click to toggle back to Live mode
-    fireEvent.click(badge);
-    expect(onToggledMock).toHaveBeenCalledWith(true);
-    expect(localStorage.getItem(SMS_LIVE_STORAGE_KEY)).toBe('true');
-    expect(screen.getByText('Live SMS: ON 🟢')).toBeInTheDocument();
+    expect(screen.queryByText(/Demo OTP:/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Auto-fill/i })).not.toBeInTheDocument();
   });
 });

@@ -36,6 +36,8 @@ export interface Database {
           skills: string[] | null
           experience_years: number | null
           daily_wage: number | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -65,6 +67,8 @@ export interface Database {
           skills?: string[] | null
           experience_years?: number | null
           daily_wage?: number | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -94,6 +98,8 @@ export interface Database {
           skills?: string[] | null
           experience_years?: number | null
           daily_wage?: number | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -395,12 +401,254 @@ export interface Database {
         }
         Relationships: []
       }
+      admin_users: {
+        Row: {
+          id: string
+          user_id: string
+          role: 'super_admin' | 'moderator' | 'support_agent'
+          permissions: string[] | null
+          is_active: boolean
+          email_verified: boolean
+          phone_verified: boolean
+          verified_email: string | null
+          verified_phone: string | null
+          created_at: string | null
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          role?: 'super_admin' | 'moderator' | 'support_agent'
+          permissions?: string[] | null
+          is_active?: boolean
+          email_verified?: boolean
+          phone_verified?: boolean
+          verified_email?: string | null
+          verified_phone?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          role?: 'super_admin' | 'moderator' | 'support_agent'
+          permissions?: string[] | null
+          is_active?: boolean
+          email_verified?: boolean
+          phone_verified?: boolean
+          verified_email?: string | null
+          verified_phone?: string | null
+          created_at?: string | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      admin_audit_logs: {
+        Row: {
+          id: string
+          admin_id: string | null
+          admin_email: string | null
+          action: string
+          target_type: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'system'
+          target_id: string
+          reason: string | null
+          metadata: Json | null
+          ip_address: string | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          admin_id?: string | null
+          admin_email?: string | null
+          action: string
+          target_type: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'system'
+          target_id: string
+          reason?: string | null
+          metadata?: Json | null
+          ip_address?: string | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          admin_id?: string | null
+          admin_email?: string | null
+          action?: string
+          target_type?: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'system'
+          target_id?: string
+          reason?: string | null
+          metadata?: Json | null
+          ip_address?: string | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      complaints: {
+        Row: {
+          id: string
+          reporter_id: string | null
+          reporter_phone: string | null
+          reporter_name: string | null
+          target_type: 'worker' | 'employer' | 'job' | 'equipment' | 'payment' | 'platform' | 'other'
+          target_id: string | null
+          target_name: string | null
+          category: 'unpaid_wages' | 'unsafe_conditions' | 'harassment' | 'fraud' | 'misleading_equipment' | 'platform_abuse' | 'other'
+          title: string
+          description: string
+          status: 'open' | 'under_review' | 'investigating' | 'resolved' | 'dismissed'
+          priority: 'low' | 'medium' | 'high' | 'critical'
+          assigned_to: string | null
+          resolution_notes: string | null
+          evidence_urls: string[] | null
+          created_at: string | null
+          updated_at: string | null
+          resolved_at: string | null
+        }
+        Insert: {
+          id?: string
+          reporter_id?: string | null
+          reporter_phone?: string | null
+          reporter_name?: string | null
+          target_type: 'worker' | 'employer' | 'job' | 'equipment' | 'payment' | 'platform' | 'other'
+          target_id?: string | null
+          target_name?: string | null
+          category: 'unpaid_wages' | 'unsafe_conditions' | 'harassment' | 'fraud' | 'misleading_equipment' | 'platform_abuse' | 'other'
+          title: string
+          description: string
+          status?: 'open' | 'under_review' | 'investigating' | 'resolved' | 'dismissed'
+          priority?: 'low' | 'medium' | 'high' | 'critical'
+          assigned_to?: string | null
+          resolution_notes?: string | null
+          evidence_urls?: string[] | null
+          created_at?: string | null
+          updated_at?: string | null
+          resolved_at?: string | null
+        }
+        Update: {
+          id?: string
+          reporter_id?: string | null
+          reporter_phone?: string | null
+          reporter_name?: string | null
+          target_type?: 'worker' | 'employer' | 'job' | 'equipment' | 'payment' | 'platform' | 'other'
+          target_id?: string | null
+          target_name?: string | null
+          category?: 'unpaid_wages' | 'unsafe_conditions' | 'harassment' | 'fraud' | 'misleading_equipment' | 'platform_abuse' | 'other'
+          title?: string
+          description?: string
+          status?: 'open' | 'under_review' | 'investigating' | 'resolved' | 'dismissed'
+          priority?: 'low' | 'medium' | 'high' | 'critical'
+          assigned_to?: string | null
+          resolution_notes?: string | null
+          evidence_urls?: string[] | null
+          created_at?: string | null
+          updated_at?: string | null
+          resolved_at?: string | null
+        }
+        Relationships: []
+      }
+      admin_notifications: {
+        Row: {
+          id: string
+          title: string
+          message: string
+          type: 'alert' | 'warning' | 'info' | 'moderation'
+          is_read: boolean
+          link: string | null
+          metadata: Json | null
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          title: string
+          message: string
+          type?: 'alert' | 'warning' | 'info' | 'moderation'
+          is_read?: boolean
+          link?: string | null
+          metadata?: Json | null
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          title?: string
+          message?: string
+          type?: 'alert' | 'warning' | 'info' | 'moderation'
+          is_read?: boolean
+          link?: string | null
+          metadata?: Json | null
+          created_at?: string | null
+        }
+        Relationships: []
+      }
+      platform_content: {
+        Row: {
+          id: string
+          content_key: string
+          section: 'category' | 'legal_card' | 'government_resource' | 'search_tag' | 'faq' | 'announcement'
+          language: 'en' | 'hi' | 'mr'
+          title: string
+          description: string | null
+          metadata: Json | null
+          display_order: number | null
+          is_active: boolean
+          updated_at: string | null
+        }
+        Insert: {
+          id?: string
+          content_key: string
+          section: 'category' | 'legal_card' | 'government_resource' | 'search_tag' | 'faq' | 'announcement'
+          language?: 'en' | 'hi' | 'mr'
+          title: string
+          description?: string | null
+          metadata?: Json | null
+          display_order?: number | null
+          is_active?: boolean
+          updated_at?: string | null
+        }
+        Update: {
+          id?: string
+          content_key?: string
+          section?: 'category' | 'legal_card' | 'government_resource' | 'search_tag' | 'faq' | 'announcement'
+          language?: 'en' | 'hi' | 'mr'
+          title?: string
+          description?: string | null
+          metadata?: Json | null
+          display_order?: number | null
+          is_active?: boolean
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      is_admin: {
+        Args: {
+          check_uid?: string
+        }
+        Returns: boolean
+      }
+      confirm_admin_phone_verified: {
+        Args: {
+          target_user_id: string
+        }
+        Returns: boolean
+      }
+      grant_admin_role: {
+        Args: {
+          target_user_id: string
+          target_role?: string
+          target_phone?: string | null
+        }
+        Returns: Json
+      }
+      revoke_admin_role: {
+        Args: {
+          target_user_id: string
+          revocation_reason?: string
+        }
+        Returns: Json
+      }
     }
     Enums: {
       job_status: 'open' | 'in_progress' | 'completed' | 'cancelled'

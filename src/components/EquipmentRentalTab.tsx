@@ -7,7 +7,8 @@ import {
   MapPin,
   PhoneCall,
   Phone,
-  Landmark
+  Landmark,
+  Edit3
 } from 'lucide-react';
 import { EquipmentItem } from './PostEquipmentModal';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
@@ -25,6 +26,8 @@ interface EquipmentRentalTabProps {
   onRequireLogin: () => void;
   isLoggedIn: boolean;
   currentLang?: string;
+  currentUserId?: string | null;
+  onEditEquipmentClick?: (item: EquipmentItem) => void;
 }
 
 export function EquipmentRentalTab({
@@ -39,6 +42,8 @@ export function EquipmentRentalTab({
   onRequireLogin,
   isLoggedIn,
   currentLang = 'English',
+  currentUserId = null,
+  onEditEquipmentClick,
 }: EquipmentRentalTabProps) {
   const t = (key: string): string => getTranslation(currentLang, key);
 
@@ -198,9 +203,22 @@ export function EquipmentRentalTab({
                 <div className="space-y-4">
                   {/* HEADER: CATEGORY BADGE & STATUS */}
                   <div className="flex items-start justify-between gap-2">
-                    <span className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-200">
-                      {item.category}
-                    </span>
+                    <div className="flex items-center gap-1.5 flex-wrap">
+                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-200">
+                        {item.category}
+                      </span>
+                      {currentUserId && item.owner_id === currentUserId && (
+                        <button
+                          type="button"
+                          onClick={() => onEditEquipmentClick?.(item)}
+                          className="text-[11px] font-bold px-2.5 py-0.5 rounded-md bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 flex items-center gap-1 transition-colors cursor-pointer"
+                          title={t('editListing')}
+                        >
+                          <Edit3 className="w-3 h-3 text-amber-700" />
+                          <span>{t('editListing')}</span>
+                        </button>
+                      )}
+                    </div>
                     <span
                       className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
                         item.status === 'available'
