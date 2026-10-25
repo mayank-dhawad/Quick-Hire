@@ -7,7 +7,10 @@ import {
   loginAdminWithPassword,
   sendAdminPhoneOtp,
   verifyAdminPhoneOtp,
+  setupAdminPasswordWithPhoneVerification,
+  sendAdminPasswordReset,
   setAdminSession,
+  ensureAdminSession,
   logAdminAction,
   normalizeEmail,
   normalizePhone,
@@ -27,6 +30,8 @@ import {
   Info,
   Eye,
   EyeOff,
+  Sparkles,
+  Key,
 } from 'lucide-react';
 
 interface AdminLoginProps {
@@ -35,17 +40,24 @@ interface AdminLoginProps {
 }
 
 export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps) {
-  // Method: 'email' (Email + Password) or 'phone' (Phone + SMS OTP)
-  const [authMethod, setAuthMethod] = useState<'email' | 'phone'>('email');
+  // Method: 'email' (Email + Password), 'phone' (Phone + SMS OTP), or 'setup' (Initial password creation)
+  const [authMethod, setAuthMethod] = useState<'email' | 'phone' | 'setup'>('email');
   // Phone flow step: 'request' (enter phone) or 'verify' (enter 6-digit OTP code)
   const [phoneStep, setPhoneStep] = useState<'request' | 'verify'>('request');
+  // Setup flow step: 'verify_phone' (send/verify OTP) or 'set_password' (choose new password)
+  const [setupStep, setSetupStep] = useState<'request' | 'set_password'>('request');
 
   // Form states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
+
+  // Password reset inline toggle
+  const [showResetBox, setShowResetBox] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -67,33 +79,63 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
       if (session?.user) {
         const check = await verifyAdminStatus(session.user.id);
         if (check.isAdmin) {
-          const raw = sessionStorage.getItem(ADMIN_CONFIG.SESSION_STORAGE_KEY);
-          if (raw) {
-            try {
-              const parsed = JSON.parse(raw);
-              if (parsed.expiresAt && Date.now() < parsed.expiresAt) {
-                if (onLoginSuccess) onLoginSuccess();
-                navigateTo('/admin');
-                return;
-              }
-            } catch {
-              // Ignore parse error
-            }
-          }
+          ensureAdminSession(session.user, check.role, check.verifiedEmail, check.verifiedPhone);
+          if (onLoginSuccess) onLoginSuccess();
+          navigateTo('/admin');
         }
       }
     });
   }, [onLoginSuccess]);
 
-  // Switch between Email and Phone authentication tabs
-  const handleSwitchMethod = (method: 'email' | 'phone') => {
+  // Switch between Authentication tabs
+  const handleSwitchMethod = (method: 'email' | 'phone' | 'setup') => {
     setAuthMethod(method);
     setPhoneStep('request');
+    setSetupStep('request');
     setErrorMsg('');
     setNoticeMsg('');
     setOtp('');
     setPassword('');
+    setConfirmPassword('');
+    setShowResetBox(false);
     setCooldown(0);
+  };
+
+  // Helper to establish validated admin session and redirect
+  const completeAdminAuth = async (
+    authUser: import('@supabase/supabase-js').User,
+    method: 'email' | 'phone',
+    identifier: string,
+    role: 'super_admin' | 'moderator' | 'support_agent' = 'super_admin',
+    verifiedEmail?: string | null,
+    verifiedPhone?: string | null
+  ) => {
+    const sessionPayload: AdminSession = {
+      user: authUser,
+      adminRole: role,
+      authMethod: method,
+      verifiedIdentifier: identifier,
+      verifiedEmail: verifiedEmail || (method === 'email' ? identifier : null),
+      verifiedPhone: verifiedPhone || (method === 'phone' ? identifier : null),
+      authenticatedAt: Date.now(),
+      expiresAt: Date.now() + ADMIN_CONFIG.SESSION_DURATION_MS,
+      sessionToken: `sec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    };
+
+    setAdminSession(sessionPayload);
+
+    await logAdminAction({
+      adminId: authUser.id,
+      adminEmail: verifiedEmail || authUser.email || identifier,
+      action: `admin_login_${method}_verified`,
+      targetType: 'auth',
+      targetId: authUser.id,
+      reason: `Administrator authenticated via verified ${method === 'email' ? 'Email & Password' : 'Phone SMS OTP'}`,
+      metadata: { role, method, identifier },
+    });
+
+    if (onLoginSuccess) onLoginSuccess();
+    navigateTo('/admin');
   };
 
   // 1. Email + Password Authentication Handler
@@ -131,33 +173,14 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
         return;
       }
 
-      // Establish validated admin session
-      const sessionPayload: AdminSession = {
-        user: loginRes.user,
-        adminRole: adminStatus.role,
-        authMethod: 'email',
-        verifiedIdentifier: cleanEmail,
-        verifiedEmail: adminStatus.verifiedEmail || cleanEmail,
-        verifiedPhone: adminStatus.verifiedPhone || null,
-        authenticatedAt: Date.now(),
-        expiresAt: Date.now() + ADMIN_CONFIG.SESSION_DURATION_MS,
-        sessionToken: `sec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      };
-
-      setAdminSession(sessionPayload);
-
-      await logAdminAction({
-        adminId: loginRes.user.id,
-        adminEmail: cleanEmail,
-        action: 'admin_login_password_verified',
-        targetType: 'auth',
-        targetId: loginRes.user.id,
-        reason: 'Administrator authenticated via verified Email & Password',
-        metadata: { role: adminStatus.role, method: 'email_password' },
-      });
-
-      if (onLoginSuccess) onLoginSuccess();
-      navigateTo('/admin');
+      await completeAdminAuth(
+        loginRes.user,
+        'email',
+        cleanEmail,
+        adminStatus.role,
+        adminStatus.verifiedEmail || cleanEmail,
+        adminStatus.verifiedPhone || null
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Authentication encountered an unexpected error.';
       setErrorMsg(message);
@@ -225,36 +248,123 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
         return;
       }
 
-      // Establish validated admin session
-      const sessionPayload: AdminSession = {
-        user: verifyRes.user,
-        adminRole: adminStatus.role,
-        authMethod: 'phone',
-        verifiedIdentifier: cleanPhone,
-        verifiedEmail: adminStatus.verifiedEmail || null,
-        verifiedPhone: adminStatus.verifiedPhone || cleanPhone,
-        authenticatedAt: Date.now(),
-        expiresAt: Date.now() + ADMIN_CONFIG.SESSION_DURATION_MS,
-        sessionToken: `sec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
-      };
-
-      setAdminSession(sessionPayload);
-
-      await logAdminAction({
-        adminId: verifyRes.user.id,
-        adminEmail: verifyRes.user.email || null,
-        action: 'admin_login_phone_verified',
-        targetType: 'auth',
-        targetId: verifyRes.user.id,
-        reason: 'Administrator authenticated via verified Phone SMS OTP',
-        metadata: { role: adminStatus.role, method: 'phone_otp', phone: cleanPhone },
-      });
-
-      if (onLoginSuccess) onLoginSuccess();
-      navigateTo('/admin');
+      await completeAdminAuth(
+        verifyRes.user,
+        'phone',
+        cleanPhone,
+        adminStatus.role,
+        adminStatus.verifiedEmail || null,
+        adminStatus.verifiedPhone || cleanPhone
+      );
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'SMS OTP verification encountered an unexpected error.';
       setErrorMsg(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Admin Setup & Password Initialization: Step 1 (Send OTP to authorized phone)
+  const handleStartSetupOtp = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setNoticeMsg('');
+
+    const targetPhone = phone.trim() ? normalizePhone(phone) : ADMIN_CONFIG.DESIGNATED_PHONE;
+    setPhone(targetPhone);
+
+    setLoading(true);
+    try {
+      const res = await sendAdminPhoneOtp(targetPhone);
+      setNoticeMsg(res.message || 'Verification SMS dispatched to the authorized administrator phone.');
+      setSetupStep('set_password');
+      setCooldown(60);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to dispatch setup verification code.';
+      setErrorMsg(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 3. Admin Setup & Password Initialization: Step 2 (Verify OTP & Save Chosen Password)
+  const handleSaveSetupPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setNoticeMsg('');
+
+    const targetEmail = email.trim() ? normalizeEmail(email) : ADMIN_CONFIG.DESIGNATED_EMAIL;
+    const targetPhone = phone.trim() ? normalizePhone(phone) : ADMIN_CONFIG.DESIGNATED_PHONE;
+    const cleanOtp = otp.trim();
+
+    if (!cleanOtp || cleanOtp.length !== 6) {
+      setErrorMsg('Please enter the 6-digit verification code received on your phone.');
+      return;
+    }
+    if (!password || password.length < 6) {
+      setErrorMsg('Password must be at least 6 characters.');
+      return;
+    }
+    if (confirmPassword && password !== confirmPassword) {
+      setErrorMsg('Passwords do not match. Please re-enter to confirm.');
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      const setupRes = await setupAdminPasswordWithPhoneVerification(
+        targetPhone,
+        cleanOtp,
+        password,
+        targetEmail
+      );
+
+      if (!setupRes.success || !setupRes.user) {
+        setErrorMsg(setupRes.error || 'Failed to establish administrator credentials.');
+        setLoading(false);
+        return;
+      }
+
+      setNoticeMsg('Administrator password initialized successfully! Connecting to Governance Suite...');
+
+      await completeAdminAuth(
+        setupRes.user,
+        'email',
+        targetEmail,
+        'super_admin',
+        targetEmail,
+        targetPhone
+      );
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Administrator setup encountered an unexpected error.';
+      setErrorMsg(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // 4. Send Password Reset Link to Admin Email
+  const handleSendResetEmail = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = normalizeEmail(resetEmail || email || ADMIN_CONFIG.DESIGNATED_EMAIL);
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      setErrorMsg('Please enter a valid administrator email address for password recovery.');
+      return;
+    }
+
+    setLoading(true);
+    setErrorMsg('');
+    try {
+      const res = await sendAdminPasswordReset(cleanEmail);
+      if (res.success) {
+        setNoticeMsg(res.message);
+        setShowResetBox(false);
+      } else {
+        setErrorMsg(res.error || 'Could not send reset link.');
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error sending password reset email.');
     } finally {
       setLoading(false);
     }
@@ -335,6 +445,26 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
             </button>
           </div>
 
+          {/* Quick Dedicated Email Indicator */}
+          <div className="p-2.5 bg-slate-950/60 border border-slate-800/90 rounded-xl flex items-center justify-between text-xs text-slate-400">
+            <div className="flex items-center gap-2 truncate">
+              <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+              <span className="truncate">Admin Email:</span>
+              <strong className="text-slate-200 font-mono text-[11px] truncate">
+                {ADMIN_CONFIG.DESIGNATED_EMAIL}
+              </strong>
+            </div>
+            {authMethod === 'email' && email !== ADMIN_CONFIG.DESIGNATED_EMAIL && (
+              <button
+                type="button"
+                onClick={() => setEmail(ADMIN_CONFIG.DESIGNATED_EMAIL)}
+                className="text-[10px] text-emerald-400 hover:underline font-semibold shrink-0 cursor-pointer"
+              >
+                Use
+              </button>
+            )}
+          </div>
+
           {/* Error & Notice Banners */}
           {errorMsg && (
             <div className="p-3.5 bg-rose-950/60 border border-rose-800/60 rounded-2xl flex items-start gap-2.5 text-xs text-rose-200 shadow-sm animate-shake">
@@ -350,8 +480,45 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
             </div>
           )}
 
+          {/* INLINE PASSWORD RESET DRAWER */}
+          {showResetBox && (
+            <form onSubmit={handleSendResetEmail} className="p-4 bg-slate-950 border border-emerald-500/30 rounded-2xl space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
+                  <Key className="w-3.5 h-3.5" />
+                  <span>Reset Administrator Password</span>
+                </span>
+                <button
+                  type="button"
+                  onClick={() => setShowResetBox(false)}
+                  className="text-slate-500 hover:text-slate-300 text-xs"
+                >
+                  ✕
+                </button>
+              </div>
+              <p className="text-[11px] text-slate-400">
+                A password recovery link will be sent to the registered administrator email via Supabase Auth.
+              </p>
+              <input
+                type="email"
+                required
+                value={resetEmail || email || ADMIN_CONFIG.DESIGNATED_EMAIL}
+                onChange={(e) => setResetEmail(e.target.value)}
+                placeholder="admin@quickhire.local"
+                className="w-full bg-slate-900 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white outline-none focus:border-emerald-500"
+              />
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs transition cursor-pointer"
+              >
+                {loading ? 'Dispatching Reset Link...' : 'Send Password Reset Link'}
+              </button>
+            </form>
+          )}
+
           {/* METHOD 1: EMAIL & PASSWORD LOGIN */}
-          {authMethod === 'email' && (
+          {authMethod === 'email' && !showResetBox && (
             <form onSubmit={handleEmailPasswordLogin} noValidate className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
@@ -375,6 +542,16 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
                   <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
                     Password
                   </label>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowResetBox(true);
+                      setResetEmail(email || ADMIN_CONFIG.DESIGNATED_EMAIL);
+                    }}
+                    className="text-[11px] text-emerald-400 hover:underline font-semibold cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
                 </div>
                 <div className="relative">
                   <input
@@ -388,6 +565,7 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                     className="absolute right-3.5 top-3.5 text-slate-500 hover:text-slate-300 transition cursor-pointer"
                   >
                     {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -415,6 +593,16 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
                   </>
                 )}
               </button>
+
+              <div className="pt-2 text-center">
+                <button
+                  type="button"
+                  onClick={() => handleSwitchMethod('setup')}
+                  className="text-xs text-slate-400 hover:text-emerald-400 transition font-medium cursor-pointer"
+                >
+                  First-time admin setup? <strong className="text-emerald-400 underline">Set or Choose Password</strong>
+                </button>
+              </div>
             </form>
           )}
 
@@ -436,9 +624,18 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
                   />
                   <Phone className="w-4 h-4 text-slate-500 absolute right-3.5 top-3.5 pointer-events-none" />
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  A 6-digit SMS verification code will be dispatched via Fast2SMS / Supabase Auth.
-                </p>
+                <div className="flex items-center justify-between text-[11px] text-slate-500">
+                  <span>A 6-digit SMS verification code will be dispatched.</span>
+                  {phone !== ADMIN_CONFIG.DESIGNATED_PHONE && (
+                    <button
+                      type="button"
+                      onClick={() => setPhone(ADMIN_CONFIG.DESIGNATED_PHONE)}
+                      className="text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      Use {ADMIN_CONFIG.DESIGNATED_PHONE}
+                    </button>
+                  )}
+                </div>
               </div>
 
               <button
@@ -530,6 +727,171 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
                 </button>
               </div>
             </form>
+          )}
+
+          {/* METHOD 3: ADMIN SETUP & PASSWORD INITIALIZATION */}
+          {authMethod === 'setup' && (
+            <div className="space-y-4">
+              <div className="p-3 bg-emerald-950/40 border border-emerald-800/40 rounded-xl text-xs text-emerald-200 space-y-1">
+                <p className="font-bold flex items-center gap-1.5 text-emerald-300">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>Secure Admin Password Initialization</span>
+                </p>
+                <p className="text-[11px] text-slate-300 leading-relaxed">
+                  Verify ownership via SMS OTP on your designated admin phone ({ADMIN_CONFIG.DESIGNATED_PHONE}) to choose your dedicated password for {ADMIN_CONFIG.DESIGNATED_EMAIL}. Never hardcoded, 100% server-verified.
+                </p>
+              </div>
+
+              {setupStep === 'request' ? (
+                <form onSubmit={handleStartSetupOtp} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                      Admin Phone Number
+                    </label>
+                    <input
+                      type="tel"
+                      required
+                      value={phone || ADMIN_CONFIG.DESIGNATED_PHONE}
+                      onChange={(e) => setPhone(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-3 text-sm font-medium text-white placeholder-slate-600 focus:outline-none focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading}
+                    className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-sm transition shadow-lg shadow-emerald-600/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                        <span>Sending SMS OTP...</span>
+                      </span>
+                    ) : (
+                      <>
+                        <span>Send Phone Verification Code</span>
+                        <ArrowRight className="w-4 h-4" />
+                      </>
+                    )}
+                  </button>
+
+                  <div className="text-center pt-1">
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchMethod('email')}
+                      className="text-xs text-slate-400 hover:text-slate-200 cursor-pointer"
+                    >
+                      ← Back to Email & Password Login
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <form onSubmit={handleSaveSetupPassword} className="space-y-4">
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                      6-Digit SMS Code Sent to {phone || ADMIN_CONFIG.DESIGNATED_PHONE}
+                    </label>
+                    <input
+                      type="text"
+                      maxLength={6}
+                      required
+                      value={otp}
+                      onChange={(e) => setOtp(e.target.value.replace(/\D/g, ''))}
+                      placeholder="123456"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-center text-base font-mono tracking-widest text-emerald-400 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                      Admin Email (Linked)
+                    </label>
+                    <input
+                      type="email"
+                      required
+                      value={email || ADMIN_CONFIG.DESIGNATED_EMAIL}
+                      onChange={(e) => setEmail(e.target.value)}
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-300 focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                      Choose Your Administrator Password
+                    </label>
+                    <div className="relative">
+                      <input
+                        type={showPassword ? 'text' : 'password'}
+                        required
+                        minLength={6}
+                        value={password}
+                        onChange={(e) => setPassword(e.target.value)}
+                        placeholder="Choose a strong password"
+                        className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500 pr-10"
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setShowPassword(!showPassword)}
+                        className="absolute right-3 top-2.5 text-slate-500 hover:text-slate-300 cursor-pointer"
+                      >
+                        {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">
+                      Confirm Password
+                    </label>
+                    <input
+                      type={showPassword ? 'text' : 'password'}
+                      required
+                      minLength={6}
+                      value={confirmPassword}
+                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      placeholder="Re-enter to confirm"
+                      className="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white focus:border-emerald-500"
+                    />
+                  </div>
+
+                  <button
+                    type="submit"
+                    disabled={loading || otp.trim().length !== 6 || password.length < 6}
+                    className="w-full py-3.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-sm transition shadow-lg shadow-emerald-600/20 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    {loading ? (
+                      <span className="flex items-center gap-2">
+                        <RefreshCw className="w-4 h-4 animate-spin text-slate-950" />
+                        <span>Saving Password & Entering Governance Suite...</span>
+                      </span>
+                    ) : (
+                      <>
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span>Save Password & Launch Dashboard</span>
+                      </>
+                    )}
+                  </button>
+
+                  <div className="flex items-center justify-between text-xs pt-1">
+                    <button
+                      type="button"
+                      onClick={handleStartSetupOtp}
+                      disabled={loading || cooldown > 0}
+                      className="text-emerald-400 hover:underline cursor-pointer"
+                    >
+                      {cooldown > 0 ? `Resend SMS in ${cooldown}s` : 'Resend Code'}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchMethod('email')}
+                      className="text-slate-400 hover:text-slate-200 cursor-pointer"
+                    >
+                      Cancel Setup
+                    </button>
+                  </div>
+                </form>
+              )}
+            </div>
           )}
 
           {/* Security Assurance Footer */}

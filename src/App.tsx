@@ -15,7 +15,8 @@ import {
   Building2,
   Phone,
   AlertTriangle,
-  Landmark
+  Landmark,
+  ShieldCheck
 } from 'lucide-react';
 import { Auth } from './components/Auth';
 import { WorkerDiscoveryModal, WorkerItem } from './components/WorkerDiscoveryModal';
@@ -45,7 +46,7 @@ import {
   AppRoute,
   AdminRoute,
 } from './lib/adminRouter';
-import { getStoredAdminSession } from './lib/adminAuth';
+import { getStoredAdminSession, clearAdminSession, verifyAdminStatus, ensureAdminSession } from './lib/adminAuth';
 
 // Lazy-loaded Admin modules
 const AdminLogin = lazy(() => import('./components/admin/AdminLogin'));
@@ -54,6 +55,7 @@ const AdminOverview = lazy(() => import('./components/admin/AdminOverview'));
 const UserManagement = lazy(() => import('./components/admin/UserManagement'));
 const JobManagement = lazy(() => import('./components/admin/JobManagement'));
 const EquipmentManagement = lazy(() => import('./components/admin/EquipmentManagement'));
+const PaymentManagement = lazy(() => import('./components/admin/PaymentManagement'));
 const ComplaintsManagement = lazy(() => import('./components/admin/ComplaintsManagement'));
 const ContentManagement = lazy(() => import('./components/admin/ContentManagement'));
 const AnalyticsView = lazy(() => import('./components/admin/AnalyticsView'));
@@ -557,13 +559,78 @@ export default function App() {
   // Authenticated data fetcher - ONLY runs after user is authenticated
   const fetchUserData = useCallback(async (activeUser: User) => {
     try {
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('role, account_status')
-        .eq('id', activeUser.id)
-        .single();
-      if (profile?.role) {
-        setUserRole(profile.role as 'worker' | 'employer');
+      // 1. Authoritative check: Is the authenticated user an active administrator?
+      const adminCheck = await verifyAdminStatus(activeUser.id);
+
+      if (adminCheck.isAdmin) {
+        setUserRole('admin');
+        ensureAdminSession(activeUser, adminCheck.role, adminCheck.verifiedEmail, adminCheck.verifiedPhone);
+        localStorage.setItem('quickhire_user_session', JSON.stringify(activeUser));
+        localStorage.setItem('quickhire_user_role', 'admin');
+
+        // Safe, Idempotent profile synchronization for administrator
+        try {
+          const { data: existingProfile } = await supabase
+            .from('profiles')
+            .select('id, role')
+            .eq('id', activeUser.id)
+            .maybeSingle();
+
+          if (!existingProfile || existingProfile.role !== 'admin') {
+            await supabase.from('profiles').upsert({
+              id: activeUser.id,
+              role: 'admin',
+              full_name: activeUser.user_metadata?.full_name || 'Platform Administrator',
+              email: activeUser.email || null,
+              phone_number: activeUser.phone || adminCheck.verifiedPhone || null,
+              account_status: 'active',
+            }, { onConflict: 'id' });
+          }
+
+          // Deactivate any accidental worker availability if a worker record existed
+          await supabase.from('workers').update({ is_available: false }).eq('id', activeUser.id);
+        } catch {
+          // Non-blocking
+        }
+
+        // Auto-route active administrator to Admin Dashboard on login/refresh unless in citizen preview
+        const previewCitizen = typeof window !== 'undefined' && sessionStorage.getItem('quickhire_admin_preview_citizen') === 'true';
+        if (!previewCitizen && (window.location.pathname === '/' || window.location.pathname === '')) {
+          navigateTo('/admin');
+          setAppRoute('admin-overview');
+        }
+      } else {
+        clearAdminSession();
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, role, account_status')
+          .eq('id', activeUser.id)
+          .maybeSingle();
+
+        if (profile?.role === 'employer') {
+          setUserRole('employer');
+          localStorage.setItem('quickhire_user_role', 'employer');
+        } else {
+          setUserRole('worker');
+          localStorage.setItem('quickhire_user_role', 'worker');
+        }
+
+        if (profile?.account_status === 'deactivated') {
+          // Soft-delete restoration: restore account_status to active
+          await supabase
+            .from('profiles')
+            .update({ account_status: 'active' })
+            .eq('id', activeUser.id);
+
+          if (profile.role === 'worker') {
+            await supabase
+              .from('workers')
+              .update({ is_available: true })
+              .eq('id', activeUser.id);
+          }
+          showToast(t('accountRestoredSuccess'), 'success');
+        }
       }
 
       // Restore applied jobs from database so interest remains persistent across logins & reloads
@@ -576,24 +643,8 @@ export default function App() {
       } else {
         setAppliedJobIds(new Set());
       }
-
-      if (profile?.account_status === 'deactivated') {
-        // Soft-delete restoration: restore account_status to active
-        await supabase
-          .from('profiles')
-          .update({ account_status: 'active' })
-          .eq('id', activeUser.id);
-
-        if (profile.role === 'worker') {
-          await supabase
-            .from('workers')
-            .update({ is_available: true })
-            .eq('id', activeUser.id);
-        }
-        showToast(t('accountRestoredSuccess'), 'success');
-      }
-    } catch {
-      // Ignore
+    } catch (err) {
+      console.warn('Error fetching user data:', err);
     }
     fetchOpenJobs();
     fetchWorkers();
@@ -604,6 +655,7 @@ export default function App() {
   // Handle soft-delete account deactivation with data retention
   const handleDeactivateAccount = useCallback(async () => {
     try {
+      clearAdminSession();
       await supabase.auth.signOut();
       localStorage.removeItem('quickhire_user_session');
       localStorage.removeItem('quickhire_user_role');
@@ -638,26 +690,26 @@ export default function App() {
     fetchWorkers();
     fetchEquipment();
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    supabase.auth.getSession().then(async ({ data: { session } }) => {
       const currentUser = session?.user ?? getStoredFallbackUser();
       setUser(currentUser);
-      setAuthChecking(false);
       if (currentUser) {
-        fetchUserData(currentUser);
+        await fetchUserData(currentUser);
       }
+      setAuthChecking(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
       const currentUser = session?.user ?? getStoredFallbackUser();
       setUser(currentUser);
-      setAuthChecking(false);
       if (currentUser) {
-        fetchUserData(currentUser);
+        await fetchUserData(currentUser);
       } else {
         setUserRole(null);
         setMyPostedJobs([]);
         setAppliedJobIds(new Set());
       }
+      setAuthChecking(false);
     });
 
     return () => subscription.unsubscribe();
@@ -869,50 +921,59 @@ export default function App() {
 
   // Dedicated Admin Dashboard Suite (/admin, /admin/users, /admin/jobs, etc.)
   if (isAdminPath()) {
-    const adminSession = getStoredAdminSession();
+    // 1. If auth is still verifying session, render loading screen
+    if (authChecking) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
+          Verifying Admin Access...
+        </div>
+      );
+    }
 
-    // 1. If not authenticated as an authorized administrator
-    if (!adminSession) {
-      // If user is a logged-in regular worker or employer trying to reach /admin directly
-      if (user && userRole !== 'admin') {
-        return (
-          <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
-            <div className="max-w-md w-full bg-slate-900 border border-rose-900/60 p-8 rounded-3xl shadow-2xl space-y-4">
-              <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <h2 className="text-xl font-heading font-black text-white">403 — Unauthorized Access</h2>
-              <p className="text-xs text-slate-400 leading-relaxed">
-                Your current session ({user.email || 'Citizen'}) is authorized as a <strong>{userRole || 'standard user'}</strong>. Administrator authorization in <code className="text-rose-300 font-mono">admin_users</code> and two-step verification are required to open the security governance suite.
-              </p>
-              <div className="pt-2 flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateTo('/');
-                    setAppRoute('public');
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer"
-                >
-                  Return to Dashboard
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    navigateTo('/admin/login');
-                    setAppRoute('admin-login');
-                  }}
-                  className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
-                >
-                  Admin Login
-                </button>
-              </div>
+    const adminSession = getStoredAdminSession();
+    const isAuthorizedAdmin = Boolean(userRole === 'admin' || adminSession);
+
+    // 2. If authenticated as standard citizen (worker/employer), show 403 Forbidden
+    if (user && !isAuthorizedAdmin) {
+      return (
+        <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center p-6 text-center">
+          <div className="max-w-md w-full bg-slate-900 border border-rose-900/60 p-8 rounded-3xl shadow-2xl space-y-4">
+            <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
+              <AlertTriangle className="w-6 h-6" />
+            </div>
+            <h2 className="text-xl font-heading font-black text-white">403 — Unauthorized Access</h2>
+            <p className="text-xs text-slate-400 leading-relaxed">
+              Your current session ({user.email || 'Citizen'}) is authorized as a <strong>{userRole || 'standard user'}</strong>. Administrator authorization in <code className="text-rose-300 font-mono">admin_users</code> is required to open the security governance suite.
+            </p>
+            <div className="pt-2 flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => {
+                  navigateTo('/');
+                  setAppRoute('public');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs transition cursor-pointer"
+              >
+                Return to Dashboard
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  navigateTo('/admin/login');
+                  setAppRoute('admin-login');
+                }}
+                className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
+              >
+                Admin Login
+              </button>
             </div>
           </div>
-        );
-      }
+        </div>
+      );
+    }
 
-      // If not authenticated, redirect to /admin/login
+    // 3. If not authenticated at all, redirect to /admin/login
+    if (!user && !isAuthorizedAdmin) {
       return (
         <Suspense
           fallback={
@@ -952,10 +1013,13 @@ export default function App() {
           onGlobalSearchChange={setAdminSearchQuery}
           onLogout={() => {
             showToast('Administrator session closed safely.', 'info');
+            clearAdminSession();
+            sessionStorage.removeItem('quickhire_admin_preview_citizen');
             navigateTo('/admin/login');
             setAppRoute('admin-login');
           }}
           onNavigatePublic={() => {
+            sessionStorage.setItem('quickhire_admin_preview_citizen', 'true');
             navigateTo('/');
             setAppRoute('public');
           }}
@@ -964,6 +1028,7 @@ export default function App() {
           {currentAdminNav === 'admin-users' && <UserManagement />}
           {currentAdminNav === 'admin-jobs' && <JobManagement />}
           {currentAdminNav === 'admin-equipment' && <EquipmentManagement />}
+          {currentAdminNav === 'admin-payments' && <PaymentManagement />}
           {currentAdminNav === 'admin-complaints' && <ComplaintsManagement />}
           {currentAdminNav === 'admin-content' && <ContentManagement />}
           {currentAdminNav === 'admin-analytics' && <AnalyticsView />}
@@ -1025,6 +1090,10 @@ export default function App() {
           setUserRole(role);
           fetchUserData(loggedInUser);
           setIsLoginOpen(false);
+          if (role === 'admin') {
+            navigateTo('/admin');
+            setAppRoute('admin-overview');
+          }
         }}
       />
       <WorkerDiscoveryModal
@@ -1611,7 +1680,12 @@ export default function App() {
 
             {/* User Role Badge */}
             {user && (
-              userRole === 'employer' ? (
+              userRole === 'admin' ? (
+                <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-emerald-400 border border-emerald-500/40 whitespace-nowrap shadow-xs">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
+                  <span>Super Admin / मुख्य प्रशासक</span>
+                </span>
+              ) : userRole === 'employer' ? (
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 whitespace-nowrap">
                   <Building2 className="w-3.5 h-3.5 text-amber-700" />
                   <span>Employer / नियोक्ता</span>
@@ -1624,8 +1698,8 @@ export default function App() {
               )
             )}
 
-            {/* Worker Profile Button */}
-            {user && (
+            {/* Worker Profile Button - Only for non-admin users */}
+            {user && userRole !== 'admin' && (
               <button
                 onClick={() => setIsWorkerProfileOpen(true)}
                 className="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 hover:bg-emerald-100 text-[#138808] border border-emerald-300 transition-colors flex items-center gap-1.5 whitespace-nowrap"
@@ -1636,15 +1710,36 @@ export default function App() {
               </button>
             )}
 
+            {/* Admin Suite Button */}
+            {userRole === 'admin' && (
+              <button
+                onClick={() => {
+                  sessionStorage.removeItem('quickhire_admin_preview_citizen');
+                  navigateTo('/admin');
+                  setAppRoute('admin-overview');
+                }}
+                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+              >
+                <ShieldCheck className="w-4 h-4 text-white" />
+                <span>Admin Dashboard</span>
+              </button>
+            )}
+
             {/* Logout / Login Button */}
             {user ? (
               <button
                 onClick={async () => {
+                  clearAdminSession();
+                  sessionStorage.removeItem('quickhire_admin_preview_citizen');
                   await supabase.auth.signOut();
                   localStorage.removeItem('quickhire_user_session');
                   localStorage.removeItem('quickhire_user_role');
                   setUser(null);
                   setUserRole(null);
+                  setAppliedJobIds(new Set());
+                  setMyPostedJobs([]);
+                  navigateTo('/');
+                  setAppRoute('public');
                 }}
                 className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors whitespace-nowrap"
               >
@@ -2034,13 +2129,18 @@ export default function App() {
             <DashboardTab
               currentLang={currentLang}
               user={user}
-              userRole={userRole === 'admin' ? 'employer' : userRole}
+              userRole={userRole}
               myPostedJobs={myPostedJobs}
               loadingMyJobs={loadingMyJobs}
               onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
               onRequireLogin={() => setIsLoginOpen(true)}
               onMarkJobCompleted={handleMarkJobCompleted}
               onOpenWorkerProfile={() => setIsWorkerModalOpen(true)}
+              onNavigateAdmin={() => {
+                sessionStorage.removeItem('quickhire_admin_preview_citizen');
+                navigateTo('/admin');
+                setAppRoute('admin-overview');
+              }}
               onBrowseWorkers={(category) => {
                 setSelectedCategory(category);
                 setActiveTab('workers');
