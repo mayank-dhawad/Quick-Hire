@@ -18,6 +18,8 @@ import {
   Bell,
   RefreshCw,
   Phone,
+  Receipt,
+  ShieldCheck,
   X
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
@@ -85,8 +87,12 @@ export interface PaymentRecordItem {
   amount: number;
   payment_method: string;
   transaction_ref: string | null;
+  payment_reference?: string | null;
+  verification_status?: string | null;
   status: string | null;
   created_at: string;
+  payee_name?: string | null;
+  payer_name?: string | null;
 }
 
 export interface ReviewRecordItem {
@@ -112,7 +118,7 @@ export interface NotificationRecordItem {
 interface DashboardTabProps {
   currentLang?: string;
   user: User | null;
-  userRole?: 'worker' | 'employer' | null;
+  userRole?: 'worker' | 'employer' | 'admin' | null;
   myPostedJobs: PostedJobItem[];
   loadingMyJobs: boolean;
   onNavigateTab: (tab: string) => void;
@@ -120,6 +126,7 @@ interface DashboardTabProps {
   onMarkJobCompleted: (jobId: string) => void;
   onBrowseWorkers: (category: string) => void;
   onOpenWorkerProfile?: () => void;
+  onNavigateAdmin?: () => void;
   onPayWage: (
     recipientId: string,
     recipientName: string,
@@ -140,6 +147,7 @@ export function DashboardTab({
   onMarkJobCompleted,
   onBrowseWorkers,
   onOpenWorkerProfile,
+  onNavigateAdmin,
   onPayWage,
 }: DashboardTabProps) {
   const t = (key: string): string => getTranslation(currentLang, key);
@@ -152,7 +160,7 @@ export function DashboardTab({
   // Synchronize view mode if role arrives after initial mount
   useEffect(() => {
     if (userRole) {
-      setViewMode(userRole);
+      setViewMode(userRole === 'admin' ? 'employer' : userRole);
     }
   }, [userRole]);
 
@@ -161,9 +169,11 @@ export function DashboardTab({
   const [appliedJobs, setAppliedJobs] = useState<WorkerAppliedJobItem[]>([]);
   const [wagePayments, setWagePayments] = useState<PaymentRecordItem[]>([]);
   const [rentalPayments, setRentalPayments] = useState<PaymentRecordItem[]>([]);
+  const [employerPayments, setEmployerPayments] = useState<PaymentRecordItem[]>([]);
   const [reviews, setReviews] = useState<ReviewRecordItem[]>([]);
   const [notifications, setNotifications] = useState<NotificationRecordItem[]>([]);
   const [loadingWorkerData, setLoadingWorkerData] = useState(false);
+  const [loadingEmployerPayments, setLoadingEmployerPayments] = useState(false);
   const [workerFetchError, setWorkerFetchError] = useState<string | null>(null);
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
 
@@ -289,11 +299,36 @@ export function DashboardTab({
     }
   }, [user]);
 
-  useEffect(() => {
-    if (user && viewMode === 'worker') {
-      fetchWorkerHistory();
+  // Fetch employer-initiated payment history
+  const fetchEmployerPayments = useCallback(async () => {
+    if (!user) return;
+    setLoadingEmployerPayments(true);
+    try {
+      const { data, error } = await supabase
+        .from('payments')
+        .select('*')
+        .eq('payer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (!error && data) {
+        setEmployerPayments(data as unknown as PaymentRecordItem[]);
+      }
+    } catch (err) {
+      console.warn('Employer payments load error:', err);
+    } finally {
+      setLoadingEmployerPayments(false);
     }
-  }, [user, viewMode, fetchWorkerHistory]);
+  }, [user]);
+
+  useEffect(() => {
+    if (user) {
+      if (viewMode === 'worker') {
+        fetchWorkerHistory();
+      } else {
+        fetchEmployerPayments();
+      }
+    }
+  }, [user, viewMode, fetchWorkerHistory, fetchEmployerPayments]);
 
   const totalWagesSum = wagePayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
   const completedJobsCount = appliedJobs.filter(
@@ -308,6 +343,45 @@ export function DashboardTab({
       transition={{ duration: 0.2 }}
       className="space-y-8"
     >
+      {/* SUPER ADMIN CONSOLE BANNER */}
+      {userRole === 'admin' && (
+        <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-r from-slate-950 via-slate-900 to-slate-950 border border-emerald-500/40 text-white flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-xl">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-xl bg-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0 border border-emerald-500/30">
+              <ShieldCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <span className="text-[11px] uppercase font-black tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                  Super Admin Session Active
+                </span>
+                <span className="text-xs text-slate-400 hidden sm:inline">Governance Suite Ready</span>
+              </div>
+              <h3 className="font-heading font-black text-base text-white mt-1">
+                National DPI Administration Console
+              </h3>
+              <p className="text-xs text-slate-300">
+                You are currently viewing the citizen portal. Click below to manage platform users, jobs, grievances, content, and UPI settlements.
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => {
+              if (onNavigateAdmin) {
+                onNavigateAdmin();
+              } else if (typeof window !== 'undefined') {
+                window.location.href = '/admin';
+              }
+            }}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer"
+          >
+            <ShieldCheck className="w-4 h-4" />
+            <span>Launch Admin Suite →</span>
+          </button>
+        </div>
+      )}
+
       {/* HEADER & VIEW MODE SELECTOR */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
@@ -531,6 +605,67 @@ export function DashboardTab({
             </div>
           </div>
 
+          {/* WORKER PAYMENT DETAILS & UPI SECTION */}
+          <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-emerald-800/40 space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                    Direct Payout Setup
+                  </span>
+                  <span className="text-xs text-emerald-400 font-bold">0% Middleman Cut</span>
+                </div>
+                <h3 className="text-lg sm:text-xl font-heading font-extrabold text-white flex items-center gap-2">
+                  <span>⚡ Worker Direct UPI & Bank Account</span>
+                </h3>
+                <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
+                  {t('eduUpiNoWithdrawal')}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => onNavigateTab('bank')}
+                className="self-start sm:self-center px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+              >
+                <Landmark className="w-4 h-4" />
+                <span>{workerProfile?.upi_id ? 'Edit UPI & Bank' : 'Add UPI Details'}</span>
+              </button>
+            </div>
+
+            <div className="pt-3 border-t border-emerald-900/60 grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Saved UPI ID
+                </span>
+                <span className="font-mono font-bold text-sm text-emerald-300 truncate block">
+                  {workerProfile?.upi_id || 'Not Linked Yet'}
+                </span>
+              </div>
+
+              <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Bank Account / IFSC
+                </span>
+                <span className="font-mono font-bold text-xs text-slate-200 truncate block">
+                  {workerProfile?.bank_account_no
+                    ? `••••${workerProfile.bank_account_no.slice(-4)} (${workerProfile.bank_ifsc || 'IFSC'})`
+                    : 'Not Configured'}
+                </span>
+              </div>
+
+              <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
+                  Payout Readiness
+                </span>
+                <span className="font-bold text-xs flex items-center gap-1.5 text-emerald-400">
+                  <CheckCircle2 className="w-3.5 h-3.5" />
+                  <span>{workerProfile?.upi_id ? 'Ready for Direct UPI' : 'Pending UPI Setup'}</span>
+                </span>
+              </div>
+            </div>
+          </div>
+
           {/* SECTION A: APPLIED & IN-PROGRESS JOBS */}
           <div className="space-y-4">
             <div className="flex items-center justify-between">
@@ -650,26 +785,49 @@ export function DashboardTab({
               <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
                 <div className="divide-y divide-slate-100">
                   {wagePayments.map((pay) => (
-                    <div key={pay.id} className="p-4 flex items-center justify-between gap-4">
+                    <div key={pay.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                       <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold">
+                        <div className="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-700 flex items-center justify-center font-bold shrink-0">
                           ₹
                         </div>
                         <div>
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-bold text-xs sm:text-sm text-slate-900">
                               Wage Settlement Received
                             </span>
-                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                               {pay.payment_method}
                             </span>
+                            {/* HONEST STATUS BADGE */}
+                            {pay.status === 'paid' ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                                {t('statusPaid')}
+                              </span>
+                            ) : pay.status === 'submitted' ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                                {t('statusSubmitted')}
+                              </span>
+                            ) : pay.status === 'failed' ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
+                                {t('statusFailed')}
+                              </span>
+                            ) : pay.status === 'cancelled' ? (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+                                {t('statusCancelled')}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                                {t('statusPending')}
+                              </span>
+                            )}
                           </div>
-                          <span className="text-[11px] text-slate-400 block mt-0.5">
-                            Ref: {pay.transaction_ref || pay.id.slice(0, 8)} • {new Date(pay.created_at).toLocaleDateString()}
+                          <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                            {pay.payment_reference ? `Ref: ${pay.payment_reference}` : ''}
+                            {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ''} • {new Date(pay.created_at).toLocaleDateString()}
                           </span>
                         </div>
                       </div>
-                      <span className="font-heading font-black text-sm sm:text-base text-emerald-700">
+                      <span className="font-heading font-black text-sm sm:text-base text-emerald-700 self-end sm:self-center">
                         +₹{pay.amount.toLocaleString()}
                       </span>
                     </div>
@@ -1020,6 +1178,89 @@ export function DashboardTab({
               })}
             </div>
           )}
+
+          {/* SECTION: EMPLOYER PAYMENT HISTORY & SETTLEMENTS */}
+          <div className="space-y-4 pt-6 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Landmark className="w-5 h-5 text-emerald-600" />
+                <h3 className="font-heading font-extrabold text-lg text-slate-900">
+                  Employer Wage & Rent Settlements History
+                </h3>
+              </div>
+              <button
+                type="button"
+                onClick={fetchEmployerPayments}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {loadingEmployerPayments ? (
+              <div className="text-center py-8 text-slate-400 text-xs">
+                Loading payment history...
+              </div>
+            ) : employerPayments.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500 space-y-1">
+                <Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="font-bold text-slate-700">No Payment Attempts Yet</p>
+                <p className="text-slate-400">
+                  When you settle daily wages using &quot;Pay Wage to Bank&quot;, records of your UPI attempts and submitted references will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-2xs">
+                <div className="divide-y divide-slate-100">
+                  {employerPayments.map((pay) => (
+                    <div key={pay.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <span className="font-bold text-xs sm:text-sm text-slate-900">
+                            {pay.payment_for_type === 'worker_wage' ? '👷 Worker Wage Payment' : '🚜 Machine Rent Payment'}
+                          </span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
+                            {pay.payment_method}
+                          </span>
+                          {/* HONEST STATUS BADGE */}
+                          {pay.status === 'paid' ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-300">
+                              {t('statusPaid')}
+                            </span>
+                          ) : pay.status === 'submitted' ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+                              {t('statusSubmitted')}
+                            </span>
+                          ) : pay.status === 'failed' ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-800 border border-red-300">
+                              {t('statusFailed')}
+                            </span>
+                          ) : pay.status === 'cancelled' ? (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-300">
+                              {t('statusCancelled')}
+                            </span>
+                          ) : (
+                            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800 border border-amber-300">
+                              {t('statusPending')}
+                            </span>
+                          )}
+                        </div>
+                        <span className="text-[11px] text-slate-500 block font-mono">
+                          {pay.payment_reference ? `Ref: ${pay.payment_reference}` : ''}
+                          {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ' • (Awaiting UTR)'} • {new Date(pay.created_at).toLocaleDateString()}
+                        </span>
+                      </div>
+
+                      <span className="font-heading font-black text-sm sm:text-base text-slate-900 self-end sm:self-center">
+                        -₹{pay.amount.toLocaleString()}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
     </motion.div>

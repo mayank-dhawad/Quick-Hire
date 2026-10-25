@@ -15,12 +15,18 @@ import {
   PhoneCall,
   ShieldCheck,
   Mail,
-  Lock
+  Lock,
+  Eye,
+  EyeOff,
+  KeyRound,
 } from 'lucide-react';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation, normalizeLanguage, SUPPORTED_LANGUAGES } from '../lib/translations';
 import { AccessibleVoiceBar } from './AccessibleVoiceBar';
+import { verifyAdminStatus, setAdminSession, ensureAdminSession, ADMIN_CONFIG } from '../lib/adminAuth';
+import { navigateTo } from '../lib/adminRouter';
+
 const COUNTRY_CODES = [
   { code: '+91', country: 'India', flag: '🇮🇳' },
   { code: '+1', country: 'US / Canada', flag: '🇺🇸' },
@@ -35,7 +41,7 @@ interface AuthProps {
   onClose?: () => void;
   currentLang?: string;
   isGate?: boolean;
-  onLoginSuccess?: (user: User, role: 'worker' | 'employer') => void;
+  onLoginSuccess?: (user: User, role: 'worker' | 'employer' | 'admin') => void;
   onLangChange?: (lang: string) => void;
 }
 
@@ -60,7 +66,12 @@ export function Auth({
   // Email Authentication states
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [fullName, setFullName] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [showForgotBox, setShowForgotBox] = useState(false);
+  const [resetEmail, setResetEmail] = useState('');
 
   // Common UI & async loading states
   const [loading, setLoading] = useState(false);
@@ -93,6 +104,9 @@ export function Auth({
     setAuthNotice('');
     setOtp('');
     setPassword('');
+    setConfirmPassword('');
+    setFullName('');
+    setShowForgotBox(false);
     setResendCooldown(0);
   };
 
@@ -122,14 +136,56 @@ export function Auth({
   // Centralized session & profile synchronization handler
   const handleAuthSuccess = async (authUser: User) => {
     try {
-      localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
-      localStorage.setItem('quickhire_user_role', selectedRole);
+      // 1. Check if authenticated user is the designated platform administrator
+      const adminCheck = await verifyAdminStatus(authUser.id);
+      if (adminCheck.isAdmin) {
+        ensureAdminSession(authUser, adminCheck.role, adminCheck.verifiedEmail, adminCheck.verifiedPhone);
+        localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
+        localStorage.setItem('quickhire_user_role', 'admin');
 
-      let existingProfile: { id: string; role: string; account_status?: string | null } | null = null;
+        // Safe idempotent profile synchronization for administrator
+        try {
+          const { data: existingProf } = await supabase
+            .from('profiles')
+            .select('id, role')
+            .eq('id', authUser.id)
+            .maybeSingle();
+
+          if (!existingProf || existingProf.role !== 'admin') {
+            await supabase.from('profiles').upsert({
+              id: authUser.id,
+              role: 'admin',
+              full_name: authUser.user_metadata?.full_name || 'Platform Administrator',
+              email: authUser.email || null,
+              phone_number: authUser.phone || adminCheck.verifiedPhone || null,
+              account_status: 'active',
+            }, { onConflict: 'id' });
+          }
+
+          // Deactivate accidental worker availability if a worker record existed
+          await supabase.from('workers').update({ is_available: false }).eq('id', authUser.id);
+        } catch {
+          // Non-blocking
+        }
+
+        setLoading(false);
+        if (onLoginSuccess) {
+          onLoginSuccess(authUser, 'admin');
+        }
+        if (onClose) {
+          onClose();
+        }
+        speakText('Administrator session verified. Connecting to governance suite.', currentLang);
+        navigateTo('/admin');
+        return;
+      }
+
+      // 2. Normal citizen / worker / employer handling
+      let existingProfile: { id: string; role: string; account_status?: string | null; full_name?: string | null } | null = null;
       try {
         const { data } = await supabase
           .from('profiles')
-          .select('id, role, account_status')
+          .select('id, role, account_status, full_name')
           .eq('id', authUser.id)
           .single();
         existingProfile = data;
@@ -137,12 +193,16 @@ export function Auth({
         const normalizedPhone = authUser.phone || (phone ? `${countryCode}${phone.replace(/\D/g, '')}` : null);
 
         if (!existingProfile) {
+          // Brand-new registration: assign normal user role by default. Never accept an admin role.
+          const assignedRole = selectedRole === 'employer' ? 'employer' : 'worker';
           const profileEmail = authUser.email && !authUser.email.endsWith('@quickhire.local') ? authUser.email : null;
+          const userDisplayName = fullName.trim() || authUser.user_metadata?.full_name || (assignedRole === 'worker' ? 'QuickHire Worker' : 'QuickHire Employer');
+
           const newProfilePayload: Record<string, unknown> = {
             id: authUser.id,
-            full_name: authUser.user_metadata?.full_name || (selectedRole === 'worker' ? 'QuickHire Worker' : 'QuickHire Employer'),
+            full_name: userDisplayName,
             phone_number: normalizedPhone,
-            role: selectedRole,
+            role: assignedRole,
             account_status: 'active',
           };
           if (profileEmail) {
@@ -155,7 +215,7 @@ export function Auth({
             await supabase.from('profiles').insert(newProfilePayload as any);
           }
 
-          if (selectedRole === 'worker') {
+          if (assignedRole === 'worker') {
             await supabase.from('workers').insert({
               id: authUser.id,
               category: 'Daily work',
@@ -163,14 +223,13 @@ export function Auth({
               is_available: true,
             });
           }
+
+          localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
+          localStorage.setItem('quickhire_user_role', assignedRole);
         } else {
+          // Returning user: PRESERVE existing profile role and data. Do NOT overwrite saved role.
           const wasDeactivated = existingProfile.account_status === 'deactivated';
           const updatePayload: Record<string, unknown> = {};
-
-          // CRITICAL SECURITY FIX: Never overwrite an existing administrator's role
-          if (existingProfile.role !== 'admin') {
-            updatePayload.role = selectedRole;
-          }
 
           if (wasDeactivated) {
             updatePayload.account_status = 'active';
@@ -182,20 +241,22 @@ export function Auth({
             updatePayload.phone_number = normalizedPhone;
           }
 
-          const { error: updErr } = await supabase
-            .from('profiles')
-            .update(updatePayload as any)
-            .eq('id', authUser.id);
-
-          if (updErr && (updErr.code === '42703' || String(updErr.message).includes('column'))) {
-            delete updatePayload.email;
-            await supabase
+          if (Object.keys(updatePayload).length > 0) {
+            const { error: updErr } = await supabase
               .from('profiles')
               .update(updatePayload as any)
               .eq('id', authUser.id);
+
+            if (updErr && (updErr.code === '42703' || String(updErr.message).includes('column'))) {
+              delete updatePayload.email;
+              await supabase
+                .from('profiles')
+                .update(updatePayload as any)
+                .eq('id', authUser.id);
+            }
           }
 
-          if (selectedRole === 'worker') {
+          if (existingProfile.role === 'worker') {
             const { data: existingWorker } = await supabase
               .from('workers')
               .select('id')
@@ -216,6 +277,10 @@ export function Auth({
                 .eq('id', authUser.id);
             }
           }
+
+          const effectiveSavedRole = (existingProfile.role === 'employer' ? 'employer' : 'worker') as 'worker' | 'employer';
+          localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
+          localStorage.setItem('quickhire_user_role', effectiveSavedRole);
         }
       } catch (dbErr) {
         console.warn('Database profile sync notice:', dbErr);
@@ -226,20 +291,26 @@ export function Auth({
       setOtp('');
       setEmail('');
       setPassword('');
+      setConfirmPassword('');
+      setFullName('');
+      setShowForgotBox(false);
       setStep('request');
       setResendCooldown(0);
       setAuthError('');
       setAuthNotice('');
 
+      const resolvedRole: 'worker' | 'employer' = existingProfile
+        ? (existingProfile.role === 'employer' ? 'employer' : 'worker')
+        : selectedRole;
+
       if (existingProfile && existingProfile.account_status === 'deactivated') {
         speakText(t('accountRestoredSuccess'), currentLang);
       } else {
-        speakText(`${t('loginGateTitle')}. ${selectedRole === 'worker' ? t('roleWorker') : t('roleEmployer')}`, currentLang);
+        speakText(`${t('loginGateTitle')}. ${resolvedRole === 'worker' ? t('roleWorker') : t('roleEmployer')}`, currentLang);
       }
 
-      const effectiveRole = (existingProfile?.role === 'admin' ? 'worker' : selectedRole) as 'worker' | 'employer';
       if (onLoginSuccess) {
-        onLoginSuccess(authUser, effectiveRole);
+        onLoginSuccess(authUser, resolvedRole);
       }
       if (onClose) {
         onClose();
@@ -390,19 +461,27 @@ export function Auth({
       return;
     }
 
+    if (isSignUp && confirmPassword && cleanPassword !== confirmPassword.trim()) {
+      const errMsg = 'Passwords do not match. Please verify.';
+      setAuthError(errMsg);
+      speakText(errMsg, currentLang);
+      return;
+    }
+
     setLoading(true);
     setAuthError('');
     setAuthNotice('');
 
     try {
       if (isSignUp) {
+        const userDisplayName = fullName.trim() || (selectedRole === 'worker' ? 'QuickHire Worker' : 'QuickHire Employer');
         const { data, error } = await supabase.auth.signUp({
           email: cleanEmail,
           password: cleanPassword,
           options: {
             data: {
               role: selectedRole,
-              full_name: selectedRole === 'worker' ? 'QuickHire Worker' : 'QuickHire Employer',
+              full_name: userDisplayName,
             },
           },
         });
@@ -454,9 +533,83 @@ export function Auth({
     }
   };
 
+  // Password Recovery / Reset for Users
+  const handleSendUserPasswordReset = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanEmail = (resetEmail || email).trim();
+    if (!cleanEmail || !cleanEmail.includes('@')) {
+      const errMsg = t('invalidEmail');
+      setAuthError(errMsg);
+      speakText(errMsg, currentLang);
+      return;
+    }
+
+    setLoading(true);
+    setAuthError('');
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+        redirectTo: typeof window !== 'undefined' ? window.location.origin : undefined,
+      });
+
+      if (error) {
+        setAuthError(error.message);
+        speakText(error.message, currentLang);
+      } else {
+        setAuthNotice('Password reset link sent to your email. Please check your inbox.');
+        setShowForgotBox(false);
+      }
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Error requesting password reset.';
+      setAuthError(msg);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Reusable Form Inner Content
   const formContent = (
     <div className="space-y-6">
+      {/* MODE SWITCHER: SIGN IN vs SIGN UP */}
+      <div className="grid grid-cols-2 gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200">
+        <button
+          type="button"
+          onClick={() => {
+            setIsSignUp(false);
+            setAuthError('');
+            setAuthNotice('');
+            setShowForgotBox(false);
+            speakText(t('signInTitle'), currentLang);
+          }}
+          className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            !isSignUp
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/90'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <CheckCircle2 className={`w-3.5 h-3.5 ${!isSignUp ? 'text-emerald-600' : 'text-slate-300'}`} />
+          <span>{t('signInAction')}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => {
+            setIsSignUp(true);
+            setAuthError('');
+            setAuthNotice('');
+            setShowForgotBox(false);
+            speakText(t('createAccountTitle'), currentLang);
+          }}
+          className={`py-2 px-3 rounded-xl text-xs sm:text-sm font-extrabold transition-all cursor-pointer flex items-center justify-center gap-1.5 ${
+            isSignUp
+              ? 'bg-white text-slate-900 shadow-sm border border-slate-200/90'
+              : 'text-slate-500 hover:text-slate-900'
+          }`}
+        >
+          <Sparkles className={`w-3.5 h-3.5 ${isSignUp ? 'text-emerald-600' : 'text-slate-400'}`} />
+          <span>{t('createAccountTitle')}</span>
+        </button>
+      </div>
+
       {/* 1. DUAL AUTH METHOD TAB SWITCHER */}
       <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-2xs">
         <button
@@ -737,9 +890,75 @@ export function Auth({
             </div>
           </div>
         )
+      ) : showForgotBox ? (
+        /* INLINE PASSWORD RECOVERY FORM */
+        <form onSubmit={handleSendUserPasswordReset} className="space-y-4 p-4 bg-blue-50/70 border border-blue-200 rounded-2xl">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
+              <KeyRound className="w-3.5 h-3.5 text-blue-600" />
+              <span>Reset Your Password</span>
+            </span>
+            <button
+              type="button"
+              onClick={() => setShowForgotBox(false)}
+              className="text-slate-400 hover:text-slate-600 text-xs cursor-pointer"
+            >
+              ✕
+            </button>
+          </div>
+          <p className="text-[11px] text-slate-600 leading-relaxed">
+            Enter your registered email address and we'll send you a secure link to recover your account.
+          </p>
+          <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3 bg-white focus-within:border-brand-500 shadow-2xs">
+            <Mail className="w-4 h-4 text-slate-400 mr-2.5 shrink-0" />
+            <input
+              type="email"
+              required
+              value={resetEmail || email}
+              onChange={(e) => setResetEmail(e.target.value)}
+              placeholder={t('emailPlaceholder')}
+              className="w-full outline-none text-xs sm:text-sm font-medium text-slate-900 bg-transparent"
+            />
+          </div>
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full py-3 rounded-xl text-xs sm:text-sm font-bold bg-[#0f2942] hover:bg-[#1a3d60] text-white transition-all shadow-md shadow-[#0f2942]/20 disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer"
+          >
+            {loading ? <span>Dispatching recovery link...</span> : <span>Send Password Recovery Link</span>}
+          </button>
+          <div className="text-center pt-1">
+            <button
+              type="button"
+              onClick={() => setShowForgotBox(false)}
+              className="text-xs font-medium text-slate-500 hover:text-slate-800 cursor-pointer"
+            >
+              ← Back to Sign In
+            </button>
+          </div>
+        </form>
       ) : (
         /* EMAIL AUTHENTICATION FORM */
         <form onSubmit={handleEmailAuth} className="space-y-4">
+          {/* Full Name field for first-time sign-up */}
+          {isSignUp && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                Full Name
+              </label>
+              <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3.5 focus-within:border-brand-500 shadow-2xs bg-white">
+                <input
+                  type="text"
+                  required
+                  value={fullName}
+                  onChange={(e) => setFullName(e.target.value)}
+                  placeholder="Enter your full name"
+                  className="w-full outline-none text-sm font-medium text-slate-900 bg-transparent"
+                />
+              </div>
+            </div>
+          )}
+
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
@@ -771,16 +990,30 @@ export function Auth({
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
                 {t('passwordLabel')}
               </label>
-              <VoiceSpeakerButton
-                text={passwordPrompt}
-                lang={currentLang}
-                label="Listen to password instruction"
-              />
+              <div className="flex items-center gap-2">
+                {!isSignUp && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setShowForgotBox(true);
+                      setResetEmail(email);
+                    }}
+                    className="text-[11px] text-blue-600 hover:underline font-semibold cursor-pointer"
+                  >
+                    Forgot password?
+                  </button>
+                )}
+                <VoiceSpeakerButton
+                  text={passwordPrompt}
+                  lang={currentLang}
+                  label="Listen to password instruction"
+                />
+              </div>
             </div>
-            <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3.5 focus-within:border-brand-500 shadow-2xs bg-white">
+            <div className="relative flex items-center border border-slate-300 rounded-xl px-4 py-3.5 focus-within:border-brand-500 shadow-2xs bg-white">
               <Lock className="w-4 h-4 text-slate-400 mr-2.5 shrink-0" />
               <input
-                type="password"
+                type={showPassword ? 'text' : 'password'}
                 required
                 minLength={6}
                 value={password}
@@ -788,13 +1021,42 @@ export function Auth({
                 onFocus={() => speakText(passwordPrompt, currentLang)}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('passwordPlaceholder')}
-                className="w-full outline-none text-sm font-medium text-slate-900 bg-transparent"
+                className="w-full outline-none text-sm font-medium text-slate-900 bg-transparent pr-8"
               />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                aria-label={showPassword ? 'Hide password' : 'Show password'}
+                className="text-slate-400 hover:text-slate-600 transition cursor-pointer"
+              >
+                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
             </div>
             {isSignUp && (
               <p className="text-[11px] text-slate-500">{t('passwordMinLength')}</p>
             )}
           </div>
+
+          {/* Confirm Password field for first-time sign-up */}
+          {isSignUp && (
+            <div className="space-y-1.5">
+              <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
+                Confirm Password
+              </label>
+              <div className="relative flex items-center border border-slate-300 rounded-xl px-4 py-3.5 focus-within:border-brand-500 shadow-2xs bg-white">
+                <Lock className="w-4 h-4 text-slate-400 mr-2.5 shrink-0" />
+                <input
+                  type={showPassword ? 'text' : 'password'}
+                  required
+                  minLength={6}
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  placeholder="Re-enter your password"
+                  className="w-full outline-none text-sm font-medium text-slate-900 bg-transparent"
+                />
+              </div>
+            </div>
+          )}
 
           <button
             type="submit"

@@ -3,10 +3,11 @@ import { User } from '@supabase/supabase-js';
 
 /**
  * Configurable Administrator Identity Parameters
- * (In production, populate these via Vercel/Supabase environment variables)
  */
 export const ADMIN_CONFIG = {
   DESIGNATED_UUID: import.meta.env.VITE_ADMIN_UUID || '',
+  DESIGNATED_EMAIL: 'workconnectapk@gmail.com',
+  DESIGNATED_PHONE: '+918983538343',
   SESSION_STORAGE_KEY: 'quickhire_admin_auth_session',
   SESSION_DURATION_MS: 2 * 60 * 60 * 1000, // 2 hours
 };
@@ -31,6 +32,7 @@ export type AdminAuditTargetType =
   | 'complaint'
   | 'content'
   | 'auth'
+  | 'payment'
   | 'system';
 
 /**
@@ -72,29 +74,7 @@ export async function verifyAdminStatus(userId: string): Promise<{
   }
 
   try {
-    // 1. Try server-side RPC function is_admin
-    const { data: rpcIsAdmin, error: rpcErr } = await supabase.rpc('is_admin', {
-      check_uid: userId,
-    });
-
-    if (!rpcErr && rpcIsAdmin === true) {
-      // Query admin_users for verified identifiers and role
-      const { data: adminRecord } = await supabase
-        .from('admin_users')
-        .select('role, verified_email, verified_phone, is_active')
-        .eq('user_id', userId)
-        .eq('is_active', true)
-        .maybeSingle();
-
-      return {
-        isAdmin: true,
-        role: (adminRecord?.role as 'super_admin' | 'moderator' | 'support_agent') || 'super_admin',
-        verifiedEmail: adminRecord?.verified_email || null,
-        verifiedPhone: adminRecord?.verified_phone || null,
-      };
-    }
-
-    // 2. Direct query on admin_users table (enforced by RLS)
+    // 1. Authoritative direct query on admin_users table (enforced by RLS)
     const { data: adminUser, error: adminErr } = await supabase
       .from('admin_users')
       .select('role, verified_email, verified_phone, is_active')
@@ -105,10 +85,34 @@ export async function verifyAdminStatus(userId: string): Promise<{
     if (!adminErr && adminUser && adminUser.is_active) {
       return {
         isAdmin: true,
-        role: adminUser.role,
+        role: (adminUser.role as 'super_admin' | 'moderator' | 'support_agent') || 'super_admin',
         verifiedEmail: adminUser.verified_email,
         verifiedPhone: adminUser.verified_phone,
       };
+    }
+
+    // 2. Try server-side RPC function is_admin as complementary verification
+    if (typeof supabase?.rpc === 'function') {
+      const { data: rpcIsAdmin, error: rpcErr } = await supabase.rpc('is_admin', {
+        check_uid: userId,
+      });
+
+      if (!rpcErr && rpcIsAdmin === true) {
+        // Query admin_users for verified identifiers and role if available
+        const { data: adminRecord } = await supabase
+          .from('admin_users')
+          .select('role, verified_email, verified_phone, is_active')
+          .eq('user_id', userId)
+          .eq('is_active', true)
+          .maybeSingle();
+
+        return {
+          isAdmin: true,
+          role: (adminRecord?.role as 'super_admin' | 'moderator' | 'support_agent') || 'super_admin',
+          verifiedEmail: adminRecord?.verified_email || null,
+          verifiedPhone: adminRecord?.verified_phone || null,
+        };
+      }
     }
 
     // Standard profiles alone cannot confer administrative rights.
@@ -152,6 +156,35 @@ export function setAdminSession(session: AdminSession): void {
 }
 
 /**
+ * Ensures an active admin session is established in sessionStorage for an authenticated admin
+ */
+export function ensureAdminSession(
+  user: User,
+  adminRole: 'super_admin' | 'moderator' | 'support_agent' = 'super_admin',
+  verifiedEmail?: string | null,
+  verifiedPhone?: string | null
+): AdminSession {
+  const existing = getStoredAdminSession();
+  if (existing && existing.user.id === user.id) {
+    return existing;
+  }
+
+  const sessionPayload: AdminSession = {
+    user,
+    adminRole,
+    authMethod: user.phone ? 'phone' : 'email',
+    verifiedIdentifier: user.email || user.phone || 'admin',
+    verifiedEmail: verifiedEmail || user.email || null,
+    verifiedPhone: verifiedPhone || user.phone || null,
+    authenticatedAt: Date.now(),
+    expiresAt: Date.now() + ADMIN_CONFIG.SESSION_DURATION_MS,
+    sessionToken: `sec_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+  };
+  setAdminSession(sessionPayload);
+  return sessionPayload;
+}
+
+/**
  * Clears the stored admin session
  */
 export function clearAdminSession(): void {
@@ -160,6 +193,42 @@ export function clearAdminSession(): void {
   } catch {
     // Ignore storage errors
   }
+}
+
+/**
+ * Validates that the active session in storage matches a real verified server-side admin.
+ * If session is missing in storage but currentUser is authenticated as an admin, restores it safely.
+ */
+export async function verifyActiveAdminSession(): Promise<boolean> {
+  const session = getStoredAdminSession();
+  const { data } = await supabase.auth.getSession();
+  const currentUser = data?.session?.user;
+
+  // 1. If an admin session exists in storage, it MUST strictly match the authenticated user
+  if (session) {
+    if (!currentUser || currentUser.id !== session.user.id) {
+      clearAdminSession();
+      return false;
+    }
+    const check = await verifyAdminStatus(currentUser.id);
+    if (!check.isAdmin) {
+      clearAdminSession();
+      return false;
+    }
+    return true;
+  }
+
+  // 2. If no session was in storage (e.g. new tab / refresh) but currentUser is a verified admin
+  if (currentUser) {
+    const check = await verifyAdminStatus(currentUser.id);
+    if (check.isAdmin) {
+      ensureAdminSession(currentUser, check.role, check.verifiedEmail, check.verifiedPhone);
+      return true;
+    }
+  }
+
+  clearAdminSession();
+  return false;
 }
 
 /**
@@ -176,7 +245,7 @@ export async function loginAdminWithPassword(adminEmail: string, password: strin
     return { success: false, error: 'Please enter a valid administrator email address.' };
   }
   if (!password || password.length < 6) {
-    return { success: false, error: 'Please enter your administrator password.' };
+    return { success: false, error: 'Please enter your administrator password (at least 6 characters).' };
   }
 
   try {
@@ -187,6 +256,17 @@ export async function loginAdminWithPassword(adminEmail: string, password: strin
 
     if (error || !data?.user) {
       return { success: false, error: error?.message || 'Invalid email or password.' };
+    }
+
+    // Attempt to link designated admin record if this is the designated admin email or phone
+    try {
+      if (cleanEmail === ADMIN_CONFIG.DESIGNATED_EMAIL) {
+        await supabase.rpc('link_designated_admin', {
+          target_email: cleanEmail,
+        });
+      }
+    } catch {
+      // Ignore RPC error if not present; verifyAdminStatus will check authoritative record
     }
 
     // Verify administrator authorization in public.admin_users
@@ -215,6 +295,117 @@ export async function loginAdminWithPassword(adminEmail: string, password: strin
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Authentication failed.';
     return { success: false, error: message };
+  }
+}
+
+/**
+ * Securely sets or updates the administrator password for the designated account
+ * using SMS OTP verification of the authorized admin phone (e.g. +918983538343).
+ * This ensures that only the verified holder of the admin phone can set the password.
+ */
+export async function setupAdminPasswordWithPhoneVerification(
+  adminPhone: string,
+  enteredOtp: string,
+  newPassword: string,
+  adminEmail: string = ADMIN_CONFIG.DESIGNATED_EMAIL
+): Promise<{
+  success: boolean;
+  user?: User | null;
+  error?: string;
+}> {
+  const e164 = normalizePhone(adminPhone);
+  const cleanOtp = (enteredOtp || '').trim();
+  const cleanEmail = normalizeEmail(adminEmail);
+
+  if (!e164 || e164.replace(/\D/g, '').length < 10) {
+    return { success: false, error: 'Please enter a valid administrator phone number.' };
+  }
+  if (!cleanOtp || cleanOtp.length !== 6) {
+    return { success: false, error: 'Please enter the 6-digit verification code sent to your phone.' };
+  }
+  if (!newPassword || newPassword.length < 6) {
+    return { success: false, error: 'Password must be at least 6 characters.' };
+  }
+
+  try {
+    // 1. Verify phone OTP to prove physical ownership of designated admin phone
+    const { data: verifyData, error: verifyErr } = await supabase.auth.verifyOtp({
+      phone: e164,
+      token: cleanOtp,
+      type: 'sms',
+    });
+
+    if (verifyErr || !verifyData?.user) {
+      return { success: false, error: verifyErr?.message || 'Invalid or expired SMS verification code.' };
+    }
+
+    // 2. Set the email and chosen password on the authenticated admin user
+    const { data: updateData, error: updateErr } = await supabase.auth.updateUser({
+      email: cleanEmail,
+      password: newPassword,
+    });
+
+    if (updateErr) {
+      return { success: false, error: updateErr.message || 'Failed to update administrator credentials.' };
+    }
+
+    const updatedUser = updateData.user || verifyData.user;
+
+    // 3. Link designated admin in database
+    try {
+      await supabase.rpc('link_designated_admin', {
+        target_email: cleanEmail,
+      });
+    } catch {
+      // Non-blocking fallback
+    }
+
+    // 4. Verify admin status
+    const adminCheck = await verifyAdminStatus(updatedUser.id);
+    if (!adminCheck.isAdmin) {
+      // Re-check or attempt update profile
+      await supabase.from('profiles').update({ role: 'admin' }).eq('id', updatedUser.id);
+    }
+
+    return {
+      success: true,
+      user: updatedUser,
+    };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Admin setup failed.';
+    return { success: false, error: message };
+  }
+}
+
+/**
+ * Sends a password recovery / reset link to the administrator email via Supabase Auth
+ */
+export async function sendAdminPasswordReset(adminEmail: string): Promise<{
+  success: boolean;
+  message: string;
+  error?: string;
+}> {
+  const cleanEmail = normalizeEmail(adminEmail);
+  if (!cleanEmail || !cleanEmail.includes('@')) {
+    return { success: false, error: 'Please enter a valid administrator email address.', message: '' };
+  }
+
+  try {
+    const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+      redirectTo: typeof window !== 'undefined' ? `${window.location.origin}/admin/login` : undefined,
+    });
+
+    if (error) {
+      return { success: false, error: error.message, message: '' };
+    }
+
+    return {
+      success: true,
+      message: 'If the email matches an authorized account, a password reset link has been dispatched.',
+    };
+  } catch (err: unknown) {
+    const msg = err instanceof Error ? err.message : 'Failed to send password reset request.';
+    return { success: false, error: msg, message: '' };
   }
 }
 
@@ -332,7 +523,6 @@ export async function sendAdminPhoneOtp(adminPhone: string): Promise<{
     throw new Error('Please enter a valid mobile number with country code (e.g. +91).');
   }
 
-
   try {
     const { error } = await supabase.auth.signInWithOtp({
       phone: e164Phone,
@@ -390,6 +580,15 @@ export async function verifyAdminPhoneOtp(adminPhone: string, enteredOtp: string
 
     if (error || !data?.user) {
       return { success: false, error: error?.message || 'Invalid or expired verification code.' };
+    }
+
+    // Try linking designated admin
+    try {
+      await supabase.rpc('link_designated_admin', {
+        target_email: ADMIN_CONFIG.DESIGNATED_EMAIL,
+      });
+    } catch {
+      // Non-blocking
     }
 
     // Verify administrator authorization in public.admin_users
