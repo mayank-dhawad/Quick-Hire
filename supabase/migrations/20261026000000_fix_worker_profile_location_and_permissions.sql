@@ -8,6 +8,7 @@
 --              4. Create public.public_worker_directory view with only approved fields.
 --              5. Purge all legacy broad SELECT policies on profiles and workers.
 --              6. Establish strict, least-privilege RLS policies.
+--              7. Enforce explicit least-privilege table grants.
 -- ==============================================================================
 
 BEGIN;
@@ -103,10 +104,10 @@ ALTER TABLE public.workers ALTER COLUMN availability_status SET DEFAULT 'availab
 -- ------------------------------------------------------------------------------
 -- SECTION 3: SANITIZED PUBLIC DIRECTORY DISCOVERY VIEW
 -- ------------------------------------------------------------------------------
--- To ensure public directory discovery does NOT expose sensitive personal
--- data (such as bank_account_no, bank_ifsc, bank_name, upi_id, email, phone_number,
--- or exact residential address), this secure view exposes ONLY explicitly approved fields.
--- Explicitly filters to worker-role profiles and excludes admin/suspended/deactivated accounts.
+-- Exposes ONLY explicitly approved, non-sensitive worker discovery fields.
+-- Explicitly omits banking details, account numbers, IFSC codes, UPI IDs, emails,
+-- phone numbers, and private residential addresses.
+-- Filters exclusively to eligible worker profiles, excluding admin and inactive accounts.
 
 CREATE OR REPLACE VIEW public.public_worker_directory AS
 SELECT
@@ -134,7 +135,7 @@ WHERE w.is_available = true
 COMMENT ON VIEW public.public_worker_directory IS
   'Whitelisted public directory view. Strictly omits banking details, account numbers, IFSC codes, UPI IDs, emails, phone numbers, and private residential addresses.';
 
--- Grant access to the sanitized view
+-- Grant read access on the public directory view to both anonymous visitors and authenticated users
 GRANT SELECT ON public.public_worker_directory TO anon, authenticated;
 
 -- ------------------------------------------------------------------------------
@@ -175,6 +176,7 @@ END $$;
 -- 3. Workers who applied to their jobs (employer reading applicant details)
 -- 4. Employers who posted jobs they applied for (worker reading hiring employer contact info)
 -- 5. Administrators (public.is_admin(auth.uid()))
+DROP POLICY IF EXISTS "profiles_strict_select_policy" ON public.profiles;
 CREATE POLICY "profiles_strict_select_policy"
 ON public.profiles
 FOR SELECT
@@ -192,7 +194,8 @@ USING (
     OR public.is_admin(auth.uid())
 );
 
--- 4.3 Ensure authenticated workers can insert only their own worker-role profile
+-- 4.3 Ensure authenticated users can insert only their own worker-role profile
+-- Or an assisted worker profile where created_by is their auth.uid()
 DROP POLICY IF EXISTS "Profiles insert policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_insert_policy" ON public.profiles;
 CREATE POLICY "profiles_insert_policy"
@@ -200,11 +203,12 @@ ON public.profiles
 FOR INSERT
 TO authenticated
 WITH CHECK (
-    (auth.uid() = id AND (role IS NULL OR role = 'worker'))
+    (auth.uid() = id AND (is_assisted_profile IS NOT TRUE) AND (role IS NULL OR role = 'worker'))
+    OR (is_assisted_profile = true AND created_by = auth.uid() AND (role IS NULL OR role = 'worker'))
     OR public.is_admin(auth.uid())
 );
 
--- 4.4 Ensure authenticated workers can update their own profile (cannot change role or account_status directly)
+-- 4.4 Ensure authenticated workers can update their own profile or managed assisted profiles
 DROP POLICY IF EXISTS "Profiles update policy" ON public.profiles;
 DROP POLICY IF EXISTS "profiles_update_policy" ON public.profiles;
 CREATE POLICY "profiles_update_policy"
@@ -223,6 +227,7 @@ WITH CHECK (
 );
 
 -- 4.5 Purge legacy broad SELECT policies on workers
+DROP POLICY IF EXISTS "Available workers are viewable by everyone" ON public.workers;
 DROP POLICY IF EXISTS "Worker profiles are viewable by authenticated users" ON public.workers;
 DROP POLICY IF EXISTS "Workers are viewable by authenticated users" ON public.workers;
 DROP POLICY IF EXISTS "Workers select policy" ON public.workers;
@@ -246,6 +251,7 @@ BEGIN
 END $$;
 
 -- 4.6 Workers SELECT policy: self, managed assisted workers, active job employer, or admin
+DROP POLICY IF EXISTS "workers_strict_select_policy" ON public.workers;
 CREATE POLICY "workers_strict_select_policy"
 ON public.workers
 FOR SELECT
@@ -269,6 +275,7 @@ USING (
 );
 
 -- 4.7 Workers INSERT policy
+DROP POLICY IF EXISTS "Workers can insert their own worker profile" ON public.workers;
 DROP POLICY IF EXISTS "Workers can insert their own details" ON public.workers;
 DROP POLICY IF EXISTS "workers_insert_policy" ON public.workers;
 CREATE POLICY "workers_insert_policy"
@@ -287,6 +294,7 @@ WITH CHECK (
 );
 
 -- 4.8 Workers UPDATE policy
+DROP POLICY IF EXISTS "Workers can update their own worker profile" ON public.workers;
 DROP POLICY IF EXISTS "Workers can update their own details" ON public.workers;
 DROP POLICY IF EXISTS "workers_update_policy" ON public.workers;
 CREATE POLICY "workers_update_policy"
@@ -313,5 +321,21 @@ WITH CHECK (
     )
     OR public.is_admin(auth.uid())
 );
+
+-- ------------------------------------------------------------------------------
+-- SECTION 5: EXPLICIT LEAST-PRIVILEGE TABLE GRANTS
+-- ------------------------------------------------------------------------------
+-- Completely revoke public and anonymous table-level access to base tables.
+-- Grant authenticated callers only SELECT, INSERT, UPDATE, withholding DELETE,
+-- TRUNCATE, REFERENCES, and TRIGGER privileges.
+
+REVOKE ALL ON public.profiles FROM PUBLIC, anon;
+REVOKE ALL ON public.workers FROM PUBLIC, anon;
+
+GRANT SELECT, INSERT, UPDATE ON public.profiles TO authenticated;
+GRANT SELECT, INSERT, UPDATE ON public.workers TO authenticated;
+
+REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.profiles FROM authenticated;
+REVOKE DELETE, TRUNCATE, REFERENCES, TRIGGER ON public.workers FROM authenticated;
 
 COMMIT;

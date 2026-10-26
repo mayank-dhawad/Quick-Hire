@@ -35,6 +35,8 @@ interface WorkerProfileProps {
   onSaved: () => void;
   currentLang?: string;
   onDeactivateAccount?: () => Promise<void> | void;
+  isAssistedRegistration?: boolean;
+  assistedWorkerId?: string | null;
 }
 
 const COMMON_SKILLS_BY_CATEGORY: Record<WorkerCategory, string[]> = {
@@ -79,6 +81,8 @@ export function WorkerProfileModal({
   onSaved,
   currentLang = 'English',
   onDeactivateAccount,
+  isAssistedRegistration = false,
+  assistedWorkerId: initialAssistedWorkerId = null,
 }: WorkerProfileProps) {
   // Personal details
   const [fullName, setFullName] = useState('');
@@ -109,8 +113,8 @@ export function WorkerProfileModal({
   const [isEditing, setIsEditing] = useState(false);
   const [existingProfileData, setExistingProfileData] = useState<Record<string, any> | null>(null);
   const [existingWorkerData, setExistingWorkerData] = useState<Record<string, any> | null>(null);
-  const [isAssisted, setIsAssisted] = useState(false);
-  const [assistedWorkerId, setAssistedWorkerId] = useState<string | null>(null);
+  const [isAssisted, setIsAssisted] = useState(Boolean(isAssistedRegistration));
+  const [assistedWorkerId, setAssistedWorkerId] = useState<string | null>(initialAssistedWorkerId);
   const [saving, setSaving] = useState(false);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
@@ -221,6 +225,13 @@ export function WorkerProfileModal({
   }, [user]);
 
   useEffect(() => {
+    if (isOpen) {
+      setIsAssisted(Boolean(isAssistedRegistration));
+      setAssistedWorkerId(initialAssistedWorkerId || null);
+    }
+  }, [isOpen, isAssistedRegistration, initialAssistedWorkerId]);
+
+  useEffect(() => {
     if (user && isOpen && !isAssisted) {
       loadExistingProfile();
     } else if (isAssisted) {
@@ -244,9 +255,9 @@ export function WorkerProfileModal({
       setDailyWage('500');
       setExperienceDescription('');
       setPreferredWorkLocation('');
-      setAssistedWorkerId(null);
+      setAssistedWorkerId(initialAssistedWorkerId || null);
     }
-  }, [user, isOpen, isAssisted, loadExistingProfile]);
+  }, [user, isOpen, isAssisted, loadExistingProfile, initialAssistedWorkerId]);
 
   if (!isOpen) return null;
 

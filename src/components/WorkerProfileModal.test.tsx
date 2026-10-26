@@ -355,4 +355,71 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
       expect(upsertCalls[0].village).toBe('Hajipur');
     });
   });
+
+  it('creates an assisted worker profile with a distinct UUID and stamps created_by with intermediary user ID', async () => {
+    const upsertProfilesCalls: any[] = [];
+    const mockFrom = vi.fn().mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          upsert: vi.fn().mockImplementation((payload: any) => {
+            upsertProfilesCalls.push(payload);
+            return Promise.resolve({ data: payload, error: null });
+          }),
+        };
+      }
+      if (table === 'workers') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          upsert: vi.fn().mockResolvedValue({ data: {}, error: null }),
+        };
+      }
+      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+    });
+
+    (supabase.from as any) = mockFrom;
+
+    const mockSaved = vi.fn();
+    render(
+      <WorkerProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={mockSaved}
+        currentLang="English"
+        user={mockUser}
+        isAssistedRegistration={true}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Full name')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('Full name'), {
+      target: { value: 'Shivaji Rao' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('10-digit mobile number'), {
+      target: { value: '+919123456789' },
+    });
+
+    const saveButton = screen.getByRole('button', { name: /save worker profile/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockSaved).toHaveBeenCalled();
+    });
+
+    expect(upsertProfilesCalls.length).toBeGreaterThan(0);
+    const saved = upsertProfilesCalls[0];
+    // Must NOT overwrite the intermediary's user.id
+    expect(saved.id).not.toBe(mockUser.id);
+    expect(saved.is_assisted_profile).toBe(true);
+    expect(saved.created_by).toBe(mockUser.id);
+    expect(saved.role).toBe('worker');
+  });
 });
+
