@@ -19,6 +19,9 @@ export interface WorkerProfileData {
   district?: string | null;
   state?: string | null;
   pincode?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geocoded_address?: string | null;
 }
 
 export interface WorkerItem {
@@ -32,6 +35,10 @@ export interface WorkerItem {
   availability_status?: string | null;
   average_rating: number | null;
   is_available: boolean | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geocoded_address?: string | null;
+  distance_km?: number | null;
   profiles?: WorkerProfileData | null;
 }
 
@@ -68,6 +75,45 @@ export function WorkerDiscoveryModal({
   const fetchWorkers = useCallback(async () => {
     setLoading(true);
     try {
+      // 1. Primary secure discovery path: public_worker_directory view
+      let viewQuery = (supabase.from('public_worker_directory') as any).select('*');
+      if (categoryFilter !== 'All') {
+        viewQuery = viewQuery.eq('category', categoryFilter as WorkerCategory);
+      }
+
+      const { data: viewData, error: viewError } = await viewQuery;
+      if (!viewError && viewData) {
+        const mapped = (viewData as any[]).map((row: any) => ({
+          id: row.id,
+          category: row.category,
+          skills: Array.isArray(row.skills) ? row.skills : [],
+          experience_years: row.experience_years,
+          daily_wage: row.daily_wage,
+          experience_description: row.experience_description,
+          preferred_work_location: row.preferred_work_location,
+          availability_status: row.is_available ? 'available' : 'unavailable',
+          average_rating: row.average_rating,
+          is_available: row.is_available,
+          latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
+          longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
+          profiles: {
+            id: row.id,
+            full_name: row.full_name,
+            phone_number: null,
+            is_assisted_profile: row.is_assisted_profile,
+            location: row.location,
+            village: row.village,
+            district: row.district,
+            state: row.state,
+            latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
+            longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
+          },
+        }));
+        setWorkers(mapped as unknown as WorkerItem[]);
+        return;
+      }
+
+      // 2. Resilient fallback for older schema
       let query = supabase
         .from('workers')
         .select(`
@@ -86,7 +132,7 @@ export function WorkerDiscoveryModal({
           .from('workers')
           .select(`
             id, category, skills, experience_years, average_rating, is_available,
-            profiles ( id, full_name, phone_number, is_assisted_profile )
+            profiles ( id, full_name, phone_number, is_assisted_profile, village, district, state )
           `)
           .eq('is_available', true);
         data = fallbackRes.data as any;

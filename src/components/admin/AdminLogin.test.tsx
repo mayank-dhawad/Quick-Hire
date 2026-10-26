@@ -33,6 +33,11 @@ vi.mock('../../lib/supabase', () => {
         getUser: vi.fn().mockResolvedValue({ data: { user: null }, error: null }),
         getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
         signOut: vi.fn().mockResolvedValue({ error: null }),
+        onAuthStateChange: vi.fn().mockReturnValue({
+          data: { subscription: { unsubscribe: vi.fn() } },
+        }),
+        updateUser: vi.fn().mockResolvedValue({ data: {}, error: null }),
+        resetPasswordForEmail: vi.fn().mockResolvedValue({ data: {}, error: null }),
       },
       rpc: vi.fn().mockImplementation((fnName: string) => {
         if (fnName === 'is_admin') {

@@ -55,9 +55,12 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
   const [phone, setPhone] = useState('');
   const [otp, setOtp] = useState('');
 
-  // Password reset inline toggle
+  // Password reset inline toggle & recovery session state
   const [showResetBox, setShowResetBox] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
+  const [isRecoveryMode, setIsRecoveryMode] = useState(false);
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmNewPassword, setConfirmNewPassword] = useState('');
 
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState('');
@@ -73,8 +76,18 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
     return () => clearInterval(interval);
   }, [cooldown]);
 
-  // Check if already authenticated with active admin session
+  // Check URL hash/query for recovery token and check existing active admin session
   useEffect(() => {
+    const hash = typeof window !== 'undefined' ? window.location.hash : '';
+    const search = typeof window !== 'undefined' ? window.location.search : '';
+    const hasRecovery = hash.includes('type=recovery') || search.includes('type=recovery');
+
+    if (hasRecovery) {
+      setIsRecoveryMode(true);
+      setNoticeMsg('Administrator password recovery session detected. Please set your new password.');
+      return;
+    }
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user) {
         const check = await verifyAdminStatus(session.user.id);
@@ -85,6 +98,17 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
         }
       }
     });
+
+    const authListener = supabase.auth?.onAuthStateChange ? supabase.auth.onAuthStateChange(async (event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        setIsRecoveryMode(true);
+        setNoticeMsg('Password recovery mode active. Please set your new password.');
+      }
+    }) : null;
+
+    return () => {
+      authListener?.data?.subscription?.unsubscribe();
+    };
   }, [onLoginSuccess]);
 
   // Switch between Authentication tabs
@@ -370,6 +394,52 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
     }
   };
 
+  // 5. Complete Password Recovery: Set New Password
+  const handleUpdatePassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setNoticeMsg('');
+
+    if (!newPassword || newPassword.length < 6) {
+      setErrorMsg('Password must be at least 6 characters long.');
+      return;
+    }
+    if (newPassword !== confirmNewPassword) {
+      setErrorMsg('Passwords do not match. Please verify both entries.');
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error || !data?.user) {
+        setErrorMsg(error?.message || 'Failed to update administrator password.');
+        setLoading(false);
+        return;
+      }
+
+      setNoticeMsg('Administrator password updated successfully! Redirecting to Governance Suite...');
+      const adminStatus = await verifyAdminStatus(data.user.id);
+      if (adminStatus.isAdmin) {
+        await completeAdminAuth(
+          data.user,
+          'email',
+          data.user.email || ADMIN_CONFIG.DESIGNATED_EMAIL,
+          adminStatus.role,
+          adminStatus.verifiedEmail || data.user.email,
+          adminStatus.verifiedPhone || null
+        );
+      } else {
+        setIsRecoveryMode(false);
+        setNoticeMsg('Password updated successfully. Please sign in with your updated credentials.');
+      }
+    } catch (err: unknown) {
+      setErrorMsg(err instanceof Error ? err.message : 'Error setting new password.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-slate-950 flex flex-col justify-between selection:bg-emerald-500 selection:text-slate-950 font-sans text-slate-100 antialiased">
       {/* Top Security Banner */}
@@ -418,58 +488,86 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
           </div>
 
           {/* Authentication Method Selector Tabs */}
-          <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80">
-            <button
-              type="button"
-              onClick={() => handleSwitchMethod('email')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                authMethod === 'email'
-                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Mail className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Email & Password</span>
-            </button>
-            <button
-              type="button"
-              onClick={() => handleSwitchMethod('phone')}
-              className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
-                authMethod === 'phone'
-                  ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
-                  : 'text-slate-400 hover:text-slate-200'
-              }`}
-            >
-              <Phone className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Phone SMS OTP</span>
-            </button>
-          </div>
-
-          {/* Quick Dedicated Email Indicator */}
-          <div className="p-2.5 bg-slate-950/60 border border-slate-800/90 rounded-xl flex items-center justify-between text-xs text-slate-400">
-            <div className="flex items-center gap-2 truncate">
-              <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-              <span className="truncate">Admin Email:</span>
-              <strong className="text-slate-200 font-mono text-[11px] truncate">
-                {ADMIN_CONFIG.DESIGNATED_EMAIL}
-              </strong>
-            </div>
-            {authMethod === 'email' && email !== ADMIN_CONFIG.DESIGNATED_EMAIL && (
+          {!isRecoveryMode && (
+            <div className="grid grid-cols-2 gap-2 p-1 bg-slate-950/80 rounded-2xl border border-slate-800/80">
               <button
                 type="button"
-                onClick={() => setEmail(ADMIN_CONFIG.DESIGNATED_EMAIL)}
-                className="text-[10px] text-emerald-400 hover:underline font-semibold shrink-0 cursor-pointer"
+                onClick={() => handleSwitchMethod('email')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  authMethod === 'email'
+                    ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
               >
-                Use
+                <Mail className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Email & Password</span>
               </button>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => handleSwitchMethod('phone')}
+                className={`py-2 px-3 rounded-xl text-xs font-bold transition flex items-center justify-center gap-2 cursor-pointer ${
+                  authMethod === 'phone'
+                    ? 'bg-slate-800 text-white shadow-sm border border-slate-700/60'
+                    : 'text-slate-400 hover:text-slate-200'
+                }`}
+              >
+                <Phone className="w-3.5 h-3.5 text-emerald-400" />
+                <span>Phone SMS OTP</span>
+              </button>
+            </div>
+          )}
+
+          {/* Quick Dedicated Email Indicator */}
+          {!isRecoveryMode && (
+            <div className="p-2.5 bg-slate-950/60 border border-slate-800/90 rounded-xl flex items-center justify-between text-xs text-slate-400">
+              <div className="flex items-center gap-2 truncate">
+                <Sparkles className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                <span className="truncate">Admin Email:</span>
+                <strong className="text-slate-200 font-mono text-[11px] truncate">
+                  {ADMIN_CONFIG.DESIGNATED_EMAIL}
+                </strong>
+              </div>
+              {authMethod === 'email' && email !== ADMIN_CONFIG.DESIGNATED_EMAIL && (
+                <button
+                  type="button"
+                  onClick={() => setEmail(ADMIN_CONFIG.DESIGNATED_EMAIL)}
+                  className="text-[10px] text-emerald-400 hover:underline font-semibold shrink-0 cursor-pointer"
+                >
+                  Use
+                </button>
+              )}
+            </div>
+          )}
 
           {/* Error & Notice Banners */}
           {errorMsg && (
             <div className="p-3.5 bg-rose-950/60 border border-rose-800/60 rounded-2xl flex items-start gap-2.5 text-xs text-rose-200 shadow-sm animate-shake">
               <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
-              <div className="space-y-0.5 leading-relaxed font-medium">{errorMsg}</div>
+              <div className="space-y-1.5 leading-relaxed font-medium">
+                <div>{errorMsg}</div>
+                {errorMsg.toLowerCase().includes('credentials') && (
+                  <div className="pt-1 flex items-center gap-3 text-[11px]">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowResetBox(true);
+                        setResetEmail(email || ADMIN_CONFIG.DESIGNATED_EMAIL);
+                        setErrorMsg('');
+                      }}
+                      className="text-emerald-400 hover:underline font-bold cursor-pointer"
+                    >
+                      Reset Password via Email →
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => handleSwitchMethod('setup')}
+                      className="text-slate-400 hover:text-white font-medium cursor-pointer"
+                    >
+                      Use Phone Verification
+                    </button>
+                  </div>
+                )}
+              </div>
             </div>
           )}
 
@@ -480,8 +578,62 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
             </div>
           )}
 
+          {/* DEDICATED RECOVERY MODE FORM */}
+          {isRecoveryMode && (
+            <form onSubmit={handleUpdatePassword} className="p-5 bg-slate-950 border border-emerald-500/50 rounded-2xl space-y-4 shadow-xl">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <KeyRound className="w-5 h-5 text-emerald-400 shrink-0" />
+                <h3 className="text-sm font-bold">Set New Administrator Password</h3>
+              </div>
+              <p className="text-xs text-slate-400 leading-relaxed">
+                Choose a secure password (at least 6 characters) for your administrator account.
+              </p>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 block">New Password</label>
+                <input
+                  type="password"
+                  required
+                  value={newPassword}
+                  onChange={(e) => setNewPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-bold text-slate-300 block">Confirm Password</label>
+                <input
+                  type="password"
+                  required
+                  value={confirmNewPassword}
+                  onChange={(e) => setConfirmNewPassword(e.target.value)}
+                  placeholder="••••••••••••"
+                  className="w-full bg-slate-900 border border-slate-800 rounded-xl px-4 py-2.5 text-sm text-white outline-none focus:border-emerald-500"
+                />
+              </div>
+
+              <div className="flex items-center gap-3 pt-1">
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="flex-1 py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-slate-950 font-bold text-xs transition cursor-pointer"
+                >
+                  {loading ? 'Updating Password...' : 'Save Password & Access Admin'}
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setIsRecoveryMode(false)}
+                  className="px-4 py-3 rounded-xl bg-slate-800 text-slate-300 hover:text-white text-xs font-medium"
+                >
+                  Cancel
+                </button>
+              </div>
+            </form>
+          )}
+
           {/* INLINE PASSWORD RESET DRAWER */}
-          {showResetBox && (
+          {showResetBox && !isRecoveryMode && (
             <form onSubmit={handleSendResetEmail} className="p-4 bg-slate-950 border border-emerald-500/30 rounded-2xl space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-emerald-400 flex items-center gap-1.5">
@@ -518,7 +670,7 @@ export function AdminLogin({ onLoginSuccess, onNavigatePublic }: AdminLoginProps
           )}
 
           {/* METHOD 1: EMAIL & PASSWORD LOGIN */}
-          {authMethod === 'email' && !showResetBox && (
+          {authMethod === 'email' && !showResetBox && !isRecoveryMode && (
             <form onSubmit={handleEmailPasswordLogin} noValidate className="space-y-4">
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-300 uppercase tracking-wider block">

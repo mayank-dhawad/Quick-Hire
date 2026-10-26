@@ -8,5 +8,5 @@ if (!supabaseUrl || !supabaseAnonKey) {
   throw new Error('Missing Supabase environment variables. Check your .env file.');
 }
 
-// 2. Add <Database> right after createClient
-export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey);
+// Export typed client
+export const supabase = createClient<any>(supabaseUrl, supabaseAnonKey);

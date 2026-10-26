@@ -333,8 +333,15 @@ export interface Database {
           amount: number
           payment_method: 'Net Banking (IMPS/NEFT)' | 'Direct UPI' | 'Cash'
           transaction_ref: string | null
+          payment_reference: string | null
+          currency: string | null
+          verification_status: string | null
+          verification_notes: string | null
+          verified_at: string | null
+          verified_by: string | null
           status: string | null
           created_at: string | null
+          updated_at: string | null
         }
         Insert: {
           id?: string
@@ -345,8 +352,15 @@ export interface Database {
           amount: number
           payment_method: 'Net Banking (IMPS/NEFT)' | 'Direct UPI' | 'Cash'
           transaction_ref?: string | null
+          payment_reference?: string | null
+          currency?: string | null
+          verification_status?: string | null
+          verification_notes?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
           status?: string | null
           created_at?: string | null
+          updated_at?: string | null
         }
         Update: {
           id?: string
@@ -357,8 +371,15 @@ export interface Database {
           amount?: number
           payment_method?: 'Net Banking (IMPS/NEFT)' | 'Direct UPI' | 'Cash'
           transaction_ref?: string | null
+          payment_reference?: string | null
+          currency?: string | null
+          verification_status?: string | null
+          verification_notes?: string | null
+          verified_at?: string | null
+          verified_by?: string | null
           status?: string | null
           created_at?: string | null
+          updated_at?: string | null
         }
         Relationships: [
           {
@@ -373,6 +394,47 @@ export interface Database {
             columns: ["payee_id"]
             isOneToOne: false
             referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
+      payment_audit_events: {
+        Row: {
+          id: string
+          payment_id: string
+          previous_status: string | null
+          new_status: string
+          event_type: string
+          actor_id: string | null
+          metadata: Json | null
+          created_at: string
+        }
+        Insert: {
+          id?: string
+          payment_id: string
+          previous_status?: string | null
+          new_status: string
+          event_type: string
+          actor_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Update: {
+          id?: string
+          payment_id?: string
+          previous_status?: string | null
+          new_status?: string
+          event_type?: string
+          actor_id?: string | null
+          metadata?: Json | null
+          created_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "payment_audit_events_payment_id_fkey"
+            columns: ["payment_id"]
+            isOneToOne: false
+            referencedRelation: "payments"
             referencedColumns: ["id"]
           }
         ]
@@ -449,7 +511,7 @@ export interface Database {
           admin_id: string | null
           admin_email: string | null
           action: string
-          target_type: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'system'
+          target_type: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'payment' | 'system'
           target_id: string
           reason: string | null
           metadata: Json | null
@@ -461,7 +523,7 @@ export interface Database {
           admin_id?: string | null
           admin_email?: string | null
           action: string
-          target_type: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'system'
+          target_type: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'payment' | 'system'
           target_id: string
           reason?: string | null
           metadata?: Json | null
@@ -473,7 +535,7 @@ export interface Database {
           admin_id?: string | null
           admin_email?: string | null
           action?: string
-          target_type?: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'system'
+          target_type?: 'profile' | 'worker' | 'job' | 'equipment' | 'complaint' | 'content' | 'auth' | 'payment' | 'system'
           target_id?: string
           reason?: string | null
           metadata?: Json | null
@@ -619,7 +681,27 @@ export interface Database {
       }
     }
     Views: {
-      [_ in never]: never
+      public_worker_directory: {
+        Row: {
+          id: string
+          full_name: string
+          category: 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed'
+          skills: string[]
+          experience_years: number | null
+          daily_wage: number | null
+          experience_description: string | null
+          preferred_work_location: string | null
+          average_rating: number | null
+          is_available: boolean | null
+          location: string | null
+          village: string | null
+          district: string | null
+          state: string | null
+          is_assisted_profile: boolean | null
+          latitude: number | null
+          longitude: number | null
+        }
+      }
     }
     Functions: {
       is_admin: {
@@ -648,6 +730,79 @@ export interface Database {
           revocation_reason?: string
         }
         Returns: Json
+      }
+      reconcile_payment_admin: {
+        Args: {
+          p_payment_id: string
+          p_new_status: string
+          p_notes?: string
+        }
+        Returns: Json
+      }
+      link_designated_admin: {
+        Args: {
+          target_email?: string
+          target_phone?: string
+        }
+        Returns: Json
+      }
+      get_worker_contact_phone: {
+        Args: {
+          p_worker_id: string
+        }
+        Returns: {
+          phone_number: string
+          remaining_calls: number
+        }
+      }
+      register_as_employer: {
+        Args: Record<PropertyKey, never>
+        Returns: {
+          success: boolean
+          role: string
+          message?: string
+        }
+      }
+      get_payment_recipient_details: {
+        Args: {
+          p_recipient_id: string
+          p_job_id?: string | null
+        }
+        Returns: {
+          recipient_name: string
+          bank_name: string | null
+          bank_account_no: string | null
+          bank_ifsc: string | null
+          upi_id: string | null
+        }
+      }
+      search_nearby_workers: {
+        Args: {
+          p_lat: number
+          p_lon: number
+          p_radius_km?: number
+          p_category?: string | null
+        }
+        Returns: {
+          id: string
+          full_name: string
+          category: string
+          skills: string[]
+          experience_years: number | null
+          daily_wage: number | null
+          experience_description: string | null
+          preferred_work_location: string | null
+          average_rating: number | null
+          is_available: boolean | null
+          location: string | null
+          village: string | null
+          district: string | null
+          state: string | null
+          is_assisted_profile: boolean | null
+          latitude: number | null
+          longitude: number | null
+          distance_km: number
+        }[]
       }
     }
     Enums: {

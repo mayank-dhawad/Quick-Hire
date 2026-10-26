@@ -7,20 +7,19 @@ import { supabase } from '../lib/supabase';
 vi.mock('../lib/supabase', () => {
   return {
     supabase: {
-      from: vi.fn(() => ({
-        select: vi.fn(() => ({
-          eq: vi.fn(() => ({
-            single: vi.fn().mockResolvedValue({ data: null, error: null }),
-          })),
-        })),
-        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
-        update: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-        })),
-        delete: vi.fn(() => ({
-          eq: vi.fn().mockResolvedValue({ data: null, error: null }),
-        })),
-      })),
+      from: vi.fn(() => {
+        const queryBuilder: Record<string, unknown> = {
+          select: vi.fn(() => queryBuilder),
+          eq: vi.fn(() => queryBuilder),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+          update: vi.fn(() => queryBuilder),
+          delete: vi.fn(() => queryBuilder),
+        };
+        return queryBuilder;
+      }),
+      rpc: vi.fn().mockResolvedValue({ data: false, error: null }),
       auth: {
         signInWithOtp: vi.fn().mockResolvedValue({ data: {}, error: null }),
         verifyOtp: vi.fn().mockResolvedValue({

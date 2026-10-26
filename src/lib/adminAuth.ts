@@ -6,8 +6,8 @@ import { User } from '@supabase/supabase-js';
  */
 export const ADMIN_CONFIG = {
   DESIGNATED_UUID: import.meta.env.VITE_ADMIN_UUID || '',
-  DESIGNATED_EMAIL: 'workconnectapk@gmail.com',
-  DESIGNATED_PHONE: '+918983538343',
+  DESIGNATED_EMAIL: import.meta.env.VITE_ADMIN_EMAIL || 'workconnectapk@gmail.com',
+  DESIGNATED_PHONE: import.meta.env.VITE_ADMIN_PHONE || '+918983538343',
   SESSION_STORAGE_KEY: 'quickhire_admin_auth_session',
   SESSION_DURATION_MS: 2 * 60 * 60 * 1000, // 2 hours
 };
@@ -239,13 +239,14 @@ export async function loginAdminWithPassword(adminEmail: string, password: strin
   success: boolean;
   user?: User | null;
   error?: string;
+  errorCode?: 'invalid_credentials' | 'unauthorized_role' | 'unauthorized_uuid' | 'general';
 }> {
   const cleanEmail = normalizeEmail(adminEmail);
   if (!cleanEmail || !cleanEmail.includes('@')) {
-    return { success: false, error: 'Please enter a valid administrator email address.' };
+    return { success: false, error: 'Please enter a valid administrator email address.', errorCode: 'general' };
   }
   if (!password || password.length < 6) {
-    return { success: false, error: 'Please enter your administrator password (at least 6 characters).' };
+    return { success: false, error: 'Please enter your administrator password (at least 6 characters).', errorCode: 'general' };
   }
 
   try {
@@ -255,7 +256,14 @@ export async function loginAdminWithPassword(adminEmail: string, password: strin
     });
 
     if (error || !data?.user) {
-      return { success: false, error: error?.message || 'Invalid email or password.' };
+      let friendlyError = error?.message || 'Invalid email or password.';
+      const lower = friendlyError.toLowerCase();
+      if (lower.includes('invalid login credentials') || lower.includes('invalid_credentials')) {
+        friendlyError = 'Invalid administrator credentials. Please check your email and password, or use password recovery.';
+      } else if (lower.includes('rate limit')) {
+        friendlyError = 'Too many failed login attempts. Please wait a few moments before trying again.';
+      }
+      return { success: false, error: friendlyError, errorCode: 'invalid_credentials' };
     }
 
     // Attempt to link designated admin record if this is the designated admin email or phone
@@ -276,6 +284,7 @@ export async function loginAdminWithPassword(adminEmail: string, password: strin
       return {
         success: false,
         error: 'Access Denied: This authenticated account has not been granted administrator privileges.',
+        errorCode: 'unauthorized_role',
       };
     }
 
@@ -285,6 +294,7 @@ export async function loginAdminWithPassword(adminEmail: string, password: strin
       return {
         success: false,
         error: 'Access Denied: The authenticated identity does not match the designated administrator account.',
+        errorCode: 'unauthorized_uuid',
       };
     }
 
@@ -294,7 +304,7 @@ export async function loginAdminWithPassword(adminEmail: string, password: strin
     };
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : 'Authentication failed.';
-    return { success: false, error: message };
+    return { success: false, error: message, errorCode: 'general' };
   }
 }
 
