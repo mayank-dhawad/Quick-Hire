@@ -3,6 +3,7 @@ export type AdminRoute =
   | 'admin-users'
   | 'admin-jobs'
   | 'admin-equipment'
+  | 'admin-payments'
   | 'admin-complaints'
   | 'admin-content'
   | 'admin-analytics'
@@ -15,6 +16,7 @@ export const ROUTE_PATH_MAP: Record<AdminRoute, string> = {
   'admin-users': '/admin/users',
   'admin-jobs': '/admin/jobs',
   'admin-equipment': '/admin/equipment',
+  'admin-payments': '/admin/payments',
   'admin-complaints': '/admin/complaints',
   'admin-content': '/admin/content',
   'admin-analytics': '/admin/analytics',
@@ -49,6 +51,10 @@ export function getCurrentRoute(): { route: AppRoute; path: string } {
 
   if (path === '/admin/equipment' || path.startsWith('/admin/equipment/')) {
     return { route: 'admin-equipment', path };
+  }
+
+  if (path === '/admin/payments' || path.startsWith('/admin/payments/')) {
+    return { route: 'admin-payments', path };
   }
 
   if (path === '/admin/complaints' || path.startsWith('/admin/complaints/')) {

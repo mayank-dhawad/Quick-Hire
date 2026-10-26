@@ -24,21 +24,10 @@ import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
+import { PaymentRecord, UPI_REGEX } from '../lib/paymentUtils';
 
-export interface PaymentRecord {
-  id: string;
-  payer_id: string;
-  payee_id: string;
-  payment_for_type: 'worker_wage' | 'machine_rental';
-  reference_id: string | null;
-  amount: number;
-  payment_method: 'Net Banking (IMPS/NEFT)' | 'Direct UPI' | 'Cash';
-  transaction_ref: string | null;
-  status: string | null;
-  created_at: string | null;
-  payer_name?: string | null;
-  payee_name?: string | null;
-}
+export type { PaymentRecord };
+export { UPI_REGEX };
 
 interface BankDetailsTabProps {
   user: User | null;
@@ -118,7 +107,7 @@ export function BankDetailsTab({
       setUpiError('');
       return true;
     }
-    if (!clean.includes('@') || clean.startsWith('@') || clean.endsWith('@')) {
+    if (!clean.includes('@') || clean.startsWith('@') || clean.endsWith('@') || !UPI_REGEX.test(clean)) {
       setUpiError(t('invalidUpiError'));
       return false;
     }
@@ -770,13 +759,24 @@ export function BankDetailsTab({
               ) : upiId.trim() && upiId.includes('@') && !upiId.startsWith('@') && !upiId.endsWith('@') ? (
                 <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium pt-0.5">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Valid UPI Virtual Payment Address (VPA)</span>
+                  <span>Valid UPI Virtual Payment Address (VPA) format</span>
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-400">
                   {t('upiAppsHint')}
                 </p>
               )}
+
+              {/* SECURITY & CITIZEN EDUCATION NOTICE */}
+              <div className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 text-xs text-amber-900 flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
+                <div className="space-y-1">
+                  <span className="font-bold block text-amber-950">Security & Privacy Note:</span>
+                  <p className="text-[11px] leading-relaxed text-amber-800">
+                    {t('eduUpiNoWithdrawal')}
+                  </p>
+                </div>
+              </div>
             </div>
 
             {/* SUBMIT BUTTON */}
@@ -1164,10 +1164,31 @@ export function BankDetailsTab({
 
                       {/* STATUS */}
                       <td className="py-3.5 px-3">
-                        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold">
-                          <Check className="w-2.5 h-2.5" />
-                          <span>{t('settledBadge')}</span>
-                        </span>
+                        {p.status === 'paid' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 text-emerald-800 text-[10px] font-bold border border-emerald-300">
+                            <Check className="w-3 h-3 text-emerald-700" />
+                            <span>{t('statusPaid')}</span>
+                          </span>
+                        ) : p.status === 'submitted' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-blue-100 text-blue-800 text-[10px] font-bold border border-blue-300">
+                            <RefreshCw className="w-3 h-3 text-blue-700" />
+                            <span>{t('statusSubmitted')}</span>
+                          </span>
+                        ) : p.status === 'failed' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-red-100 text-red-800 text-[10px] font-bold border border-red-300">
+                            <AlertCircle className="w-3 h-3 text-red-700" />
+                            <span>{t('statusFailed')}</span>
+                          </span>
+                        ) : p.status === 'cancelled' ? (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 text-[10px] font-bold border border-slate-300">
+                            <span>{t('statusCancelled')}</span>
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-amber-100 text-amber-800 text-[10px] font-bold border border-amber-300">
+                            <AlertCircle className="w-3 h-3 text-amber-700" />
+                            <span>{t('statusPending')}</span>
+                          </span>
+                        )}
                       </td>
                     </tr>
                   );

@@ -9,6 +9,9 @@ import {
   verifyAdminEmailOtp,
   sendAdminPhoneOtp,
   verifyAdminPhoneOtp,
+  setupAdminPasswordWithPhoneVerification,
+  sendAdminPasswordReset,
+  verifyActiveAdminSession,
   verifyAdminStatus,
   logAdminAction,
   normalizeEmail,
@@ -112,6 +115,17 @@ vi.mock('./supabase', () => {
           });
         }),
         signOut: vi.fn().mockResolvedValue({ error: null }),
+        updateUser: vi.fn().mockImplementation(({ email, password }) => {
+          return Promise.resolve({
+            data: { user: { id: '00000000-0000-4000-a000-000000000001', email } },
+            error: null,
+          });
+        }),
+        resetPasswordForEmail: vi.fn().mockResolvedValue({ data: {}, error: null }),
+        getSession: vi.fn().mockResolvedValue({
+          data: { session: { user: { id: '00000000-0000-4000-a000-000000000001' } } },
+          error: null,
+        }),
       },
       rpc: vi.fn().mockImplementation((fnName: string, args: { check_uid?: string; target_user_id?: string }) => {
         if (fnName === 'is_admin') {
@@ -404,6 +418,67 @@ describe('MANDATORY SECURITY ARCHITECTURE TEST SUITE', () => {
       expect(supabase.auth.signOut).toHaveBeenCalled();
 
       ADMIN_CONFIG.DESIGNATED_UUID = '';
+    });
+
+    it('Case 21: Securely sets admin password after verifying designated admin phone SMS OTP', async () => {
+      const res = await setupAdminPasswordWithPhoneVerification(
+        '+919876543210',
+        '123456',
+        'MyChosenPassword123!',
+        'workconnectapk@gmail.com'
+      );
+
+      expect(res.success).toBe(true);
+      expect(res.user?.id).toBe(DESIGNATED_ADMIN_UUID);
+      expect(supabase.auth.verifyOtp).toHaveBeenCalledWith({
+        phone: '+919876543210',
+        token: '123456',
+        type: 'sms',
+      });
+      expect(supabase.auth.updateUser).toHaveBeenCalledWith({
+        email: 'workconnectapk@gmail.com',
+        password: 'MyChosenPassword123!',
+      });
+    });
+
+    it('Case 22: Dispatches administrator password recovery request via Supabase Auth', async () => {
+      const res = await sendAdminPasswordReset('workconnectapk@gmail.com');
+      expect(res.success).toBe(true);
+      expect(supabase.auth.resetPasswordForEmail).toHaveBeenCalledWith(
+        'workconnectapk@gmail.com',
+        expect.objectContaining({ redirectTo: expect.stringContaining('/admin/login') })
+      );
+    });
+
+    it('Case 23: Validates active admin session and invalidates forged session storage', async () => {
+      // Valid session
+      setAdminSession({
+        user: { id: DESIGNATED_ADMIN_UUID } as any,
+        adminRole: 'super_admin',
+        authMethod: 'email',
+        verifiedIdentifier: 'workconnectapk@gmail.com',
+        authenticatedAt: Date.now(),
+        expiresAt: Date.now() + 100000,
+        sessionToken: 'test-token',
+      });
+
+      const valid = await verifyActiveAdminSession();
+      expect(valid).toBe(true);
+
+      // Forged session with invalid user ID
+      setAdminSession({
+        user: { id: 'forged-attacker-uuid' } as any,
+        adminRole: 'super_admin',
+        authMethod: 'email',
+        verifiedIdentifier: 'hacker@attacker.com',
+        authenticatedAt: Date.now(),
+        expiresAt: Date.now() + 100000,
+        sessionToken: 'forged-token',
+      });
+
+      const invalid = await verifyActiveAdminSession();
+      expect(invalid).toBe(false);
+      expect(getStoredAdminSession()).toBeNull();
     });
   });
 });

@@ -40,6 +40,7 @@ describe('AdminRouter', () => {
       { path: '/admin/users', expected: 'admin-users' },
       { path: '/admin/jobs', expected: 'admin-jobs' },
       { path: '/admin/equipment', expected: 'admin-equipment' },
+      { path: '/admin/payments', expected: 'admin-payments' },
       { path: '/admin/complaints', expected: 'admin-complaints' },
       { path: '/admin/content', expected: 'admin-content' },
       { path: '/admin/analytics', expected: 'admin-analytics' },

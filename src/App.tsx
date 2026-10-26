@@ -370,11 +370,50 @@ export default function App() {
   const fetchWorkers = useCallback(async () => {
     setWorkersLoading(true);
     try {
+      // 1. Primary secure discovery path: sanitized public_worker_directory view
+      let viewQuery = (supabase.from('public_worker_directory') as any).select('*');
+      if (selectedCategory !== 'All') {
+        viewQuery = viewQuery.eq('category', selectedCategory as WorkerCategory);
+      }
+
+      const { data: viewData, error: viewError } = await viewQuery;
+      if (!viewError && viewData) {
+        const mapped = (viewData as any[]).map((row: any) => ({
+          id: row.id,
+          category: row.category,
+          skills: Array.isArray(row.skills) ? row.skills : [],
+          experience_years: row.experience_years,
+          daily_wage: row.daily_wage,
+          experience_description: row.experience_description,
+          preferred_work_location: row.preferred_work_location,
+          availability_status: row.is_available ? 'available' : 'unavailable',
+          average_rating: row.average_rating,
+          is_available: row.is_available,
+          latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
+          longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
+          profiles: {
+            id: row.id,
+            full_name: row.full_name,
+            phone_number: null, // Phone numbers retrieved via authorized get_worker_contact_phone RPC
+            is_assisted_profile: row.is_assisted_profile,
+            location: row.location,
+            village: row.village,
+            district: row.district,
+            state: row.state,
+            latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
+            longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
+          },
+        }));
+        setDirectoryWorkers(mapped as unknown as WorkerItem[]);
+        return;
+      }
+
+      // 2. Resilient fallback for unmigrated database environments
       let query = supabase
         .from('workers')
         .select(`
-          id, category, skills, experience_years, daily_wage, experience_description, preferred_work_location, availability_status, average_rating, is_available,
-          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state )
+          id, category, skills, experience_years, daily_wage, experience_description, preferred_work_location, availability_status, average_rating, is_available, latitude, longitude,
+          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state, latitude, longitude )
         `)
         .eq('is_available', true);
 
@@ -388,7 +427,7 @@ export default function App() {
           .from('workers')
           .select(`
             id, category, skills, experience_years, average_rating, is_available,
-            profiles ( id, full_name, phone_number, is_assisted_profile )
+            profiles ( id, full_name, phone_number, is_assisted_profile, village, district, state )
           `)
           .eq('is_available', true);
         data = fallbackRes.data as any;
@@ -2155,6 +2194,29 @@ export default function App() {
                   referenceId: jobId,
                   defaultAmount: amount || 500,
                 });
+              }}
+              onRehireWorker={(worker) => {
+                // Preselect job post fields with the worker's category, skills, and suggested wage
+                setEmployerTitle(`Rehire: ${worker.name} for ${worker.category || 'work'}`);
+                if (worker.category) {
+                  setEmployerCategory(worker.category as WorkerCategory);
+                }
+                if (worker.skills && worker.skills.length > 0) {
+                  setEmployerSkills(worker.skills.join(', '));
+                }
+                if (worker.wage) {
+                  setEmployerWage(worker.wage.toString());
+                }
+                setEmployerDescription(`Direct re-engagement assignment for trusted worker: ${worker.name}.`);
+                setActiveTab('post-job');
+                showToast(`Pre-filled job details for ${worker.name}. Review and confirm to post.`, 'info');
+              }}
+              onViewWorkerProfile={(workerId) => {
+                const found = directoryWorkers.find((w) => w.id === workerId);
+                if (found) {
+                  setSelectedCategory(found.category);
+                }
+                setActiveTab('workers');
               }}
             />
           )}

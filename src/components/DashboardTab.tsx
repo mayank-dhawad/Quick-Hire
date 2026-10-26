@@ -20,10 +20,16 @@ import {
   Phone,
   Receipt,
   ShieldCheck,
-  X
+  X,
+  History,
+  RotateCcw,
+  Eye,
+  UserCheck
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
+import { RateWorkerModal } from './RateWorkerModal';
+import { WorkerItem } from './WorkerDiscoveryModal';
 import { speakText } from '../lib/speech';
 import { getTranslation } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
@@ -134,6 +140,8 @@ interface DashboardTabProps {
     jobId?: string,
     amount?: number
   ) => void;
+  onRehireWorker?: (worker: { id: string; name: string; category?: string; skills?: string[]; wage?: number }) => void;
+  onViewWorkerProfile?: (workerId: string) => void;
 }
 
 export function DashboardTab({
@@ -149,6 +157,8 @@ export function DashboardTab({
   onOpenWorkerProfile,
   onNavigateAdmin,
   onPayWage,
+  onRehireWorker,
+  onViewWorkerProfile,
 }: DashboardTabProps) {
   const t = (key: string): string => getTranslation(currentLang, key);
 
@@ -320,15 +330,183 @@ export function DashboardTab({
     }
   }, [user]);
 
+  // Employer reviews submitted and previously hired workers state
+  const [employerSubmittedReviews, setEmployerSubmittedReviews] = useState<Record<string, { id: string; rating: number; comment: string | null }>>({});
+  const [previouslyHiredWorkers, setPreviouslyHiredWorkers] = useState<{
+    workerId: string;
+    fullName: string;
+    phone: string | null;
+    category: string;
+    skills: string[];
+    averageRating: number | null;
+    lastJobTitle: string;
+    lastHiredDate: string;
+    hiresCount: number;
+    dailyWage: number | null;
+  }[]>([]);
+  const [loadingPreviouslyHired, setLoadingPreviouslyHired] = useState(false);
+
+  // Rate worker modal state
+  const [rateModalState, setRateModalState] = useState<{
+    isOpen: boolean;
+    jobId: string;
+    jobTitle: string;
+    workerId: string;
+    workerName: string;
+    existingReview?: { id: string; rating: number; comment: string | null } | null;
+  }>({
+    isOpen: false,
+    jobId: '',
+    jobTitle: '',
+    workerId: '',
+    workerName: '',
+    existingReview: null,
+  });
+
+  // Fetch reviews submitted by this employer to populate ratings & allow edits
+  const fetchEmployerSubmittedReviews = useCallback(async () => {
+    if (!user) return;
+    try {
+      const { data, error } = await supabase
+        .from('reviews')
+        .select('id, job_id, reviewed_profile_id, rating, comment')
+        .eq('reviewer_profile_id', user.id);
+
+      if (!error && data) {
+        const revMap: Record<string, { id: string; rating: number; comment: string | null }> = {};
+        data.forEach((r: any) => {
+          // Key by job_id + worker_id
+          const key = `${r.job_id}_${r.reviewed_profile_id}`;
+          revMap[key] = {
+            id: r.id,
+            rating: Number(r.rating) || 5,
+            comment: r.comment,
+          };
+        });
+        setEmployerSubmittedReviews(revMap);
+      }
+    } catch (err) {
+      console.warn('Notice loading employer submitted reviews:', err);
+    }
+  }, [user]);
+
+  // Compute distinct previously hired workers from real database records (completed jobs)
+  const fetchPreviouslyHiredWorkers = useCallback(async () => {
+    if (!user) return;
+    setLoadingPreviouslyHired(true);
+
+    try {
+      // Find all completed jobs posted by this employer
+      const { data: jobsData, error: jobsErr } = await supabase
+        .from('jobs')
+        .select(`
+          id, title, category, status, created_at,
+          job_records (
+            id, status, created_at, worker_id
+          )
+        `)
+        .eq('employer_id', user.id)
+        .order('created_at', { ascending: false });
+
+      if (jobsErr) throw jobsErr;
+
+      // Filter to jobs that are completed (or records where status is 'hired'/'completed')
+      const workerHistoryMap = new Map<string, {
+        workerId: string;
+        lastJobTitle: string;
+        lastHiredDate: string;
+        hiresCount: number;
+        category: string;
+      }>();
+
+      (jobsData || []).forEach((j: any) => {
+        const isJobDone = j.status === 'completed';
+        (j.job_records || []).forEach((r: any) => {
+          // Count if job is completed or if worker status is 'hired'/'completed'
+          if (r.worker_id && (isJobDone || r.status === 'hired' || r.status === 'completed')) {
+            const existing = workerHistoryMap.get(r.worker_id);
+            if (!existing) {
+              workerHistoryMap.set(r.worker_id, {
+                workerId: r.worker_id,
+                lastJobTitle: j.title || 'General Work',
+                lastHiredDate: r.created_at || j.created_at,
+                hiresCount: 1,
+                category: j.category || 'Daily work',
+              });
+            } else {
+              existing.hiresCount += 1;
+              // Keep the most recent hired date
+              if (new Date(r.created_at || j.created_at) > new Date(existing.lastHiredDate)) {
+                existing.lastHiredDate = r.created_at || j.created_at;
+                existing.lastJobTitle = j.title || existing.lastJobTitle;
+                existing.category = j.category || existing.category;
+              }
+            }
+          }
+        });
+      });
+
+      const uniqueWorkerIds = Array.from(workerHistoryMap.keys());
+      if (uniqueWorkerIds.length === 0) {
+        setPreviouslyHiredWorkers([]);
+        return;
+      }
+
+      // Fetch verified profiles and worker ratings for these distinct workers
+      const [profilesRes, workersRes] = await Promise.all([
+        supabase
+          .from('profiles')
+          .select('id, full_name, phone_number')
+          .in('id', uniqueWorkerIds),
+        supabase
+          .from('workers')
+          .select('id, category, skills, average_rating, daily_wage')
+          .in('id', uniqueWorkerIds),
+      ]);
+
+      const profMap = new Map<string, any>((profilesRes.data || []).map((p: any) => [p.id, p]));
+      const wrkMap = new Map<string, any>((workersRes.data || []).map((w: any) => [w.id, w]));
+
+      const combined = uniqueWorkerIds.map((wid) => {
+        const hist = workerHistoryMap.get(wid)!;
+        const prof = profMap.get(wid);
+        const wrk = wrkMap.get(wid);
+
+        return {
+          workerId: wid,
+          fullName: prof?.full_name || 'Verified Rural Worker',
+          phone: prof?.phone_number || null,
+          category: wrk?.category || hist.category || 'Daily work',
+          skills: wrk?.skills || [],
+          averageRating: wrk?.average_rating !== null && wrk?.average_rating !== undefined ? Number(wrk.average_rating) : null,
+          lastJobTitle: hist.lastJobTitle,
+          lastHiredDate: hist.lastHiredDate,
+          hiresCount: hist.hiresCount,
+          dailyWage: wrk?.daily_wage ? Number(wrk.daily_wage) : null,
+        };
+      });
+
+      // Sort by most recent hire
+      combined.sort((a, b) => new Date(b.lastHiredDate).getTime() - new Date(a.lastHiredDate).getTime());
+      setPreviouslyHiredWorkers(combined);
+    } catch (err) {
+      console.warn('Notice loading previously hired workers:', err);
+    } finally {
+      setLoadingPreviouslyHired(false);
+    }
+  }, [user]);
+
   useEffect(() => {
     if (user) {
       if (viewMode === 'worker') {
         fetchWorkerHistory();
       } else {
         fetchEmployerPayments();
+        fetchEmployerSubmittedReviews();
+        fetchPreviouslyHiredWorkers();
       }
     }
-  }, [user, viewMode, fetchWorkerHistory, fetchEmployerPayments]);
+  }, [user, viewMode, fetchWorkerHistory, fetchEmployerPayments, fetchEmployerSubmittedReviews, fetchPreviouslyHiredWorkers]);
 
   const totalWagesSum = wagePayments.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
   const completedJobsCount = appliedJobs.filter(
@@ -1166,6 +1344,44 @@ export function DashboardTab({
                                     <Landmark className="w-3.5 h-3.5 text-emerald-700" />
                                     <span>₹ {t('payWageToBank')}</span>
                                   </button>
+
+                                  {/* RATE WORKER BUTTON: Enabled when job is completed or worker was hired */}
+                                  {(job.status === 'completed' || currentStatus === 'hired' || currentStatus === 'completed') && (
+                                    (() => {
+                                      const workerProfileId = rec.workers?.profiles?.id || rec.worker_id || rec.workers?.id || '';
+                                      const reviewKey = `${job.id}_${workerProfileId}`;
+                                      const existing = employerSubmittedReviews[reviewKey];
+
+                                      return (
+                                        <button
+                                          type="button"
+                                          onClick={() => {
+                                            if (!user) {
+                                              onRequireLogin();
+                                              return;
+                                            }
+                                            setRateModalState({
+                                              isOpen: true,
+                                              jobId: job.id,
+                                              jobTitle: job.title,
+                                              workerId: workerProfileId,
+                                              workerName,
+                                              existingReview: existing || null,
+                                            });
+                                          }}
+                                          className={`px-2.5 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 border transition-colors cursor-pointer ${
+                                            existing
+                                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
+                                              : 'bg-yellow-500 hover:bg-yellow-600 text-slate-900 border-yellow-600 shadow-2xs'
+                                          }`}
+                                          title={existing ? `Rated ${existing.rating} stars. Click to edit review.` : 'Rate worker for this job'}
+                                        >
+                                          <Star className={`w-3.5 h-3.5 ${existing ? 'fill-amber-500 text-amber-600' : 'fill-slate-900 text-slate-900'}`} />
+                                          <span>{existing ? `★ ${existing.rating.toFixed(1)} (${t('editRating')})` : t('rateWorker')}</span>
+                                        </button>
+                                      );
+                                    })()
+                                  )}
                                 </div>
                               </div>
                             );
@@ -1178,6 +1394,147 @@ export function DashboardTab({
               })}
             </div>
           )}
+
+          {/* SECTION: PREVIOUSLY HIRED WORKERS */}
+          <div className="space-y-4 pt-6 border-t border-slate-200">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <History className="w-5 h-5 text-brand-600" />
+                <div>
+                  <h3 className="font-heading font-extrabold text-lg text-slate-900">
+                    {t('previouslyHiredTitle')}
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    {t('previouslyHiredSub')}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={fetchPreviouslyHiredWorkers}
+                className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
+              >
+                <RefreshCw className="w-3.5 h-3.5" />
+                <span>Refresh</span>
+              </button>
+            </div>
+
+            {loadingPreviouslyHired ? (
+              <div className="text-center py-8 text-slate-400 text-xs">
+                Loading previously hired workers from records...
+              </div>
+            ) : previouslyHiredWorkers.length === 0 ? (
+              <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500 space-y-1">
+                <UserCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="font-bold text-slate-700">No Previously Hired Workers</p>
+                <p className="text-slate-400">
+                  {t('noPreviouslyHired')}
+                </p>
+              </div>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+                {previouslyHiredWorkers.map((w) => (
+                  <div
+                    key={w.workerId}
+                    className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 flex flex-col justify-between"
+                  >
+                    <div className="space-y-2.5">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 border border-brand-200">
+                            {w.category}
+                          </span>
+                          <h4 className="font-heading font-bold text-base text-slate-900 mt-1">
+                            {w.fullName}
+                          </h4>
+                        </div>
+                        <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
+                          <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                          <span>{w.averageRating ? w.averageRating.toFixed(1) : '5.0'}</span>
+                        </span>
+                      </div>
+
+                      <div className="space-y-1 text-xs text-slate-600 bg-slate-50 p-2.5 rounded-xl border border-slate-100">
+                        <div className="flex items-center justify-between">
+                          <span className="text-slate-400">{t('lastHired')}:</span>
+                          <span className="font-medium text-slate-800 truncate max-w-[140px] text-right" title={w.lastJobTitle}>
+                            {w.lastJobTitle}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400">Date:</span>
+                          <span className="text-slate-600 font-mono">
+                            {new Date(w.lastHiredDate).toLocaleDateString()}
+                          </span>
+                        </div>
+                        <div className="flex items-center justify-between text-[11px]">
+                          <span className="text-slate-400">Total engagements:</span>
+                          <span className="font-bold text-emerald-700">
+                            {w.hiresCount} {t('timesHired')}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Skills tags */}
+                      {w.skills && w.skills.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {w.skills.slice(0, 3).map((s, idx) => (
+                            <span key={idx} className="text-[10px] bg-slate-100 text-slate-700 font-medium px-2 py-0.5 rounded">
+                              {s}
+                            </span>
+                          ))}
+                          {w.skills.length > 3 && (
+                            <span className="text-[10px] text-slate-400 font-medium px-1 py-0.5">
+                              +{w.skills.length - 3}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Actions: View Profile and Hire Again */}
+                    <div className="pt-3 border-t border-slate-100 flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onViewWorkerProfile) {
+                            onViewWorkerProfile(w.workerId);
+                          } else {
+                            onBrowseWorkers(w.category);
+                          }
+                        }}
+                        className="flex-1 py-2 px-3 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold flex items-center justify-center gap-1.5 transition-colors cursor-pointer"
+                      >
+                        <Eye className="w-3.5 h-3.5 text-slate-500" />
+                        <span>{t('viewProfile')}</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (onRehireWorker) {
+                            onRehireWorker({
+                              id: w.workerId,
+                              name: w.fullName,
+                              category: w.category,
+                              skills: w.skills,
+                              wage: w.dailyWage || undefined,
+                            });
+                          } else {
+                            onNavigateTab('post-job');
+                          }
+                        }}
+                        className="flex-1 py-2 px-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white text-xs font-bold flex items-center justify-center gap-1.5 shadow-2xs transition-colors cursor-pointer"
+                      >
+                        <RotateCcw className="w-3.5 h-3.5" />
+                        <span>{t('hireAgain')}</span>
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* SECTION: EMPLOYER PAYMENT HISTORY & SETTLEMENTS */}
           <div className="space-y-4 pt-6 border-t border-slate-200">
@@ -1262,6 +1619,30 @@ export function DashboardTab({
             )}
           </div>
         </div>
+      )}
+
+      {/* RATE WORKER MODAL */}
+      {user && (
+        <RateWorkerModal
+          isOpen={rateModalState.isOpen}
+          onClose={() => setRateModalState((prev) => ({ ...prev, isOpen: false }))}
+          jobId={rateModalState.jobId}
+          jobTitle={rateModalState.jobTitle}
+          workerId={rateModalState.workerId}
+          workerName={rateModalState.workerName}
+          currentUserId={user.id}
+          currentLang={currentLang}
+          existingReview={rateModalState.existingReview}
+          onReviewSubmitted={(updatedReview) => {
+            const key = `${rateModalState.jobId}_${rateModalState.workerId}`;
+            setEmployerSubmittedReviews((prev) => ({
+              ...prev,
+              [key]: updatedReview,
+            }));
+            // Refresh previously hired worker average ratings
+            fetchPreviouslyHiredWorkers();
+          }}
+        />
       )}
     </motion.div>
   );

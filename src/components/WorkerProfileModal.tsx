@@ -24,6 +24,7 @@ import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation, normalizeLanguage } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
+import { geocodeAddress } from '../lib/geocoding';
 
 type WorkerCategory = 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed';
 
@@ -142,20 +143,34 @@ export function WorkerProfileModal({
   const loadExistingProfile = useCallback(async () => {
     if (!user) return;
     try {
-      const { data: profile } = await supabase
+      let profile: any = null;
+      const { data: pById } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
 
-      if (profile && profile.full_name) {
+      profile = pById;
+
+      // If not found by user.id, check by user's phone if available
+      if (!profile && user.phone) {
+        const cleanPhone = user.phone.trim();
+        const { data: pByPhone } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('phone_number', cleanPhone)
+          .maybeSingle();
+        profile = pByPhone;
+      }
+
+      if (profile && (profile.full_name || profile.phone_number)) {
         setExistingProfileData(profile);
         setHasExistingProfile(true);
         setIsEditing(false); // Default to read-only view when profile already exists
 
         setFullName(profile.full_name || '');
-        setPhoneNumber(profile.phone_number || '');
-        setEmail(profile.email || '');
+        setPhoneNumber(profile.phone_number || (user.phone || ''));
+        setEmail(profile.email || (user.email || ''));
         if (profile.gender) setGender(profile.gender as any);
         if (profile.date_of_birth) setDateOfBirth(profile.date_of_birth);
 
@@ -165,21 +180,29 @@ export function WorkerProfileModal({
         setStateName(profile.state || '');
         setPincode(profile.pincode || '');
         setAddressLine(profile.address_line || '');
-        if (profile.location) setLocation(String(profile.location));
+
+        const computedLoc = profile.location || [profile.village, profile.district, profile.state].filter(Boolean).join(', ');
+        setLocation(computedLoc);
 
         if (profile.category) setCategory(profile.category as WorkerCategory);
+        if (profile.skills && Array.isArray(profile.skills) && profile.skills.length > 0) {
+          setSkillsInput(profile.skills.join(', '));
+        }
         if (profile.experience_years) setExperienceYears(String(profile.experience_years));
         if (profile.daily_wage) setDailyWage(String(profile.daily_wage));
       } else {
         setHasExistingProfile(false);
         setIsEditing(true); // First-time visit: show create form
+        if (user.phone) setPhoneNumber(user.phone);
+        if (user.email) setEmail(user.email);
       }
 
+      const workerLookupId = profile?.id || user.id;
       const { data: worker } = await supabase
         .from('workers')
         .select('*')
-        .eq('id', user.id)
-        .single();
+        .eq('id', workerLookupId)
+        .maybeSingle();
 
       if (worker) {
         setExistingWorkerData(worker);
@@ -272,7 +295,31 @@ export function WorkerProfileModal({
 
       // Assisted profiles get a unique UUID so they never overwrite the intermediary!
       const isSelf = !isAssisted;
-      const targetId = isSelf ? user.id : (assistedWorkerId || crypto.randomUUID());
+      const targetId = isSelf ? (existingProfileData?.id || user.id) : (assistedWorkerId || crypto.randomUUID());
+
+      // Asynchronous geocoding for locality coordinates
+      let geoLat: number | null = existingWorkerData?.latitude ?? existingProfileData?.latitude ?? null;
+      let geoLon: number | null = existingWorkerData?.longitude ?? existingProfileData?.longitude ?? null;
+      let geoAddress: string | null = existingWorkerData?.geocoded_address ?? existingProfileData?.geocoded_address ?? null;
+
+      try {
+        const geoRes = await geocodeAddress({
+          village: cleanVillage,
+          city: cleanCity,
+          district: cleanDistrict,
+          state: cleanState,
+          pincode: cleanPincode,
+          freeform: computedLocation,
+        });
+
+        if (geoRes) {
+          geoLat = geoRes.latitude;
+          geoLon = geoRes.longitude;
+          geoAddress = geoRes.displayName;
+        }
+      } catch (geoErr) {
+        console.warn('Notice: Background geocoding bypassed without blocking profile save:', geoErr);
+      }
 
       // 1. Prepare profiles payload
       const fullProfilePayload = {
@@ -289,6 +336,9 @@ export function WorkerProfileModal({
         state: cleanState || null,
         pincode: cleanPincode || null,
         location: computedLocation,
+        latitude: geoLat,
+        longitude: geoLon,
+        geocoded_address: geoAddress,
         role: 'worker' as const,
         category,
         skills: parsedSkills.length > 0 ? parsedSkills : (existingProfileData?.skills || []),
@@ -304,21 +354,31 @@ export function WorkerProfileModal({
       const resProf = await supabase.from('profiles').upsert(fullProfilePayload as any);
       profError = resProf.error;
 
-      // Graceful fallback if database schema has not executed additive migration yet
-      if (profError && (profError.code === '42703' || String(profError.message).includes('column'))) {
-        console.warn('Expanded columns not on database yet, saving baseline profile fields:', profError.message);
-        const baselinePayload = {
-          id: targetId,
-          full_name: cleanFullName,
-          phone_number: cleanPhoneNumber,
-          location: computedLocation,
-          role: 'worker' as const,
-          is_assisted_profile: isAssisted,
-          created_by: isAssisted ? user.id : null,
-          account_status: 'active',
-        };
-        const retryRes = await supabase.from('profiles').upsert(baselinePayload as any);
+      // Graceful fallback if database schema lacks location or coordinate columns on older schemas
+      if (profError && (profError.code === '42703' || String(profError.message).includes('column') || String(profError.message).includes('location') || String(profError.message).includes('latitude'))) {
+        console.warn('Profiles schema mismatch (e.g. location/coordinates missing), saving without optional location columns:', profError.message);
+        const { location: _omittedLoc, latitude: _omittedLat, longitude: _omittedLon, geocoded_address: _omittedGeo, ...safeProfilePayload } = fullProfilePayload;
+        const retryRes = await supabase.from('profiles').upsert(safeProfilePayload as any);
         profError = retryRes.error;
+
+        // If another optional column also fails, fall back to core baseline columns
+        if (profError && (profError.code === '42703' || String(profError.message).includes('column'))) {
+          console.warn('Saving minimal verified baseline profile fields without location:', profError.message);
+          const baselinePayload = {
+            id: targetId,
+            full_name: cleanFullName,
+            phone_number: cleanPhoneNumber,
+            village: cleanVillage || null,
+            district: cleanDistrict || null,
+            state: cleanState || null,
+            role: 'worker' as const,
+            is_assisted_profile: isAssisted,
+            created_by: isAssisted ? user.id : null,
+            account_status: 'active',
+          };
+          const baselineRetry = await supabase.from('profiles').upsert(baselinePayload as any);
+          profError = baselineRetry.error;
+        }
       }
 
       if (profError) {
@@ -337,6 +397,9 @@ export function WorkerProfileModal({
         availability_status: 'available',
         is_available: true,
         location: computedLocation,
+        latitude: geoLat,
+        longitude: geoLon,
+        geocoded_address: geoAddress,
       };
 
       let workerErr: any = null;
@@ -344,17 +407,16 @@ export function WorkerProfileModal({
       workerErr = resWorker.error;
 
       if (workerErr && (workerErr.code === '42703' || String(workerErr.message).includes('column'))) {
-        console.warn('Expanded worker columns not on database yet, saving baseline worker fields:', workerErr.message);
-        const baselineWorkerPayload = {
+        console.warn('Expanded worker columns not on database yet, saving core verified worker fields:', workerErr.message);
+        // Core columns confirmed in remote DB: id, category, skills, experience_years, is_available
+        const coreWorkerPayload = {
           id: targetId,
           category,
           skills: parsedSkills.length > 0 ? parsedSkills : (existingWorkerData?.skills || []),
           experience_years: cleanYears,
-          daily_wage: cleanWage,
           is_available: true,
-          location: computedLocation,
         };
-        const retryWorker = await supabase.from('workers').upsert(baselineWorkerPayload as any);
+        const retryWorker = await supabase.from('workers').upsert(coreWorkerPayload as any);
         workerErr = retryWorker.error;
       }
 
@@ -958,7 +1020,7 @@ export function WorkerProfileModal({
                     {t('clickToAddCommonSkills') || 'Tap to Add Skills:'}
                   </span>
                   <div className="flex flex-wrap gap-1.5">
-                    {((LOCALIZED_COMMON_SKILLS[normalizeLanguage(currentLang)] || COMMON_SKILLS_BY_CATEGORY)[category]).map((skill) => {
+                    {(((LOCALIZED_COMMON_SKILLS[normalizeLanguage(currentLang)] || COMMON_SKILLS_BY_CATEGORY)[category] || [])).map((skill) => {
                       const isSelected = skillsInput
                         .split(/[,،、]/)
                         .map((s) => s.trim().normalize('NFC'))

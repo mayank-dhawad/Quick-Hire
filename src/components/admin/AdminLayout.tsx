@@ -9,6 +9,7 @@ import {
   getStoredAdminSession,
   clearAdminSession,
   logAdminAction,
+  verifyActiveAdminSession,
 } from '../../lib/adminAuth';
 import { supabase } from '../../lib/supabase';
 import {
@@ -16,6 +17,7 @@ import {
   Users,
   Briefcase,
   Wrench,
+  CreditCard,
   ShieldAlert,
   Globe2,
   BarChart3,
@@ -66,7 +68,7 @@ export function AdminLayout({
   const [openComplaintsCount, setOpenComplaintsCount] = useState<number>(0);
   const [searchInput, setSearchInput] = useState(globalSearchQuery);
 
-  // Sync session state
+  // Sync session state & verify against Supabase server
   useEffect(() => {
     const s = getStoredAdminSession();
     if (!s) {
@@ -74,6 +76,13 @@ export function AdminLayout({
       return;
     }
     setSession(s);
+
+    // Cryptographic security verification: prevent sessionStorage forgery
+    verifyActiveAdminSession().then((isValid) => {
+      if (!isValid) {
+        navigateTo('/admin/login');
+      }
+    });
   }, [currentRoute]);
 
   // Fetch pending counts and notifications
@@ -191,6 +200,11 @@ export function AdminLayout({
       route: 'admin-equipment',
       label: 'Machinery & Rentals',
       icon: Wrench,
+    },
+    {
+      route: 'admin-payments',
+      label: 'Payments & Settlements',
+      icon: CreditCard,
     },
     {
       route: 'admin-complaints',

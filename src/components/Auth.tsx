@@ -209,13 +209,34 @@ export function Auth({
             newProfilePayload.email = profileEmail;
           }
 
-          const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload as any);
-          if (insErr && (insErr.code === '42703' || String(insErr.message).includes('column'))) {
-            delete newProfilePayload.email;
-            await supabase.from('profiles').insert(newProfilePayload as any);
-          }
+          if (assignedRole === 'employer') {
+            // 1. Preferred server-authorized RPC onboarding path
+            const { error: rpcErr } = await supabase.rpc('register_as_employer');
+            if (rpcErr) {
+              console.warn('register_as_employer RPC unavailable, falling back:', rpcErr);
+              const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload as any);
+              if (insErr && (insErr.code === '42703' || String(insErr.message).includes('column'))) {
+                delete newProfilePayload.email;
+                await supabase.from('profiles').insert(newProfilePayload as any);
+              }
+            } else {
+              // Update additional profile fields
+              const metaUpdate: Record<string, unknown> = {};
+              if (userDisplayName) metaUpdate.full_name = userDisplayName;
+              if (normalizedPhone) metaUpdate.phone_number = normalizedPhone;
+              if (profileEmail) metaUpdate.email = profileEmail;
+              if (Object.keys(metaUpdate).length > 0) {
+                await supabase.from('profiles').update(metaUpdate as any).eq('id', authUser.id);
+              }
+            }
+          } else {
+            // Worker registration
+            const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload as any);
+            if (insErr && (insErr.code === '42703' || String(insErr.message).includes('column'))) {
+              delete newProfilePayload.email;
+              await supabase.from('profiles').insert(newProfilePayload as any);
+            }
 
-          if (assignedRole === 'worker') {
             await supabase.from('workers').insert({
               id: authUser.id,
               category: 'Daily work',
@@ -228,12 +249,9 @@ export function Auth({
           localStorage.setItem('quickhire_user_role', assignedRole);
         } else {
           // Returning user: PRESERVE existing profile role and data. Do NOT overwrite saved role.
-          const wasDeactivated = existingProfile.account_status === 'deactivated';
+          // Note: Suspended or deactivated accounts cannot self-activate.
           const updatePayload: Record<string, unknown> = {};
 
-          if (wasDeactivated) {
-            updatePayload.account_status = 'active';
-          }
           if (authUser.email && !authUser.email.endsWith('@quickhire.local')) {
             updatePayload.email = authUser.email;
           }
@@ -270,11 +288,6 @@ export function Auth({
                 skills: [] as string[],
                 is_available: true,
               });
-            } else if (wasDeactivated) {
-              await supabase
-                .from('workers')
-                .update({ is_available: true })
-                .eq('id', authUser.id);
             }
           }
 
