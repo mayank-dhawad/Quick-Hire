@@ -228,10 +228,11 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             </div>
             <a
               href="tel:112"
+              aria-label={t('callEmergency112')}
               className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span>{t('callNow')}: 112</span>
+              <span>{t('callEmergency112')}</span>
             </a>
           </div>
 
@@ -249,10 +250,11 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             </div>
             <a
               href="tel:108"
+              aria-label={t('callAmbulance108')}
               className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span>{t('callNow')}: 108</span>
+              <span>{t('callAmbulance108')}</span>
             </a>
           </div>
 
@@ -270,10 +272,11 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             </div>
             <a
               href="tel:1091"
+              aria-label={t('callWomen1091')}
               className="w-full py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span>{t('callNow')}: 1091</span>
+              <span>{t('callWomen1091')}</span>
             </a>
           </div>
 
@@ -291,10 +294,11 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             </div>
             <a
               href="tel:18001801551"
+              aria-label={t('callKisanCenter')}
               className="w-full py-2.5 px-3 rounded-xl bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span>{t('callNow')}</span>
+              <span>{t('callKisanCenter')}</span>
             </a>
           </div>
         </div>
