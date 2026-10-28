@@ -632,12 +632,6 @@ export default function App() {
           // Non-blocking
         }
 
-        // Auto-route active administrator to Admin Dashboard on login/refresh unless in citizen preview
-        const previewCitizen = typeof window !== 'undefined' && sessionStorage.getItem('quickhire_admin_preview_citizen') === 'true';
-        if (!previewCitizen && (window.location.pathname === '/' || window.location.pathname === '')) {
-          navigateTo('/admin');
-          setAppRoute('admin-overview');
-        }
       } else {
         clearAdminSession();
 
@@ -950,6 +944,7 @@ export default function App() {
         <AdminLogin
           onLoginSuccess={() => setAppRoute('admin-overview')}
           onNavigatePublic={() => {
+            sessionStorage.setItem('quickhire_admin_preview_citizen', 'true');
             navigateTo('/');
             setAppRoute('public');
           }}
@@ -1024,6 +1019,7 @@ export default function App() {
           <AdminLogin
             onLoginSuccess={() => setAppRoute('admin-overview')}
             onNavigatePublic={() => {
+              sessionStorage.setItem('quickhire_admin_preview_citizen', 'true');
               navigateTo('/');
               setAppRoute('public');
             }}
@@ -1050,10 +1046,19 @@ export default function App() {
           currentRoute={currentAdminNav}
           globalSearchQuery={adminSearchQuery}
           onGlobalSearchChange={setAdminSearchQuery}
-          onLogout={() => {
+          onLogout={async () => {
             showToast('Administrator session closed safely.', 'info');
             clearAdminSession();
             sessionStorage.removeItem('quickhire_admin_preview_citizen');
+            try {
+              await supabase.auth.signOut();
+            } catch {
+              // Ignore network signout errors
+            }
+            localStorage.removeItem('quickhire_user_session');
+            localStorage.removeItem('quickhire_user_role');
+            setUser(null);
+            setUserRole(null);
             navigateTo('/admin/login');
             setAppRoute('admin-login');
           }}

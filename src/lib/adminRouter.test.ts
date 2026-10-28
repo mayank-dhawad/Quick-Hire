@@ -70,6 +70,23 @@ describe('AdminRouter', () => {
     expect(listener).toHaveBeenCalledTimes(2);
   });
 
+  it('supports round-trip navigation between root "/" and "/admin/login"', () => {
+    const listener = vi.fn();
+    const unsubscribe = subscribeToRoute(listener);
+
+    // Navigate to admin login
+    navigateTo('/admin/login');
+    expect(getCurrentRoute().route).toBe('admin-login');
+    expect(listener).toHaveBeenCalledWith('admin-login', '/admin/login');
+
+    // Navigate back to public portal
+    navigateTo('/');
+    expect(getCurrentRoute().route).toBe('public');
+    expect(listener).toHaveBeenCalledWith('public', '/');
+
+    unsubscribe();
+  });
+
   it('verifies ROUTE_PATH_MAP has all admin routes mapped', () => {
     expect(ROUTE_PATH_MAP['admin-overview']).toBe('/admin');
     expect(ROUTE_PATH_MAP['admin-users']).toBe('/admin/users');
