@@ -332,6 +332,16 @@ export function WorkerProfileModal({
         console.warn('Notice: Background geocoding bypassed without blocking profile save:', geoErr);
       }
 
+      // Explicit coordinate range validation: Latitude [-90..90], Longitude [-180..180]
+      const isValidCoordinate = (lat: unknown, lon: unknown): boolean =>
+        typeof lat === 'number' && !isNaN(lat) && lat >= -90 && lat <= 90 && lat !== 0 &&
+        typeof lon === 'number' && !isNaN(lon) && lon >= -180 && lon <= 180 && lon !== 0;
+
+      if (!isValidCoordinate(geoLat, geoLon)) {
+        geoLat = null;
+        geoLon = null;
+      }
+
       // 1. Prepare profiles payload
       const fullProfilePayload = {
         id: targetId,
