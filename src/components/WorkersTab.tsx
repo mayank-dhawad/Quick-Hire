@@ -20,11 +20,19 @@ import {
   List,
   SlidersHorizontal,
   X,
-  Loader2
+  Loader2,
+  Crosshair,
+  AlertCircle,
+  RefreshCw,
+  Lock
 } from 'lucide-react';
 import { WorkerItem } from './WorkerDiscoveryModal';
 import { WorkersMapView } from './WorkersMapView';
-import { geocodeAddress, calculateHaversineDistanceKm } from '../lib/geocoding';
+import {
+  geocodeAddress,
+  calculateHaversineDistanceKm,
+  resolveLocalityCoordinates
+} from '../lib/geocoding';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance, getWorkerSpeechText } from '../lib/speech';
 import { getTranslation, getSuggestedSkillTags } from '../lib/translations';
@@ -42,6 +50,7 @@ interface WorkersTabProps {
   onRegisterSkillProfile: () => void;
   onOpenDirectPayment: (recipientId: string, recipientName: string, recipientPhone?: string | null) => void;
   onOpenWorkerDiscovery: (category: string, skill: string) => void;
+  onRefreshWorkers?: () => void;
 }
 
 export function WorkersTab({
@@ -57,17 +66,21 @@ export function WorkersTab({
   onRegisterSkillProfile,
   onOpenDirectPayment,
   onOpenWorkerDiscovery,
+  onRefreshWorkers,
 }: WorkersTabProps) {
   const t = (key: string): string => getTranslation(currentLang, key);
   const suggestedTags = getSuggestedSkillTags(currentLang);
 
-  // Nearby Search State
+  // Nearby Search & Geocoding State
   const [jobLocationInput, setJobLocationInput] = React.useState<string>('');
   const [isLocating, setIsLocating] = React.useState<boolean>(false);
+  const [isLocatingGps, setIsLocatingGps] = React.useState<boolean>(false);
+  const [gpsError, setGpsError] = React.useState<string | null>(null);
   const [searchCoords, setSearchCoords] = React.useState<{ lat: number; lon: number; label: string } | null>(null);
   const [selectedRadiusKm, setSelectedRadiusKm] = React.useState<number | null>(null);
   const [sortByNearest, setSortByNearest] = React.useState<boolean>(false);
   const [showMapView, setShowMapView] = React.useState<boolean>(false);
+  const [selectedWorkerId, setSelectedWorkerId] = React.useState<string | null>(null);
 
   // Secure Worker Contact State
   const [workerPhones, setWorkerPhones] = React.useState<Record<string, string>>({});
@@ -112,6 +125,41 @@ export function WorkersTab({
     }
   };
 
+  // Browser Geolocation API ("Use My Location")
+  const handleGetCurrentLocation = () => {
+    if (typeof window === 'undefined' || !navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsLocatingGps(true);
+    setGpsError(null);
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        const lat = Number(position.coords.latitude.toFixed(4));
+        const lon = Number(position.coords.longitude.toFixed(4));
+        setSearchCoords({
+          lat,
+          lon,
+          label: 'Your Current Location',
+        });
+        setSelectedRadiusKm((prev) => prev || 50);
+        setSortByNearest(true);
+        setShowMapView(true);
+        setIsLocatingGps(false);
+      },
+      (err) => {
+        setIsLocatingGps(false);
+        console.warn('Geolocation error:', err.message);
+        setGpsError(
+          err.code === 1
+            ? (t('gpsDenied') || 'Location permission was denied. You can search by entering your village or district name.')
+            : 'Unable to retrieve GPS location. Please check browser settings or search by village name.'
+        );
+      },
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 60000 }
+    );
+  };
+
   // Handle location geocoding on enter / button click
   const handleLocationSearch = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -124,7 +172,23 @@ export function WorkersTab({
     }
 
     setIsLocating(true);
+    setGpsError(null);
     try {
+      // 1. Check instant offline locality centroid cache first (0ms latency)
+      const offlineCentroid = resolveLocalityCoordinates(clean);
+      if (offlineCentroid) {
+        setSearchCoords({
+          lat: offlineCentroid.latitude,
+          lon: offlineCentroid.longitude,
+          label: offlineCentroid.displayName.split(',')[0] || clean,
+        });
+        setSelectedRadiusKm((prev) => prev || 50);
+        setSortByNearest(true);
+        setShowMapView(true);
+        return;
+      }
+
+      // 2. Throttled Nominatim geocoding
       const res = await geocodeAddress(clean);
       if (res) {
         setSearchCoords({
@@ -132,9 +196,9 @@ export function WorkersTab({
           lon: res.longitude,
           label: res.displayName.split(',')[0] || clean,
         });
-        // Default to 50km radius and auto-enable distance sorting
         setSelectedRadiusKm((prev) => prev || 50);
         setSortByNearest(true);
+        setShowMapView(true);
       } else {
         alert('Could not find geographic coordinates for: "' + clean + '". Please check spelling (e.g. Village, District).');
       }
@@ -150,25 +214,29 @@ export function WorkersTab({
     setSearchCoords(null);
     setSelectedRadiusKm(null);
     setSortByNearest(false);
-    setShowMapView(false);
+    setGpsError(null);
   };
 
   // Compute processed worker list with distances, radius filtering, and sorting
   const processedWorkers = React.useMemo(() => {
     return filteredWorkers
       .map((w) => {
-        // Resolve worker coordinates from worker record or profile
-        const lat = w.latitude !== null && w.latitude !== undefined
-          ? Number(w.latitude)
-          : w.profiles?.latitude !== null && w.profiles?.latitude !== undefined
-          ? Number(w.profiles.latitude)
-          : null;
+        // Resolve worker coordinates from worker record, profile, or known rural locality
+        let lat =
+          w.latitude !== null && w.latitude !== undefined && !isNaN(Number(w.latitude)) && Number(w.latitude) !== 0
+            ? Number(w.latitude)
+            : w.profiles?.latitude !== null && w.profiles?.latitude !== undefined && !isNaN(Number(w.profiles.latitude)) && Number(w.profiles.latitude) !== 0
+            ? Number(w.profiles.latitude)
+            : null;
 
-        const lon = w.longitude !== null && w.longitude !== undefined
-          ? Number(w.longitude)
-          : w.profiles?.longitude !== null && w.profiles?.longitude !== undefined
-          ? Number(w.profiles.longitude)
-          : null;
+        let lon =
+          w.longitude !== null && w.longitude !== undefined && !isNaN(Number(w.longitude)) && Number(w.longitude) !== 0
+            ? Number(w.longitude)
+            : w.profiles?.longitude !== null && w.profiles?.longitude !== undefined && !isNaN(Number(w.profiles.longitude)) && Number(w.profiles.longitude) !== 0
+            ? Number(w.profiles.longitude)
+            : null;
+
+        // Genuine coordinates only — no guessed or invented centroid coordinates
 
         let distanceKm: number | null = null;
         if (searchCoords && lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon)) {
@@ -185,7 +253,7 @@ export function WorkersTab({
       .filter((w) => {
         // If radius is active and search coords are set, filter by distance
         if (searchCoords && selectedRadiusKm !== null) {
-          if (w.distance_km === null) return false; // Exclude workers without coordinates from radius-filtered results
+          if (w.distance_km === null) return false;
           return w.distance_km <= selectedRadiusKm;
         }
         return true;
@@ -201,6 +269,11 @@ export function WorkersTab({
         return 0;
       });
   }, [filteredWorkers, searchCoords, selectedRadiusKm, sortByNearest]);
+
+  // Count workers with coordinates for map
+  const workersWithCoordsCount = processedWorkers.filter(
+    (w) => w.latitude !== null && w.longitude !== null && !isNaN(Number(w.latitude)) && !isNaN(Number(w.longitude))
+  ).length;
 
   return (
     <motion.div
@@ -224,10 +297,21 @@ export function WorkersTab({
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2.5">
+          {user && onRefreshWorkers && (
+            <button
+              onClick={onRefreshWorkers}
+              className="p-2.5 bg-white hover:bg-slate-50 text-slate-600 hover:text-slate-900 border border-slate-200 rounded-xl text-xs sm:text-sm font-bold transition-colors flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              title={t('refreshAvailability') || 'Refresh worker availability'}
+            >
+              <RefreshCw className="w-4 h-4 text-brand-600" />
+              <span className="hidden sm:inline">{t('refreshAvailability')}</span>
+            </button>
+          )}
+
           <button
             onClick={onRegisterSkillProfile}
-            className="px-4 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-xl text-xs sm:text-sm font-bold transition-colors flex items-center gap-2"
+            className="px-4 py-2.5 bg-brand-50 hover:bg-brand-100 text-brand-700 border border-brand-200 rounded-xl text-xs sm:text-sm font-bold transition-colors flex items-center gap-2 cursor-pointer shadow-2xs"
           >
             <PlusCircle className="w-4 h-4 text-brand-600" />
             <span>{t('registerSkillProfile')}</span>
@@ -235,7 +319,29 @@ export function WorkersTab({
         </div>
       </div>
 
-      {/* SEARCH AND FILTERS */}
+      {/* IF NOT LOGGED IN */}
+      {!user ? (
+        <div className="bg-white rounded-3xl border border-slate-200 p-8 sm:p-12 text-center max-w-lg mx-auto space-y-4 shadow-sm">
+          <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto">
+            <Users className="w-7 h-7" />
+          </div>
+          <h3 className="font-heading font-extrabold text-xl text-slate-900">
+            {t('loginToViewWorkers')}
+          </h3>
+          <p className="text-xs sm:text-sm text-slate-500 leading-relaxed">
+            {t('loginWorkersSub')}
+          </p>
+          <button
+            onClick={onRequireLogin}
+            className="w-full py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <Lock className="w-4 h-4" />
+            <span>{t('login')}</span>
+          </button>
+        </div>
+      ) : (
+        <>
+          {/* SEARCH AND FILTERS */}
       <div className="space-y-4">
         <div className="flex flex-col sm:flex-row gap-3">
           {/* CATEGORY SELECTOR */}
@@ -266,7 +372,7 @@ export function WorkersTab({
             {searchQuery && (
               <button
                 onClick={() => onSearchQueryChange('')}
-                className="text-xs text-slate-400 hover:text-slate-600 font-bold px-1.5"
+                className="text-xs text-slate-400 hover:text-slate-600 font-bold px-1.5 cursor-pointer"
               >
                 Clear
               </button>
@@ -281,7 +387,7 @@ export function WorkersTab({
         </div>
 
         {/* QUICK TAG CHIPS - REACTIVELY LOCALIZED */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs">
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
           <span className="text-slate-500 font-bold whitespace-nowrap">
             {t('suggestedTags')}
           </span>
@@ -293,7 +399,7 @@ export function WorkersTab({
               <button
                 key={tag.id}
                 onClick={() => onSearchQueryChange(isSelected ? '' : tag.label)}
-                className={`px-3 py-1 rounded-lg border whitespace-nowrap font-semibold transition-colors ${
+                className={`px-3 py-1 rounded-lg border whitespace-nowrap font-semibold transition-colors cursor-pointer ${
                   isSelected
                     ? 'bg-brand-500 text-white border-brand-500 shadow-xs'
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
@@ -333,31 +439,70 @@ export function WorkersTab({
                 <button
                   type="button"
                   onClick={handleClearLocation}
-                  className="text-slate-400 hover:text-slate-600 p-1"
+                  className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
               )}
             </div>
 
-            <button
-              type="submit"
-              disabled={isLocating}
-              className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
-            >
-              {isLocating ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>{t('locatingAddress')}</span>
-                </>
-              ) : (
-                <>
-                  <Navigation className="w-4 h-4" />
-                  <span>Find Nearby</span>
-                </>
-              )}
-            </button>
+            <div className="flex items-center gap-2">
+              {/* Use My Location (GPS) Button */}
+              <button
+                type="button"
+                onClick={handleGetCurrentLocation}
+                disabled={isLocatingGps}
+                title={t('useCurrentLocation') || 'Use My Location'}
+                className="px-3.5 py-2.5 bg-brand-50 hover:bg-brand-100 disabled:opacity-50 text-brand-700 border border-brand-200 text-xs sm:text-sm font-bold rounded-xl transition-all shadow-2xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+              >
+                {isLocatingGps ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-brand-600" />
+                    <span>{t('locatingGps')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Crosshair className="w-4 h-4 text-brand-600" />
+                    <span>{t('useCurrentLocation')}</span>
+                  </>
+                )}
+              </button>
+
+              {/* Find Nearby (Geocoding) Button */}
+              <button
+                type="submit"
+                disabled={isLocating}
+                className="px-5 py-2.5 bg-brand-500 hover:bg-brand-600 disabled:opacity-50 text-white text-xs sm:text-sm font-bold rounded-xl transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer shrink-0"
+              >
+                {isLocating ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>{t('locatingAddress')}</span>
+                  </>
+                ) : (
+                  <>
+                    <Navigation className="w-4 h-4" />
+                    <span>Find Nearby</span>
+                  </>
+                )}
+              </button>
+            </div>
           </form>
+
+          {/* GPS / Geolocation Error Banner */}
+          {gpsError && (
+            <div className="flex items-center gap-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-amber-800 text-xs">
+              <AlertCircle className="w-4 h-4 text-amber-600 shrink-0" />
+              <span className="flex-1">{gpsError}</span>
+              <button
+                type="button"
+                onClick={() => setGpsError(null)}
+                className="text-amber-600 hover:text-amber-800 p-0.5 cursor-pointer"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
 
           {/* RADIUS SELECTION & MAP TOGGLE */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs">
@@ -366,7 +511,7 @@ export function WorkersTab({
                 <SlidersHorizontal className="w-3 h-3 text-slate-400" />
                 <span>{t('searchRadiusLabel')}</span>
               </span>
-              {[10, 25, 50, 100].map((radius) => {
+              {[2, 5, 10, 25, 50].map((radius) => {
                 const isActive = selectedRadiusKm === radius;
                 return (
                   <button
@@ -435,7 +580,7 @@ export function WorkersTab({
           </div>
         </div>
 
-        {/* OPTIONAL COLLAPSIBLE MAP VIEW */}
+        {/* ADVANCED WORKER DISCOVERY MAP VIEW */}
         {showMapView && (
           <WorkersMapView
             workers={processedWorkers}
@@ -444,8 +589,18 @@ export function WorkersTab({
             centerLabel={searchCoords?.label}
             radiusKm={selectedRadiusKm || undefined}
             currentLang={currentLang}
-            onSelectWorker={(worker) => handleCallWorker(worker.id, worker.profiles?.phone_number)}
+            selectedWorkerId={selectedWorkerId}
+            onSelectWorker={(worker) => {
+              setSelectedWorkerId(worker.id);
+              handleCallWorker(worker.id, worker.profiles?.phone_number);
+            }}
             onCallWorker={(workerId) => handleCallWorker(workerId)}
+            onSelectLocation={(lat, lon, label) => {
+              setSearchCoords({ lat, lon, label });
+              setSelectedRadiusKm((prev) => prev || 50);
+              setSortByNearest(true);
+            }}
+            onRefreshAvailability={onRefreshWorkers}
             onClose={() => setShowMapView(false)}
           />
         )}
@@ -468,88 +623,113 @@ export function WorkersTab({
           </p>
           <button
             onClick={() => {
-              onSelectCategory('All');
               onSearchQueryChange('');
+              onSelectCategory('All');
               handleClearLocation();
             }}
-            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 rounded-xl text-xs font-bold transition-colors cursor-pointer"
+            className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs rounded-xl transition-colors cursor-pointer inline-block"
           >
-            Reset All Filters
+            Clear All Filters
           </button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {processedWorkers.map((worker) => {
+            const name = worker.profiles?.full_name || 'Verified Rural Worker';
             const phone = worker.profiles?.phone_number;
-            const name = worker.profiles?.full_name || 'Verified Worker';
             const isAssisted = worker.profiles?.is_assisted_profile;
+            const wage = worker.daily_wage || 500;
+            const expYears = worker.experience_years || 1;
+            const rating = worker.average_rating ? Number(worker.average_rating).toFixed(1) : '5.0';
             const distance = worker.distance_km;
+            const isSelected = selectedWorkerId === worker.id;
 
             return (
               <div
                 key={worker.id}
-                className="bg-white rounded-2xl border border-slate-200 hover:border-brand-400 hover:shadow-md transition-all p-6 flex flex-col justify-between space-y-5"
+                id={`worker-card-${worker.id}`}
+                className={`bg-white rounded-2xl border p-5 flex flex-col justify-between hover:shadow-md transition-all space-y-4 ${
+                  isSelected ? 'border-brand-500 ring-2 ring-brand-500/30 bg-brand-50/10' : 'border-slate-200'
+                }`}
               >
                 <div className="space-y-4">
-                  {/* HEADER: CATEGORY BADGE, DISTANCE BADGE & RATING */}
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="flex items-center gap-1.5 flex-wrap">
-                      <span className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-200">
-                        {worker.category}
+                  {/* TOP ROW: NAME, CATEGORY, RATING */}
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <h3 className="font-heading font-bold text-base text-slate-900">
+                          {name}
+                        </h3>
+                        <CheckCircle2 className="w-4 h-4 text-brand-600 fill-brand-50 shrink-0" />
+                      </div>
+                      <span className="text-xs font-semibold text-brand-600 block mt-0.5">
+                        {worker.category || 'General Work'}
                       </span>
+                    </div>
+
+                    <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg shrink-0">
+                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
+                      <span className="text-xs font-bold text-amber-900">{rating}</span>
+                    </div>
+                  </div>
+
+                  {/* STATS BADGES */}
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl flex items-center gap-2">
+                      <IndianRupee className="w-4 h-4 text-brand-600 shrink-0" />
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
+                          Daily Wage
+                        </span>
+                        <span className="font-extrabold text-slate-800">
+                          ₹{wage} / day
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="bg-slate-50 border border-slate-100 p-2.5 rounded-xl flex items-center gap-2">
+                      <Award className="w-4 h-4 text-brand-600 shrink-0" />
+                      <div>
+                        <span className="text-[10px] text-slate-400 font-bold block uppercase tracking-wider">
+                          Experience
+                        </span>
+                        <span className="font-extrabold text-slate-800">
+                          {expYears} {expYears === 1 ? 'Year' : 'Years'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* DISTANCE & LOCALITY PILL */}
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2 flex-wrap text-xs">
                       {distance !== null && distance !== undefined && (
-                        <span className="text-[11px] font-extrabold px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-300 flex items-center gap-1">
+                        <span className="inline-flex items-center gap-1 font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-md text-[11px]">
                           <Navigation className="w-3 h-3 text-emerald-600" />
                           <span>{distance} {t('kmAway')}</span>
                         </span>
                       )}
-                    </div>
-                    <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                      <span>{worker.average_rating ? worker.average_rating.toFixed(1) : '4.8'}</span>
-                    </span>
-                  </div>
 
-                  {/* WORKER IDENTITY */}
-                  <div>
-                    <div className="flex items-center gap-2">
-                      <h3 className="font-heading font-bold text-lg text-slate-900">
-                        {name}
-                      </h3>
-                      <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
-                      <VoiceSpeakerButton
-                        text={getWorkerSpeechText(
-                          {
-                            name,
-                            category: worker.category,
-                            experience_years: worker.experience_years,
-                            skills: worker.skills,
-                          },
-                          currentLang
-                        )}
-                        lang={currentLang}
-                        label="Listen to worker profile"
-                      />
-                    </div>
-
-                    <div className="flex items-center gap-2 mt-1 text-xs text-slate-500 font-medium flex-wrap">
-                      <span className="flex items-center gap-1">
-                        <Award className="w-3.5 h-3.5 text-slate-400" />
-                        <span>{worker.experience_years || 1}+ {t('yearsExp')}</span>
-                      </span>
-                      {(worker.daily_wage || 0) > 0 && (
-                        <span className="flex items-center gap-0.5 px-2 py-0.5 rounded-md bg-emerald-50 text-emerald-800 font-bold text-[11px] border border-emerald-200">
-                          <span>₹{worker.daily_wage}/day</span>
-                        </span>
-                      )}
-                      {(worker.profiles?.village || worker.profiles?.district || worker.profiles?.location) && (
-                        <span className="flex items-center gap-1 text-[11px] text-slate-600">
+                      {(worker.profiles?.village || worker.profiles?.district || worker.profiles?.location) ? (
+                        <span className="inline-flex items-center gap-1 text-slate-600 text-xs">
                           <MapPin className="w-3 h-3 text-slate-400 shrink-0" />
-                          <span>
-                            {worker.profiles?.village && worker.profiles?.district
-                              ? `${worker.profiles.village}, ${worker.profiles.district}`
+                          <span className="truncate max-w-[180px]">
+                            {worker.profiles?.village
+                              ? `${worker.profiles.village}, ${worker.profiles.district || ''}`
                               : worker.profiles?.district || worker.profiles?.location}
                           </span>
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1 text-slate-400 text-xs italic">
+                          <MapPin className="w-3 h-3 text-slate-300 shrink-0" />
+                          <span>Location not specified</span>
+                        </span>
+                      )}
+
+                      {/* Explicit indicator when genuine coordinates are missing */}
+                      {(worker.latitude === null || worker.longitude === null) && (
+                        <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
+                          <span>Map location not set</span>
                         </span>
                       )}
                       {isAssisted && (
@@ -580,7 +760,7 @@ export function WorkersTab({
                   )}
                 </div>
 
-                {/* CALL ACTION WITH SECURE RPC RETRIEVAL */}
+                {/* CALL & MAP ACTIONS */}
                 <div className="pt-4 border-t border-slate-100 space-y-2">
                   {callError?.workerId === worker.id && (
                     <div className="text-[11px] font-semibold text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
@@ -616,29 +796,48 @@ export function WorkersTab({
                     </button>
                   )}
 
-                  <button
-                    onClick={() => {
-                      if (!user) {
-                        onRequireLogin();
-                        return;
-                      }
-                      onOpenDirectPayment(
-                        worker.profiles?.id || worker.id,
-                        name,
-                        workerPhones[worker.id] || phone
-                      );
-                    }}
-                    className="w-full py-2.5 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 border border-emerald-200"
-                  >
-                    <Landmark className="w-3.5 h-3.5 text-emerald-700" />
-                    <span>{t('payWageToBank')}</span>
-                  </button>
+                  <div className="flex items-center gap-2">
+                    {/* View on Map Button if worker has coordinates */}
+                    {worker.latitude && worker.longitude ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setSelectedWorkerId(worker.id);
+                          setShowMapView(true);
+                          window.scrollTo({ top: 240, behavior: 'smooth' });
+                        }}
+                        className="flex-1 py-2 rounded-xl bg-sky-50 hover:bg-sky-100 text-sky-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 border border-sky-200 cursor-pointer"
+                        title={t('viewOnMap')}
+                      >
+                        <MapPin className="w-3.5 h-3.5 text-sky-600" />
+                        <span>{t('viewOnMap')}</span>
+                      </button>
+                    ) : null}
+
+                    <button
+                      onClick={() => {
+                        if (!user) {
+                          onRequireLogin();
+                          return;
+                        }
+                        onOpenDirectPayment(
+                          worker.profiles?.id || worker.id,
+                          name,
+                          workerPhones[worker.id] || phone
+                        );
+                      }}
+                      className="flex-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 border border-emerald-200 cursor-pointer"
+                    >
+                      <Landmark className="w-3.5 h-3.5 text-emerald-700" />
+                      <span>{t('payWageToBank')}</span>
+                    </button>
+                  </div>
 
                   <button
                     onClick={() => {
                       onOpenWorkerDiscovery(worker.category, worker.skills?.[0] || '');
                     }}
-                    className="w-full py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 border border-slate-200/80"
+                    className="w-full py-2 rounded-xl bg-slate-50 hover:bg-slate-100 text-slate-700 font-semibold text-xs transition-colors flex items-center justify-center gap-1.5 border border-slate-200/80 cursor-pointer"
                   >
                     <Sparkles className="w-3.5 h-3.5 text-brand-600" />
                     <span>{t('viewProfileAndSkills')}</span>
@@ -648,6 +847,32 @@ export function WorkersTab({
             );
           })}
         </div>
+      )}
+
+      {/* FLOATING MOBILE MAP TOGGLE */}
+      <div className="sm:hidden fixed bottom-6 right-5 z-40">
+        <button
+          type="button"
+          onClick={() => {
+            setShowMapView((prev) => !prev);
+            window.scrollTo({ top: 180, behavior: 'smooth' });
+          }}
+          className="px-4 py-2.5 bg-brand-600 hover:bg-brand-700 text-white font-bold text-xs rounded-full shadow-lg flex items-center gap-2 border-2 border-white cursor-pointer transition-transform active:scale-95"
+        >
+          {showMapView ? (
+            <>
+              <List className="w-4 h-4" />
+              <span>List View ({processedWorkers.length})</span>
+            </>
+          ) : (
+            <>
+              <Map className="w-4 h-4" />
+              <span>Map ({workersWithCoordsCount})</span>
+            </>
+          )}
+        </button>
+      </div>
+        </>
       )}
     </motion.div>
   );

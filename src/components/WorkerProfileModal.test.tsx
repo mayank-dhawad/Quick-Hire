@@ -421,5 +421,95 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
     expect(saved.created_by).toBe(mockUser.id);
     expect(saved.role).toBe('worker');
   });
-});
 
+  it('preserves existing profile ID when a returning worker edits and updates their profile', async () => {
+    const existingProfile = {
+      id: 'existing-worker-uuid-999',
+      full_name: 'Ganesh Shinde',
+      phone_number: '+919876543210',
+      email: 'ganesh@example.com',
+      village: 'Wai',
+      district: 'Satara',
+      state: 'Maharashtra',
+      category: 'Agriculture',
+      experience_years: 7,
+      daily_wage: 650,
+      skills: ['Organic Farming'],
+      role: 'worker',
+    };
+
+    const upsertProfilesCalls: any[] = [];
+    const upsertWorkersCalls: any[] = [];
+
+    const mockFrom = vi.fn().mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: existingProfile, error: null }),
+          upsert: vi.fn().mockImplementation((payload: any) => {
+            upsertProfilesCalls.push(payload);
+            return Promise.resolve({ data: payload, error: null });
+          }),
+        };
+      }
+      if (table === 'workers') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: { id: 'existing-worker-uuid-999', category: 'Agriculture', skills: ['Organic Farming'] },
+            error: null,
+          }),
+          upsert: vi.fn().mockImplementation((payload: any) => {
+            upsertWorkersCalls.push(payload);
+            return Promise.resolve({ data: payload, error: null });
+          }),
+        };
+      }
+      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+    });
+
+    (supabase.from as any) = mockFrom;
+
+    const mockSaved = vi.fn();
+    render(
+      <WorkerProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={mockSaved}
+        currentLang="English"
+        user={{ id: 'existing-worker-uuid-999', phone: '+919876543210' } as any}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Ganesh Shinde')).toBeInTheDocument();
+    });
+
+    const editBtn = screen.getByRole('button', { name: /Edit Profile Information/i });
+    fireEvent.click(editBtn);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Full name')).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByPlaceholderText('Full name'), {
+      target: { value: 'Ganesh S. Shinde' },
+    });
+
+    const saveButton = screen.getByRole('button', { name: /update profile/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockSaved).toHaveBeenCalled();
+    });
+
+    expect(upsertProfilesCalls.length).toBeGreaterThan(0);
+    expect(upsertProfilesCalls[0].id).toBe('existing-worker-uuid-999');
+    expect(upsertProfilesCalls[0].full_name).toBe('Ganesh S. Shinde');
+
+    expect(upsertWorkersCalls.length).toBeGreaterThan(0);
+    expect(upsertWorkersCalls[0].id).toBe('existing-worker-uuid-999');
+  });
+
+});

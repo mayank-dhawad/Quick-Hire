@@ -1,7 +1,8 @@
 import React, { useEffect, useState, useCallback } from 'react';
+import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Star, Search, UserCheck, MapPin, IndianRupee, Briefcase, Award } from 'lucide-react';
+import { Phone, Star, Search, UserCheck, MapPin, IndianRupee, Briefcase, Award, Lock, Users } from 'lucide-react';
 import { speakText, getVoiceGuidance, getWorkerSpeechText } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
@@ -48,6 +49,8 @@ interface WorkerDiscoveryProps {
   initialCategory: string;
   initialSkillSearch: string;
   currentLang?: string;
+  user?: User | null;
+  onRequireLogin?: () => void;
 }
 
 export function WorkerDiscoveryModal({
@@ -56,6 +59,8 @@ export function WorkerDiscoveryModal({
   initialCategory,
   initialSkillSearch,
   currentLang = 'English',
+  user = null,
+  onRequireLogin,
 }: WorkerDiscoveryProps) {
   const [workers, setWorkers] = useState<WorkerItem[]>([]);
   const [loading, setLoading] = useState(false);
@@ -73,52 +78,70 @@ export function WorkerDiscoveryModal({
   }, [initialCategory, initialSkillSearch]);
 
   const fetchWorkers = useCallback(async () => {
+    // Session Guard: only logged-in users may browse workers
+    const { data: { session } } = await supabase.auth.getSession();
+    const activeUser = session?.user ?? user;
+    if (!activeUser) {
+      setWorkers([]);
+      setLoading(false);
+      return;
+    }
+
     setLoading(true);
     try {
-      // 1. Primary secure discovery path: public_worker_directory view
+      // 1. Primary secure discovery path: sanitized public_worker_directory view
       let viewQuery = (supabase.from('public_worker_directory') as any).select('*');
       if (categoryFilter !== 'All') {
         viewQuery = viewQuery.eq('category', categoryFilter as WorkerCategory);
       }
 
       const { data: viewData, error: viewError } = await viewQuery;
-      if (!viewError && viewData) {
-        const mapped = (viewData as any[]).map((row: any) => ({
-          id: row.id,
-          category: row.category,
-          skills: Array.isArray(row.skills) ? row.skills : [],
-          experience_years: row.experience_years,
-          daily_wage: row.daily_wage,
-          experience_description: row.experience_description,
-          preferred_work_location: row.preferred_work_location,
-          availability_status: row.is_available ? 'available' : 'unavailable',
-          average_rating: row.average_rating,
-          is_available: row.is_available,
-          latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
-          longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
-          profiles: {
+      if (!viewError && Array.isArray(viewData)) {
+        const mapped = (viewData as any[]).map((row: any) => {
+          const lat = row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0 ? Number(row.latitude) : null;
+          const lon = row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0 ? Number(row.longitude) : null;
+          return {
             id: row.id,
-            full_name: row.full_name,
-            phone_number: null,
-            is_assisted_profile: row.is_assisted_profile,
-            location: row.location,
-            village: row.village,
-            district: row.district,
-            state: row.state,
-            latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
-            longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
-          },
-        }));
+            category: row.category,
+            skills: Array.isArray(row.skills) ? row.skills : [],
+            experience_years: row.experience_years,
+            daily_wage: row.daily_wage,
+            experience_description: row.experience_description,
+            preferred_work_location: row.preferred_work_location,
+            availability_status: row.is_available ? 'available' : 'unavailable',
+            average_rating: row.average_rating,
+            is_available: row.is_available,
+            latitude: lat,
+            longitude: lon,
+            profiles: {
+              id: row.id,
+              full_name: row.full_name,
+              phone_number: null,
+              is_assisted_profile: row.is_assisted_profile,
+              location: row.location,
+              village: row.village,
+              city: row.city,
+              district: row.district,
+              state: row.state,
+              latitude: lat,
+              longitude: lon,
+            },
+          };
+        });
         setWorkers(mapped as unknown as WorkerItem[]);
         return;
       }
 
-      // 2. Resilient fallback for older schema
+      if (viewError) {
+        console.warn('WorkerDiscoveryModal: public_worker_directory query failed, falling back:', viewError);
+      }
+
+      // 2. Resilient fallback for older schemas or view absence
       let query = supabase
         .from('workers')
         .select(`
-          id, category, skills, experience_years, daily_wage, experience_description, preferred_work_location, availability_status, average_rating, is_available,
-          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state )
+          id, category, skills, experience_years, average_rating, is_available, location,
+          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, city, district, state, daily_wage )
         `)
         .eq('is_available', true);
 
@@ -128,26 +151,85 @@ export function WorkerDiscoveryModal({
 
       let { data, error } = await query;
       if (error && (error.code === '42703' || String(error.message).includes('column'))) {
-        const fallbackRes = await supabase
+        let minimalQuery = supabase
           .from('workers')
           .select(`
-            id, category, skills, experience_years, average_rating, is_available,
-            profiles ( id, full_name, phone_number, is_assisted_profile, village, district, state )
+            id, category, skills, experience_years, average_rating, is_available, location,
+            profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state )
           `)
           .eq('is_available', true);
+
+        if (categoryFilter !== 'All') {
+          minimalQuery = minimalQuery.eq('category', categoryFilter as WorkerCategory);
+        }
+        const fallbackRes = await minimalQuery;
         data = fallbackRes.data as any;
         error = fallbackRes.error;
       }
 
-      if (!error && data) {
-        setWorkers(data as unknown as WorkerItem[]);
+      if (error) {
+        console.error('WorkerDiscoveryModal: Fallback query failed:', error);
       }
-    } catch {
-      // Ignore network errors gracefully
+
+      if (!error && Array.isArray(data)) {
+        const normalized = data.map((row: any) => {
+          const prof = row.profiles || {};
+          const compositeLoc =
+            prof.location ||
+            row.location ||
+            [prof.village, prof.city, prof.district, prof.state].filter(Boolean).join(', ') ||
+            null;
+
+          const lat =
+            row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0
+              ? Number(row.latitude)
+              : prof.latitude !== null && prof.latitude !== undefined && !isNaN(Number(prof.latitude)) && Number(prof.latitude) !== 0
+              ? Number(prof.latitude)
+              : null;
+
+          const lon =
+            row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0
+              ? Number(row.longitude)
+              : prof.longitude !== null && prof.longitude !== undefined && !isNaN(Number(prof.longitude)) && Number(prof.longitude) !== 0
+              ? Number(prof.longitude)
+              : null;
+
+          return {
+            id: row.id,
+            category: row.category,
+            skills: Array.isArray(row.skills) ? row.skills : [],
+            experience_years: row.experience_years,
+            daily_wage: prof.daily_wage || row.daily_wage || null,
+            experience_description: row.experience_description || null,
+            preferred_work_location: row.preferred_work_location || compositeLoc,
+            availability_status: row.is_available ? 'available' : 'unavailable',
+            average_rating: row.average_rating,
+            is_available: row.is_available,
+            latitude: lat,
+            longitude: lon,
+            profiles: {
+              id: prof.id || row.id,
+              full_name: prof.full_name || null,
+              phone_number: prof.phone_number || null,
+              is_assisted_profile: prof.is_assisted_profile ?? false,
+              location: compositeLoc,
+              village: prof.village || null,
+              city: prof.city || null,
+              district: prof.district || null,
+              state: prof.state || null,
+              latitude: lat,
+              longitude: lon,
+            },
+          };
+        });
+        setWorkers(normalized as unknown as WorkerItem[]);
+      }
+    } catch (fetchErr) {
+      console.warn('Worker discovery fetch error handled gracefully:', fetchErr);
     } finally {
       setLoading(false);
     }
-  }, [categoryFilter]);
+  }, [user, categoryFilter]);
 
   useEffect(() => {
     if (isOpen) {
@@ -206,7 +288,32 @@ export function WorkerDiscoveryModal({
             {t('skillMatcherSub')}
           </p>
 
-          {/* CATEGORY FILTER BUTTONS */}
+          {/* IF NOT LOGGED IN */}
+          {!user ? (
+            <div className="bg-white rounded-3xl border border-slate-200 p-8 text-center space-y-4 shadow-sm my-4">
+              <div className="w-14 h-14 rounded-2xl bg-brand-50 border border-brand-200 text-brand-700 flex items-center justify-center mx-auto">
+                <Users className="w-7 h-7" />
+              </div>
+              <h3 className="font-heading font-extrabold text-xl text-slate-900">
+                {t('loginToViewWorkers')}
+              </h3>
+              <p className="text-xs sm:text-sm text-slate-500 leading-relaxed max-w-md mx-auto">
+                {t('loginWorkersSub')}
+              </p>
+              <button
+                onClick={() => {
+                  onClose();
+                  onRequireLogin?.();
+                }}
+                className="w-full py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm shadow-sm transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <Lock className="w-4 h-4" />
+                <span>{t('login')}</span>
+              </button>
+            </div>
+          ) : (
+            <>
+              {/* CATEGORY FILTER BUTTONS */}
           <div className="mb-3">
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-[11px] font-bold text-slate-500 uppercase tracking-wider block">
@@ -526,6 +633,8 @@ export function WorkerDiscoveryModal({
                 )}
               </div>
             </div>
+          )}
+            </>
           )}
         </motion.div>
       </div>

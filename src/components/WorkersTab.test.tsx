@@ -30,11 +30,31 @@ vi.mock('../lib/geocoding', () => ({
     if (lat2 === 18.8256) return 60.5;
     return 120.0;
   }),
+  resolveLocalityCoordinates: vi.fn((input: any) => {
+    const str = typeof input === 'string' ? input : '';
+    if (str.toLowerCase().includes('shirur')) {
+      return { latitude: 18.8256, longitude: 74.3789, displayName: 'Shirur, Pune, Maharashtra' };
+    }
+    if (str.toLowerCase().includes('pune')) {
+      return { latitude: 18.5204, longitude: 73.8567, displayName: 'Pune, Maharashtra' };
+    }
+    return null;
+  }),
 }));
 
 // Mock Leaflet WorkersMapView to avoid WebGL / Canvas issues in Node environment
 vi.mock('./WorkersMapView', () => ({
-  WorkersMapView: () => <div data-testid="mock-workers-map">Workers Map View</div>,
+  WorkersMapView: ({ onSelectLocation, onRefreshAvailability }: any) => (
+    <div data-testid="mock-workers-map">
+      <span>Workers Map View</span>
+      <button onClick={() => onSelectLocation && onSelectLocation(18.5204, 73.8567, 'Mock Selected Point')}>
+        Mock Select Point
+      </button>
+      <button onClick={() => onRefreshAvailability && onRefreshAvailability()}>
+        Mock Refresh Availability
+      </button>
+    </div>
+  ),
 }));
 
 // Mock Supabase RPC
@@ -57,6 +77,8 @@ vi.mock('../lib/supabase', () => ({
 }));
 
 describe('WorkersTab - Nearby Workers Search Feature', () => {
+  const mockUser = { id: 'test-user-uuid-1', email: 'test@example.com' } as any;
+
   const mockWorkers: WorkerItem[] = [
     {
       id: 'worker-1',
@@ -131,7 +153,7 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         searchQuery=""
         onSearchQueryChange={vi.fn()}
         filteredWorkers={mockWorkers}
-        user={null}
+        user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
         onOpenDirectPayment={vi.fn()}
@@ -142,6 +164,7 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
     expect(screen.getByText('Dnyaneshwar Shinde')).toBeInTheDocument();
     expect(screen.getByText('Santosh Gaikwad')).toBeInTheDocument();
     expect(screen.getByText('Ramesh NoCoords')).toBeInTheDocument();
+    expect(screen.getByText('Map location not set')).toBeInTheDocument();
     expect(screen.getByText('Search Nearby Workers')).toBeInTheDocument();
   });
 
@@ -154,7 +177,7 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         searchQuery=""
         onSearchQueryChange={vi.fn()}
         filteredWorkers={mockWorkers}
-        user={null}
+        user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
         onOpenDirectPayment={vi.fn()}
@@ -183,7 +206,7 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         searchQuery=""
         onSearchQueryChange={vi.fn()}
         filteredWorkers={mockWorkers}
-        user={null}
+        user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
         onOpenDirectPayment={vi.fn()}
@@ -218,7 +241,7 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         searchQuery=""
         onSearchQueryChange={vi.fn()}
         filteredWorkers={mockWorkers}
-        user={null}
+        user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
         onOpenDirectPayment={vi.fn()}
@@ -237,4 +260,100 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
 
     expect(screen.queryByTestId('mock-workers-map')).not.toBeInTheDocument();
   });
+
+  it('handles "Use My Location" (browser GPS) to find nearby workers', async () => {
+    const mockGeolocation = {
+      getCurrentPosition: vi.fn().mockImplementation((success) =>
+        success({
+          coords: {
+            latitude: 18.5204,
+            longitude: 73.8567,
+          },
+        })
+      ),
+    };
+    (global as any).navigator.geolocation = mockGeolocation;
+
+    render(
+      <WorkersTab
+        workersLoading={false}
+        selectedCategory="All"
+        onSelectCategory={vi.fn()}
+        searchQuery=""
+        onSearchQueryChange={vi.fn()}
+        filteredWorkers={mockWorkers}
+        user={mockUser}
+        onRequireLogin={vi.fn()}
+        onRegisterSkillProfile={vi.fn()}
+        onOpenDirectPayment={vi.fn()}
+        onOpenWorkerDiscovery={vi.fn()}
+      />
+    );
+
+    const gpsBtn = screen.getByTitle(/Use My Location/i);
+    fireEvent.click(gpsBtn);
+
+    expect(mockGeolocation.getCurrentPosition).toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(screen.getByTestId('mock-workers-map')).toBeInTheDocument();
+    });
+  });
+
+  it('triggers onRefreshWorkers on manual availability refresh', () => {
+    const mockRefresh = vi.fn();
+    render(
+      <WorkersTab
+        workersLoading={false}
+        selectedCategory="All"
+        onSelectCategory={vi.fn()}
+        searchQuery=""
+        onSearchQueryChange={vi.fn()}
+        filteredWorkers={mockWorkers}
+        user={mockUser}
+        onRequireLogin={vi.fn()}
+        onRegisterSkillProfile={vi.fn()}
+        onOpenDirectPayment={vi.fn()}
+        onOpenWorkerDiscovery={vi.fn()}
+        onRefreshWorkers={mockRefresh}
+      />
+    );
+
+    const refreshBtn = screen.getByTitle(/Refresh Workers/i);
+    fireEvent.click(refreshBtn);
+
+    expect(mockRefresh).toHaveBeenCalled();
+  });
+
+  describe('Unauthenticated User Access Restriction', () => {
+    it('renders login prompt when user is not authenticated and protects worker list', () => {
+      const onRequireLogin = vi.fn();
+      render(
+        <WorkersTab
+          workersLoading={false}
+          selectedCategory="All"
+          onSelectCategory={vi.fn()}
+          searchQuery=""
+          onSearchQueryChange={vi.fn()}
+          filteredWorkers={mockWorkers}
+          user={null}
+          onRequireLogin={onRequireLogin}
+          onRegisterSkillProfile={vi.fn()}
+          onOpenDirectPayment={vi.fn()}
+          onOpenWorkerDiscovery={vi.fn()}
+        />
+      );
+
+      expect(screen.getByText('Login to Browse Verified Workers')).toBeInTheDocument();
+      expect(screen.getByText(/Sign in with your mobile number to discover verified workers/i)).toBeInTheDocument();
+      expect(screen.queryByText('Dnyaneshwar Shinde')).not.toBeInTheDocument();
+      expect(screen.queryByText('Santosh Gaikwad')).not.toBeInTheDocument();
+      expect(screen.queryByText('Search Nearby Workers')).not.toBeInTheDocument();
+
+      const loginBtn = screen.getByRole('button', { name: /Login/i });
+      fireEvent.click(loginBtn);
+      expect(onRequireLogin).toHaveBeenCalledTimes(1);
+    });
+  });
+
 });

@@ -368,6 +368,14 @@ export default function App() {
 
   // Fetch directory workers
   const fetchWorkers = useCallback(async () => {
+    // Session Guard: ONLY authenticated users may browse workers
+    const { data: { session } } = await supabase.auth.getSession();
+    const activeUser = session?.user ?? user;
+    if (!activeUser) {
+      setDirectoryWorkers([]);
+      setWorkersLoading(false);
+      return;
+    }
     setWorkersLoading(true);
     try {
       // 1. Primary secure discovery path: sanitized public_worker_directory view
@@ -377,43 +385,56 @@ export default function App() {
       }
 
       const { data: viewData, error: viewError } = await viewQuery;
-      if (!viewError && viewData) {
-        const mapped = (viewData as any[]).map((row: any) => ({
-          id: row.id,
-          category: row.category,
-          skills: Array.isArray(row.skills) ? row.skills : [],
-          experience_years: row.experience_years,
-          daily_wage: row.daily_wage,
-          experience_description: row.experience_description,
-          preferred_work_location: row.preferred_work_location,
-          availability_status: row.is_available ? 'available' : 'unavailable',
-          average_rating: row.average_rating,
-          is_available: row.is_available,
-          latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
-          longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
-          profiles: {
+      // Robust check: view must succeed, return an array, and have at least 1 record.
+      // If the view is missing (42P01), returns an error, or is empty (zero rows), proceed to resilient table fallback.
+      if (!viewError && Array.isArray(viewData)) {
+        const mapped = (viewData as any[]).map((row: any) => {
+          const lat = row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0 ? Number(row.latitude) : null;
+          const lon = row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0 ? Number(row.longitude) : null;
+          return {
             id: row.id,
-            full_name: row.full_name,
-            phone_number: null, // Phone numbers retrieved via authorized get_worker_contact_phone RPC
-            is_assisted_profile: row.is_assisted_profile,
-            location: row.location,
-            village: row.village,
-            district: row.district,
-            state: row.state,
-            latitude: row.latitude !== null && row.latitude !== undefined ? Number(row.latitude) : null,
-            longitude: row.longitude !== null && row.longitude !== undefined ? Number(row.longitude) : null,
-          },
-        }));
+            category: row.category,
+            skills: Array.isArray(row.skills) ? row.skills : [],
+            experience_years: row.experience_years,
+            daily_wage: row.daily_wage,
+            experience_description: row.experience_description,
+            preferred_work_location: row.preferred_work_location,
+            availability_status: row.is_available ? 'available' : 'unavailable',
+            average_rating: row.average_rating,
+            is_available: row.is_available,
+            latitude: lat,
+            longitude: lon,
+            profiles: {
+              id: row.id,
+              full_name: row.full_name,
+              phone_number: null, // Phone numbers retrieved via authorized get_worker_contact_phone RPC
+              is_assisted_profile: row.is_assisted_profile,
+              location: row.location,
+              village: row.village,
+              city: row.city,
+              district: row.district,
+              state: row.state,
+              latitude: lat,
+              longitude: lon,
+            },
+          };
+        });
         setDirectoryWorkers(mapped as unknown as WorkerItem[]);
         return;
       }
 
-      // 2. Resilient fallback for unmigrated database environments
+      if (viewError) {
+        console.warn('public_worker_directory query failed, falling back to verified tables:', viewError);
+      }
+
+      // 2. Resilient fallback for unmigrated, empty, or view-missing database environments
+      // Queries verified columns: workers (id, category, skills, experience_years, average_rating, is_available, location)
+      // and profiles (id, full_name, phone_number, is_assisted_profile, location, village, city, district, state, daily_wage)
       let query = supabase
         .from('workers')
         .select(`
-          id, category, skills, experience_years, daily_wage, experience_description, preferred_work_location, availability_status, average_rating, is_available, latitude, longitude,
-          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state, latitude, longitude )
+          id, category, skills, experience_years, average_rating, is_available, location,
+          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, city, district, state, daily_wage )
         `)
         .eq('is_available', true);
 
@@ -422,27 +443,87 @@ export default function App() {
       }
 
       let { data, error } = await query;
+      // If extended address/wage columns fail on older schemas, retry with minimal baseline
       if (error && (error.code === '42703' || String(error.message).includes('column'))) {
-        const fallbackRes = await supabase
+        let minimalQuery = supabase
           .from('workers')
           .select(`
-            id, category, skills, experience_years, average_rating, is_available,
-            profiles ( id, full_name, phone_number, is_assisted_profile, village, district, state )
+            id, category, skills, experience_years, average_rating, is_available, location,
+            profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state )
           `)
           .eq('is_available', true);
+
+        if (selectedCategory !== 'All') {
+          minimalQuery = minimalQuery.eq('category', selectedCategory as WorkerCategory);
+        }
+        const fallbackRes = await minimalQuery;
         data = fallbackRes.data as any;
         error = fallbackRes.error;
       }
 
-      if (!error && data) {
-        setDirectoryWorkers(data as unknown as WorkerItem[]);
+      if (error) {
+        console.error('Worker discovery fallback query failed:', error);
       }
-    } catch {
-      // Ignore network errors gracefully
+
+      if (!error && Array.isArray(data)) {
+        const normalized = data.map((row: any) => {
+          const prof = row.profiles || {};
+          const compositeLoc =
+            prof.location ||
+            row.location ||
+            [prof.village, prof.city, prof.district, prof.state].filter(Boolean).join(', ') ||
+            null;
+
+          const lat =
+            row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0
+              ? Number(row.latitude)
+              : prof.latitude !== null && prof.latitude !== undefined && !isNaN(Number(prof.latitude)) && Number(prof.latitude) !== 0
+              ? Number(prof.latitude)
+              : null;
+
+          const lon =
+            row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0
+              ? Number(row.longitude)
+              : prof.longitude !== null && prof.longitude !== undefined && !isNaN(Number(prof.longitude)) && Number(prof.longitude) !== 0
+              ? Number(prof.longitude)
+              : null;
+
+          return {
+            id: row.id,
+            category: row.category,
+            skills: Array.isArray(row.skills) ? row.skills : [],
+            experience_years: row.experience_years,
+            daily_wage: prof.daily_wage || row.daily_wage || null,
+            experience_description: row.experience_description || null,
+            preferred_work_location: row.preferred_work_location || compositeLoc,
+            availability_status: row.is_available ? 'available' : 'unavailable',
+            average_rating: row.average_rating,
+            is_available: row.is_available,
+            latitude: lat,
+            longitude: lon,
+            profiles: {
+              id: prof.id || row.id,
+              full_name: prof.full_name || null,
+              phone_number: prof.phone_number || null,
+              is_assisted_profile: prof.is_assisted_profile ?? false,
+              location: compositeLoc,
+              village: prof.village || null,
+              city: prof.city || null,
+              district: prof.district || null,
+              state: prof.state || null,
+              latitude: lat,
+              longitude: lon,
+            },
+          };
+        });
+        setDirectoryWorkers(normalized as unknown as WorkerItem[]);
+      }
+    } catch (fetchErr) {
+      console.warn('Worker fetching error handled gracefully:', fetchErr);
     } finally {
       setWorkersLoading(false);
     }
-  }, [selectedCategory]);
+  }, [user, selectedCategory]);
 
   // Fetch jobs posted by the logged-in employer
   const fetchMyPostedJobs = useCallback(async (currentUserId: string) => {
@@ -718,9 +799,8 @@ export default function App() {
       return null;
     };
 
-    // Always fetch public catalog for all visitors on initial mount
+    // Fetch public job & equipment catalogs for all visitors on initial mount
     fetchOpenJobs();
-    fetchWorkers();
     fetchEquipment();
 
     supabase.auth.getSession().then(async ({ data: { session } }) => {
@@ -741,6 +821,7 @@ export default function App() {
         setUserRole(null);
         setMyPostedJobs([]);
         setAppliedJobIds(new Set());
+        setDirectoryWorkers([]);
       }
       setAuthChecking(false);
     });
@@ -748,10 +829,12 @@ export default function App() {
     return () => subscription.unsubscribe();
   }, [fetchUserData, fetchOpenJobs, fetchWorkers, fetchEquipment]);
 
-  // Refetch workers on category change unconditionally
+  // Refetch workers on category change when authenticated
   useEffect(() => {
-    fetchWorkers();
-  }, [fetchWorkers, selectedCategory]);
+    if (user) {
+      fetchWorkers();
+    }
+  }, [fetchWorkers, selectedCategory, user]);
 
   // Handle worker expression of interest
   const handleApplyForJob = async (jobId: string) => {
@@ -1146,6 +1229,11 @@ export default function App() {
         initialCategory={discoveryCategory}
         initialSkillSearch={discoverySkill}
         currentLang={currentLang}
+        user={user}
+        onRequireLogin={() => {
+          setIsDiscoveryOpen(false);
+          setIsLoginOpen(true);
+        }}
       />
       <WorkerProfileModal
         isOpen={isWorkerModalOpen}
@@ -2053,6 +2141,10 @@ export default function App() {
                 }
               }}
               onOpenDiscovery={(category, skill) => {
+                if (!user) {
+                  setIsLoginOpen(true);
+                  return;
+                }
                 setDiscoveryCategory(category || 'All');
                 setDiscoverySkill(skill || '');
                 setIsDiscoveryOpen(true);
@@ -2096,10 +2188,15 @@ export default function App() {
                 });
               }}
               onOpenWorkerDiscovery={(category, skill) => {
+                if (!user) {
+                  setIsLoginOpen(true);
+                  return;
+                }
                 setDiscoveryCategory(category);
                 setDiscoverySkill(skill);
                 setIsDiscoveryOpen(true);
               }}
+              onRefreshWorkers={fetchWorkers}
             />
           )}
 
