@@ -3,17 +3,26 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DirectPaymentModal } from './DirectPaymentModal';
 import { User } from '@supabase/supabase-js';
-import { UPI_REGEX } from './BankDetailsTab';
+import { UPI_REGEX } from '../lib/paymentUtils';
 
 // Mock Supabase client
-const { mockInsert, mockUpdate, mockSingle } = vi.hoisted(() => ({
+const { mockInsert, mockUpdate, mockSingle, mockRpc } = vi.hoisted(() => ({
   mockInsert: vi.fn(),
   mockUpdate: vi.fn(),
   mockSingle: vi.fn(),
+  mockRpc: vi.fn(),
 }));
 
 vi.mock('../lib/supabase', () => {
-  const queryBuilder: any = {
+  interface MockQueryBuilder {
+    single: typeof mockSingle;
+    eq: ReturnType<typeof vi.fn>;
+    in: ReturnType<typeof vi.fn>;
+    order: ReturnType<typeof vi.fn>;
+    limit: ReturnType<typeof vi.fn>;
+  }
+
+  const queryBuilder: MockQueryBuilder = {
     single: mockSingle,
     eq: vi.fn(() => queryBuilder),
     in: vi.fn(() => queryBuilder),
@@ -23,12 +32,16 @@ vi.mock('../lib/supabase', () => {
 
   return {
     supabase: {
-      from: vi.fn((_table: string) => ({
+      from: vi.fn(() => ({
         select: vi.fn(() => queryBuilder),
         insert: mockInsert,
         update: mockUpdate,
       })),
-      rpc: vi.fn(async (fnName: string, params?: any) => {
+      rpc: vi.fn(async (fnName: string, params?: Record<string, unknown>) => {
+        if (mockRpc) {
+          const custom = await mockRpc(fnName, params);
+          if (custom !== undefined) return custom;
+        }
         if (fnName === 'get_payment_recipient_details') {
           if (params?.p_recipient_id === 'worker_no_upi') {
             return {
@@ -49,6 +62,22 @@ vi.mock('../lib/supabase', () => {
               bank_account_no: '123456789012',
               bank_ifsc: 'SBIN0001234',
               upi_id: 'ramesh.patel@oksbi',
+            },
+            error: null,
+          };
+        }
+        if (fnName === 'record_direct_payment') {
+          return {
+            data: {
+              success: true,
+              payment_id: 'pay_rpc_777',
+              payment_for_type: params?.p_payment_for_type,
+              assignment_id: params?.p_assignment_id,
+              job_id: params?.p_reference_id,
+              amount: params?.p_amount,
+              status: params?.p_payment_method === 'Cash' ? 'completed' : 'submitted',
+              verification_status: params?.p_payment_method === 'Cash' ? 'user_reported' : 'pending_verification',
+              receipt_number: 'QH-RCP-20261108-9999',
             },
             error: null,
           };
@@ -80,6 +109,7 @@ const mockEmployer: User = {
 describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    mockRpc.mockReset();
     localStorage.clear();
 
     // Default mock response for recipient profile
@@ -163,6 +193,8 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
           recipientPhone="+919876543210"
           paymentForType="worker_wage"
           referenceId="job_harvest_456"
+          jobId="job_harvest_456"
+          assignmentId="rec_assignment_789"
           defaultAmount={750}
           currentLang="English"
           onRequireLogin={vi.fn()}
@@ -199,6 +231,8 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
           recipientPhone="+919876543210"
           paymentForType="worker_wage"
           referenceId="job_harvest_456"
+          jobId="job_harvest_456"
+          assignmentId="rec_assignment_789"
           defaultAmount={500}
           currentLang="English"
           onRequireLogin={vi.fn()}
@@ -213,7 +247,7 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
   });
 
   describe('Payment Intent Launch & Status Isolation (Step 2)', () => {
-    it('creates an unverified pending payment attempt record and transitions to UTR verification screen', async () => {
+    it('transitions to UTR verification screen without direct table insert', async () => {
       render(
         <DirectPaymentModal
           isOpen={true}
@@ -224,6 +258,8 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
           recipientPhone="+919876543210"
           paymentForType="worker_wage"
           referenceId="job_harvest_456"
+          jobId="job_harvest_456"
+          assignmentId="rec_assignment_789"
           defaultAmount={750}
           currentLang="English"
           onRequireLogin={vi.fn()}
@@ -233,18 +269,16 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
       const proceedBtn = await screen.findByRole('button', { name: /Proceed to UPI App/i });
       fireEvent.click(proceedBtn);
 
-      await waitFor(() => {
-        // Assert attempt was inserted with status 'pending' (NOT 'completed' or 'paid')
-        expect(mockInsert).toHaveBeenCalled();
-      });
-
       // Verify Step 2 UI is displayed
       expect(await screen.findByText(/UPI Intent Dispatched/i)).toBeInTheDocument();
       expect(screen.getByText(/does not mark payments as paid merely because you returned/i)).toBeInTheDocument();
       expect(screen.getByPlaceholderText(/e\.g\. 423849182394 or UPI Reference/i)).toBeInTheDocument();
+
+      // Assert direct table inserts are eliminated in favor of RPC execution
+      expect(mockInsert).not.toHaveBeenCalled();
     });
 
-    it('submitting UTR reference updates payment status to "submitted", NOT "paid"', async () => {
+    it('submitting UTR reference calls record_direct_payment RPC with submitted status', async () => {
       const onPaymentRecorded = vi.fn();
 
       render(
@@ -257,6 +291,8 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
           recipientPhone="+919876543210"
           paymentForType="worker_wage"
           referenceId="job_harvest_456"
+          jobId="job_harvest_456"
+          assignmentId="rec_assignment_789"
           defaultAmount={750}
           currentLang="English"
           onPaymentRecorded={onPaymentRecorded}
@@ -285,6 +321,122 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
       });
     });
 
+    it('recording cash payment calls record_direct_payment RPC with Cash method', async () => {
+      const onPaymentRecorded = vi.fn();
+
+      render(
+        <DirectPaymentModal
+          isOpen={true}
+          onClose={vi.fn()}
+          currentUser={mockEmployer}
+          recipientId="worker_user_111"
+          recipientName="Ramesh Patel"
+          recipientPhone="+919876543210"
+          paymentForType="worker_wage"
+          referenceId="job_harvest_456"
+          jobId="job_harvest_456"
+          assignmentId="rec_assignment_789"
+          defaultAmount={750}
+          currentLang="English"
+          onPaymentRecorded={onPaymentRecorded}
+          onRequireLogin={vi.fn()}
+        />
+      );
+
+      // Switch to Cash tab
+      const cashTabBtn = await screen.findByRole('button', { name: /Cash/i });
+      fireEvent.click(cashTabBtn);
+
+      // Check the handed over checkbox
+      const checkbox = screen.getByRole('checkbox');
+      fireEvent.click(checkbox);
+
+      // Click record cash settlement button
+      const recordCashBtn = screen.getByRole('button', { name: /Record Cash Payment/i });
+      fireEvent.click(recordCashBtn);
+
+      await waitFor(() => {
+        expect(onPaymentRecorded).toHaveBeenCalledWith(
+          expect.objectContaining({
+            payment_method: 'Cash',
+            status: 'completed',
+            verification_status: 'user_reported',
+          })
+        );
+      });
+    });
+
+    it('handles record_direct_payment RPC failure and shows error message without false success', async () => {
+      mockRpc.mockImplementation(async (fnName: string) => {
+        if (fnName === 'record_direct_payment') {
+          return {
+            data: null,
+            error: { message: 'Overpayment Violation: Amount exceeds agreed payable.' },
+          };
+        }
+        return undefined;
+      });
+
+      render(
+        <DirectPaymentModal
+          isOpen={true}
+          onClose={vi.fn()}
+          currentUser={mockEmployer}
+          recipientId="worker_user_111"
+          recipientName="Ramesh Patel"
+          recipientPhone="+919876543210"
+          paymentForType="worker_wage"
+          referenceId="job_harvest_456"
+          jobId="job_harvest_456"
+          assignmentId="rec_assignment_789"
+          defaultAmount={750}
+          currentLang="English"
+          onRequireLogin={vi.fn()}
+        />
+      );
+
+      // Launch intent to reach step 2
+      const proceedBtn = await screen.findByRole('button', { name: /Proceed to UPI App/i });
+      fireEvent.click(proceedBtn);
+
+      const utrInput = await screen.findByPlaceholderText(/e\.g\. 423849182394 or UPI Reference/i);
+      fireEvent.change(utrInput, { target: { value: '423849182394' } });
+
+      const submitUtrBtn = screen.getByRole('button', { name: /Submit Reference for Verification/i });
+      fireEvent.click(submitUtrBtn);
+
+      expect(
+        await screen.findByText(/Overpayment Violation: Amount exceeds agreed payable/i)
+      ).toBeInTheDocument();
+      expect(screen.queryByText(/Reference submitted! Payment logged as Submitted/i)).not.toBeInTheDocument();
+    });
+
+    it('blocks wage payment when assignmentId is missing', async () => {
+      render(
+        <DirectPaymentModal
+          isOpen={true}
+          onClose={vi.fn()}
+          currentUser={mockEmployer}
+          recipientId="worker_user_111"
+          recipientName="Ramesh Patel"
+          recipientPhone="+919876543210"
+          paymentForType="worker_wage"
+          referenceId="job_harvest_456"
+          defaultAmount={750}
+          currentLang="English"
+          onRequireLogin={vi.fn()}
+        />
+      );
+
+      const proceedBtn = await screen.findByRole('button', { name: /Proceed to UPI App/i });
+      fireEvent.click(proceedBtn);
+
+      expect(
+        await screen.findByText(/A valid worker assignment reference/i)
+      ).toBeInTheDocument();
+      expect(mockInsert).not.toHaveBeenCalled();
+    });
+
     it('rejects empty or short UTR submissions', async () => {
       render(
         <DirectPaymentModal
@@ -296,6 +448,8 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
           recipientPhone="+919876543210"
           paymentForType="worker_wage"
           referenceId="job_harvest_456"
+          jobId="job_harvest_456"
+          assignmentId="rec_assignment_789"
           defaultAmount={750}
           currentLang="English"
           onRequireLogin={vi.fn()}
@@ -315,6 +469,31 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
       expect(
         await screen.findByText(/UPI Reference \/ UTR number is usually 12 digits/i)
       ).toBeInTheDocument();
+    });
+
+    it('blocks machine rental direct payment and displays disabled notice', async () => {
+      render(
+        <DirectPaymentModal
+          isOpen={true}
+          onClose={vi.fn()}
+          currentUser={mockEmployer}
+          recipientId="owner_user_222"
+          recipientName="Kisan Machine Owner"
+          recipientPhone="+919876543210"
+          paymentForType="machine_rental"
+          referenceId="equip_tractor_123"
+          defaultAmount={1200}
+          currentLang="English"
+          onRequireLogin={vi.fn()}
+        />
+      );
+
+      expect(
+        await screen.findByText(/Machine Rental Direct Payments Temporarily Disabled/i)
+      ).toBeInTheDocument();
+
+      const proceedBtn = screen.getByRole('button', { name: /Proceed to UPI App/i });
+      expect(proceedBtn).toBeDisabled();
     });
   });
 });

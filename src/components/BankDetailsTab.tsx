@@ -24,10 +24,10 @@ import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
-import { PaymentRecord, UPI_REGEX } from '../lib/paymentUtils';
+import { PaymentRecord, UPI_REGEX, IFSC_REGEX } from '../lib/paymentUtils';
 
 export type { PaymentRecord };
-export { UPI_REGEX };
+
 
 interface BankDetailsTabProps {
   user: User | null;
@@ -51,7 +51,7 @@ const COMMON_BANKS = [
 ];
 
 // Indian IFSC standard: 4 alphabetic characters, followed by 0, followed by 6 alphanumeric characters
-export const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+// Indian IFSC standard: 4 alphabetic characters, followed by 0, followed by 6 alphanumeric characters (imported from paymentUtils)
 
 export function BankDetailsTab({
   user,
@@ -115,35 +115,31 @@ export function BankDetailsTab({
     return true;
   };
 
-  // Load existing profile bank details
+  // Load existing profile bank details exclusively from profile_private_details
   const loadProfileBankDetails = useCallback(async () => {
     if (!user) return;
     try {
-      const { data, error } = await supabase
-        .from('profiles')
+      const privQuery = supabase
+        .from('profile_private_details')
         .select('bank_name, bank_account_no, bank_ifsc, upi_id')
-        .eq('id', user.id)
-        .single();
+        .eq('profile_id', user.id);
+      const { data: privData, error: privErr } = typeof privQuery.maybeSingle === 'function'
+        ? await privQuery.maybeSingle()
+        : await privQuery.single();
 
-      if (error) {
-        // Fallback to local storage cache if table column is sync pending
-        const cached = localStorage.getItem(`quickhire_bank_${user.id}`);
-        if (cached) {
-          const parsed = JSON.parse(cached);
-          if (parsed.bank_name) setBankName(parsed.bank_name);
-          if (parsed.bank_account_no) {
-            setAccountNo(parsed.bank_account_no);
-            setConfirmAccountNo(parsed.bank_account_no);
-          }
-          if (parsed.bank_ifsc) setIfsc(parsed.bank_ifsc);
-          if (parsed.upi_id) setUpiId(parsed.upi_id);
-          setHasConfiguredBank(Boolean(parsed.bank_account_no || parsed.upi_id));
+      if (privErr) {
+        if (privErr.code === '42P01') {
+          console.warn('Secure banking details table (profile_private_details) not yet created.');
+        } else if (privErr.code === '42501') {
+          console.warn('Permission denied to read profile_private_details (RLS restriction).');
+        } else {
+          console.warn('Failed to load private banking details:', privErr.message);
         }
         return;
       }
 
-      if (data) {
-        const bName = data.bank_name || '';
+      if (privData) {
+        const bName = privData.bank_name || '';
         if (COMMON_BANKS.includes(bName)) {
           setBankName(bName);
         } else if (bName) {
@@ -153,15 +149,17 @@ export function BankDetailsTab({
           setBankName('');
         }
 
-        const acc = data.bank_account_no || '';
+        const acc = privData.bank_account_no || '';
         setAccountNo(acc);
         setConfirmAccountNo(acc);
-        setIfsc(data.bank_ifsc || '');
-        setUpiId(data.upi_id || '');
-        setHasConfiguredBank(Boolean(acc || data.upi_id));
+        setIfsc(privData.bank_ifsc || '');
+        setUpiId(privData.upi_id || '');
+        setHasConfiguredBank(Boolean(acc || privData.upi_id));
+      } else {
+        setHasConfiguredBank(false);
       }
     } catch (err) {
-      console.warn('Bank load error:', err);
+      console.warn('Bank load unexpected error:', err);
     }
   }, [user]);
 
@@ -263,20 +261,26 @@ export function BankDetailsTab({
     setIsSaving(true);
 
     try {
-      // 1. Update profiles table
-      const { error } = await supabase
-        .from('profiles')
-        .update({
+      // Sole write target: profile_private_details (zero fallback to legacy profiles)
+      const { error: privErr } = await supabase
+        .from('profile_private_details')
+        .upsert({
+          profile_id: user.id,
           bank_name: finalBankName || null,
           bank_account_no: accountNo.trim() || null,
           bank_ifsc: ifsc.trim().toUpperCase() || null,
           upi_id: upiId.trim() || null,
           updated_at: new Date().toISOString(),
-        })
-        .eq('id', user.id);
+        });
 
-      if (error) {
-        console.warn('Supabase profile bank update fallback:', error.message);
+      if (privErr) {
+        let errorDetail = privErr.message;
+        if (privErr.code === '42P01') {
+          errorDetail = 'Secure banking table (profile_private_details) is not yet deployed. Please notify platform administrator.';
+        } else if (privErr.code === '42501') {
+          errorDetail = 'Permission denied. You are only authorized to save your own banking details.';
+        }
+        throw new Error(errorDetail);
       }
 
       // 2. Persist to resilient local storage cache

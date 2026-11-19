@@ -75,19 +75,37 @@ export async function verifyAdminStatus(userId: string): Promise<{
 
   try {
     // 1. Authoritative direct query on admin_users table (enforced by RLS)
-    const { data: adminUser, error: adminErr } = await supabase
+    let adminUser: Record<string, unknown> | null = null;
+    let adminErr: { code?: string; message?: string } | null = null;
+
+    const res = await supabase
       .from('admin_users')
       .select('role, verified_email, verified_phone, is_active')
       .eq('user_id', userId)
       .eq('is_active', true)
       .maybeSingle();
 
+    adminUser = res.data as Record<string, unknown> | null;
+    adminErr = res.error;
+
+    // Resilient fallback if verified_email column does not exist on older database schemas (42703)
+    if (adminErr && (adminErr.code === '42703' || String(adminErr.message).includes('verified_email'))) {
+      const fallbackRes = await supabase
+        .from('admin_users')
+        .select('role, verified_phone, is_active')
+        .eq('user_id', userId)
+        .eq('is_active', true)
+        .maybeSingle();
+      adminUser = fallbackRes.data as Record<string, unknown> | null;
+      adminErr = fallbackRes.error;
+    }
+
     if (!adminErr && adminUser && adminUser.is_active) {
       return {
         isAdmin: true,
         role: (adminUser.role as 'super_admin' | 'moderator' | 'support_agent') || 'super_admin',
-        verifiedEmail: adminUser.verified_email,
-        verifiedPhone: adminUser.verified_phone,
+        verifiedEmail: (adminUser.verified_email as string) || null,
+        verifiedPhone: (adminUser.verified_phone as string) || null,
       };
     }
 
@@ -99,18 +117,35 @@ export async function verifyAdminStatus(userId: string): Promise<{
 
       if (!rpcErr && rpcIsAdmin === true) {
         // Query admin_users for verified identifiers and role if available
-        const { data: adminRecord } = await supabase
+        let adminRecord: Record<string, unknown> | null = null;
+        let adminRecordErr: { code?: string; message?: string } | null = null;
+
+        const recRes = await supabase
           .from('admin_users')
           .select('role, verified_email, verified_phone, is_active')
           .eq('user_id', userId)
           .eq('is_active', true)
           .maybeSingle();
 
+        adminRecord = recRes.data as Record<string, unknown> | null;
+        adminRecordErr = recRes.error;
+
+        // Fallback for RPC path if verified_email is missing
+        if (adminRecordErr && (adminRecordErr.code === '42703' || String(adminRecordErr.message).includes('verified_email'))) {
+          const recFallback = await supabase
+            .from('admin_users')
+            .select('role, verified_phone, is_active')
+            .eq('user_id', userId)
+            .eq('is_active', true)
+            .maybeSingle();
+          adminRecord = recFallback.data as Record<string, unknown> | null;
+        }
+
         return {
           isAdmin: true,
           role: (adminRecord?.role as 'super_admin' | 'moderator' | 'support_agent') || 'super_admin',
-          verifiedEmail: adminRecord?.verified_email || null,
-          verifiedPhone: adminRecord?.verified_phone || null,
+          verifiedEmail: (adminRecord?.verified_email as string) || null,
+          verifiedPhone: (adminRecord?.verified_phone as string) || null,
         };
       }
     }

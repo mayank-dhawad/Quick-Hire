@@ -3,6 +3,7 @@ import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Landmark,
+  IndianRupee,
   CheckCircle2,
   Copy,
   Check,
@@ -14,7 +15,6 @@ import {
   RefreshCw,
   Building2,
   X,
-  ShieldCheck,
   ArrowRight,
   Info
 } from 'lucide-react';
@@ -34,6 +34,8 @@ interface DirectPaymentModalProps {
   recipientPhone?: string | null;
   paymentForType: 'worker_wage' | 'machine_rental';
   referenceId?: string | null;
+  jobId?: string | null;
+  assignmentId?: string | null;
   defaultAmount?: number;
   currentLang?: string;
   onPaymentRecorded?: (payment: PaymentRecord) => void;
@@ -65,12 +67,14 @@ export function DirectPaymentModal({
   recipientPhone,
   paymentForType,
   referenceId,
+  jobId,
+  assignmentId,
   defaultAmount = 500,
   currentLang = 'English',
   onPaymentRecorded,
   onRequireLogin,
 }: DirectPaymentModalProps) {
-  const [activeSubTab, setActiveSubTab] = useState<'upi' | 'netbanking'>('upi');
+  const [activeSubTab, setActiveSubTab] = useState<'upi' | 'netbanking' | 'cash'>('upi');
   const [recipientBank, setRecipientBank] = useState<RecipientBankProfile | null>(null);
   const [loadingRecipient, setLoadingRecipient] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -78,12 +82,18 @@ export function DirectPaymentModal({
   // Flow step: 'confirm' (Step 1 Review) | 'launched' (Step 2 Intent launched & UTR submission)
   const [step, setStep] = useState<'confirm' | 'launched'>('confirm');
 
-  // Payment states
+  // Payment states & Multi-payment ledger
   const [amount, setAmount] = useState<string>(String(defaultAmount));
   const [paymentMethod, setPaymentMethod] = useState<'Net Banking (IMPS/NEFT)' | 'Direct UPI' | 'Cash'>('Direct UPI');
   const [activeAttemptRef, setActiveAttemptRef] = useState<string>('');
   const [activePaymentId, setActivePaymentId] = useState<string | null>(null);
   const [existingPendingAttempt, setExistingPendingAttempt] = useState<PaymentRecord | null>(null);
+  const [totalPreviouslyPaid, setTotalPreviouslyPaid] = useState<number>(0);
+  const [remainingBalance, setRemainingBalance] = useState<number>(defaultAmount || 500);
+
+  // Cash payment confirmation
+  const [cashHandedOver, setCashHandedOver] = useState(false);
+  const [isRecordingCash, setIsRecordingCash] = useState(false);
 
   // UTR submission & verification state
   const [utrNumber, setUtrNumber] = useState('');
@@ -117,58 +127,58 @@ export function DirectPaymentModal({
       setLoadingRecipient(true);
       try {
         // 1. Fetch authorized recipient bank details via get_payment_recipient_details RPC
-        const { data: rpcData, error: rpcErr } = await (supabase.rpc as any)('get_payment_recipient_details', {
+        const { data: rpcData, error: rpcErr } = await supabase.rpc('get_payment_recipient_details', {
           p_recipient_id: recipientId,
-          p_job_id: referenceId || null,
+          p_job_id: (jobId || referenceId || null) as string | null,
         });
 
         if (!rpcErr && rpcData) {
-          setRecipientBank({
-            bank_name: rpcData.bank_name,
-            bank_account_no: rpcData.bank_account_no,
-            bank_ifsc: rpcData.bank_ifsc,
-            upi_id: rpcData.upi_id,
-          });
-          if (!rpcData.upi_id && (rpcData.bank_account_no || rpcData.bank_ifsc)) {
-            setActiveSubTab('netbanking');
-            setPaymentMethod('Net Banking (IMPS/NEFT)');
-          }
-        } else {
-          // Fallback to direct profiles query if RPC is unmigrated
-          const { data: profData } = await supabase
-            .from('profiles')
-            .select('bank_name, bank_account_no, bank_ifsc, upi_id')
-            .eq('id', recipientId)
-            .single();
-
-          if (profData) {
-            setRecipientBank(profData);
-            if (!profData.upi_id && (profData.bank_account_no || profData.bank_ifsc)) {
+          const detail = Array.isArray(rpcData) ? (rpcData as unknown as Array<RecipientBankProfile>)[0] : rpcData;
+          if (detail) {
+            setRecipientBank({
+              bank_name: detail.bank_name,
+              bank_account_no: detail.bank_account_no,
+              bank_ifsc: detail.bank_ifsc,
+              upi_id: detail.upi_id,
+            });
+            if (!detail.upi_id && (detail.bank_account_no || detail.bank_ifsc)) {
               setActiveSubTab('netbanking');
               setPaymentMethod('Net Banking (IMPS/NEFT)');
             }
           } else {
             setRecipientBank(null);
           }
+        } else {
+          setRecipientBank(null);
         }
 
-        // 2. Check for duplicate/existing pending payment attempt for this job and recipient
+        // 2. Check for duplicate/existing pending payment attempt and multi-payment ledger
         if (currentUser) {
           const { data: existingData } = await supabase
             .from('payments')
             .select('*')
             .eq('payer_id', currentUser.id)
             .eq('payee_id', recipientId)
-            .in('status', ['created', 'pending', 'submitted'])
-            .order('created_at', { ascending: false })
-            .limit(1);
+            .order('created_at', { ascending: false });
 
           if (existingData && existingData.length > 0) {
-            const found = existingData[0] as unknown as PaymentRecord;
-            if (!referenceId || found.reference_id === referenceId) {
-              setExistingPendingAttempt(found);
-              setActiveAttemptRef(found.payment_reference || '');
-              setActivePaymentId(found.id);
+            const pending = existingData.find(p => ['created', 'pending', 'submitted'].includes(p.status || ''));
+            if (pending && (!referenceId || pending.reference_id === referenceId)) {
+              setExistingPendingAttempt(pending as unknown as PaymentRecord);
+              setActiveAttemptRef(pending.payment_reference || '');
+              setActivePaymentId(pending.id);
+            }
+
+            // Compute ledger for this job reference
+            const matchingJobPays = referenceId
+              ? existingData.filter(p => p.reference_id === referenceId && ['completed', 'paid', 'submitted'].includes(p.status || ''))
+              : [];
+            const paidSum = matchingJobPays.reduce((acc, p) => acc + (Number(p.amount) || 0), 0);
+            const remBal = Math.max(0, (defaultAmount || 500) - paidSum);
+            setTotalPreviouslyPaid(paidSum);
+            setRemainingBalance(remBal);
+            if (remBal > 0) {
+              setAmount(String(remBal));
             }
           }
         }
@@ -180,7 +190,7 @@ export function DirectPaymentModal({
     };
 
     fetchRecipientBankAndAttempts();
-  }, [isOpen, recipientId, currentUser, referenceId, defaultAmount]);
+  }, [isOpen, recipientId, currentUser, referenceId, jobId, defaultAmount]);
 
   if (!isOpen) return null;
 
@@ -207,12 +217,151 @@ export function DirectPaymentModal({
     return `QuickHire Rental ${referenceId ? referenceId.slice(0, 8) : ''}`.trim();
   };
 
-  // STEP 1 -> STEP 2: Proceed to UPI
+  // RECORD CASH SETTLEMENT VIA RPC
+  const handleRecordCashPayment = async () => {
+    if (isRecordingCash) return;
+    if (!currentUser) {
+      onRequireLogin();
+      return;
+    }
+
+    if (paymentForType === 'machine_rental') {
+      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      return;
+    }
+
+    const effectiveJobId = jobId || referenceId || null;
+    if (!effectiveJobId) {
+      setErrorMsg('A valid job reference is required to record wage payments.');
+      return;
+    }
+
+    if (!assignmentId) {
+      setErrorMsg('A valid worker assignment reference (job_records.id) is required to record wage payments.');
+      return;
+    }
+
+    if (!recipientId) {
+      setErrorMsg('Recipient information is missing.');
+      return;
+    }
+
+    const parsedAmount = Number(amount);
+    if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
+      setErrorMsg('Please enter a valid cash amount.');
+      return;
+    }
+    if (remainingBalance > 0 && parsedAmount > remainingBalance) {
+      setErrorMsg(`Payment amount (₹${parsedAmount}) cannot exceed remaining balance (₹${remainingBalance}).`);
+      return;
+    }
+    if (remainingBalance <= 0 && totalPreviouslyPaid > 0) {
+      setErrorMsg('This assignment is already fully paid.');
+      return;
+    }
+
+    setIsRecordingCash(true);
+    setErrorMsg('');
+
+    try {
+      const attemptRef = activeAttemptRef || generatePaymentAttemptRef();
+      setActiveAttemptRef(attemptRef);
+
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('record_direct_payment', {
+        p_payment_for_type: 'worker_wage',
+        p_reference_id: effectiveJobId,
+        p_assignment_id: assignmentId,
+        p_payee_id: recipientId,
+        p_amount: parsedAmount,
+        p_payment_method: 'Cash',
+        p_payment_reference: attemptRef,
+        p_utr_number: null,
+        p_idempotency_key: attemptRef,
+      });
+
+      if (rpcErr) {
+        throw rpcErr;
+      }
+
+      interface RecordDirectPaymentResult {
+        success?: boolean;
+        payment_id?: string;
+        payment_for_type?: string;
+        assignment_id?: string;
+        job_id?: string;
+        amount?: number;
+        status?: string;
+        verification_status?: string;
+        receipt_number?: string;
+        idempotent_duplicate?: boolean;
+        message?: string;
+      }
+
+      const res = rpcRes as RecordDirectPaymentResult | null;
+      if (!res || res.success !== true) {
+        throw new Error(res?.message || 'Failed to record cash payment.');
+      }
+
+      const paymentId = res.payment_id || `pay_${Date.now()}`;
+      setActivePaymentId(paymentId);
+
+      const recordedPay: PaymentRecord = {
+        id: paymentId,
+        payer_id: currentUser.id,
+        payee_id: recipientId,
+        payment_for_type: 'worker_wage',
+        reference_id: effectiveJobId,
+        amount: parsedAmount,
+        payment_method: 'Cash',
+        payment_reference: attemptRef,
+        transaction_ref: null,
+        status: (res.status as PaymentRecord['status']) || 'completed',
+        verification_status: res.verification_status || 'user_reported',
+        created_at: new Date().toISOString(),
+        payer_name: currentUser.user_metadata?.full_name || 'Employer',
+        payee_name: recipientName,
+      };
+
+      if (onPaymentRecorded) {
+        onPaymentRecorded(recordedPay);
+      }
+      setStep('launched');
+      setUtrSuccess(true);
+    } catch (err: unknown) {
+      const msg = extractErrorMessage(err, 'Failed to record cash payment.');
+      setErrorMsg(msg);
+    } finally {
+      setIsRecordingCash(false);
+    }
+  };
+
   const handleProceedToUpi = async () => {
+    if (isLaunchingIntent) return;
     setErrorMsg('');
 
     if (!currentUser) {
       onRequireLogin();
+      return;
+    }
+
+    if (paymentForType === 'machine_rental') {
+      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      return;
+    }
+
+    const effectiveJobId = jobId || referenceId || null;
+    if (!effectiveJobId) {
+      setErrorMsg('A valid job reference is required to initiate wage payments.');
+      return;
+    }
+
+    if (!assignmentId) {
+      setErrorMsg('A valid worker assignment reference (job_records.id) is required to initiate wage payments.');
+      return;
+    }
+
+    if (!recipientId) {
+      setErrorMsg('Recipient information is missing.');
       return;
     }
 
@@ -228,74 +377,31 @@ export function DirectPaymentModal({
       return;
     }
 
+    if (remainingBalance > 0 && parsedAmount > remainingBalance) {
+      setErrorMsg(`Payment amount (₹${parsedAmount}) cannot exceed remaining balance (₹${remainingBalance}).`);
+      return;
+    }
+    if (remainingBalance <= 0 && totalPreviouslyPaid > 0) {
+      setErrorMsg('This assignment is already fully paid.');
+      return;
+    }
+
     setIsLaunchingIntent(true);
 
     try {
       const attemptRef = activeAttemptRef || generatePaymentAttemptRef();
       setActiveAttemptRef(attemptRef);
+      setPaymentMethod('Direct UPI');
 
-      let recordId = activePaymentId;
-
-      // 1. Create or update payment record in Supabase with status = 'pending', verification_status = 'unverified'
-      if (!recordId) {
-        const { data: newPay, error: insertErr } = await supabase
-          .from('payments')
-          .insert([
-            {
-              payer_id: currentUser.id,
-              payee_id: recipientId,
-              payment_for_type: paymentForType,
-              reference_id: referenceId || null,
-              amount: parsedAmount,
-              payment_method: 'Direct UPI',
-              payment_reference: attemptRef,
-              currency: 'INR',
-              status: 'pending',
-              verification_status: 'unverified',
-            },
-          ])
-          .select();
-
-        if (insertErr) {
-          console.warn('Note on Supabase payments insert:', insertErr.message);
-        }
-
-        if (newPay && newPay[0]) {
-          recordId = newPay[0].id;
-          setActivePaymentId(recordId);
-
-          // Log payment audit event
-          try {
-            await supabase.from('payment_audit_events').insert([
-              {
-                payment_id: recordId,
-                previous_status: null,
-                new_status: 'pending',
-                event_type: 'attempt_created',
-                actor_id: currentUser.id,
-                metadata: {
-                  attempt_reference: attemptRef,
-                  recipient_upi: cleanUpiId,
-                  amount: parsedAmount,
-                  currency: 'INR',
-                },
-              },
-            ]);
-          } catch (auditErr) {
-            console.warn('Audit event notice:', auditErr);
-          }
-        }
-      }
-
-      // 2. Safely construct URL-encoded UPI Intent URI
+      // Safely construct URL-encoded UPI Intent URI
       const description = getJobPaymentDescription();
       const upiUri = `upi://pay?pa=${encodeURIComponent(cleanUpiId)}&pn=${encodeURIComponent(recipientName)}&am=${encodeURIComponent(parsedAmount.toFixed(2))}&cu=INR&tn=${encodeURIComponent(description)}&tr=${encodeURIComponent(attemptRef)}`;
 
-      // 3. Update modal UI to Step 2 (Launched & Awaiting UTR Verification)
+      // Update modal UI to Step 2 (Launched & Awaiting UTR Verification)
       setStep('launched');
       speakText(t('upiOpenSuccessNotice'), currentLang);
 
-      // 4. Attempt to open UPI application via window.location.href
+      // Attempt to open UPI application via window.location.href
       try {
         window.location.href = upiUri;
       } catch (launchErr) {
@@ -309,13 +415,35 @@ export function DirectPaymentModal({
     }
   };
 
-  // SUBMIT UTR FOR VERIFICATION
+  // SUBMIT UTR FOR VERIFICATION VIA RPC
   const handleSubmitUtr = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSubmittingUtr) return;
     setErrorMsg('');
 
     if (!currentUser) {
       onRequireLogin();
+      return;
+    }
+
+    if (paymentForType === 'machine_rental') {
+      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      return;
+    }
+
+    const effectiveJobId = jobId || referenceId || null;
+    if (!effectiveJobId) {
+      setErrorMsg('A valid job reference is required to record wage payments.');
+      return;
+    }
+
+    if (!assignmentId) {
+      setErrorMsg('A valid worker assignment reference (job_records.id) is required to record wage payments.');
+      return;
+    }
+
+    if (!recipientId) {
+      setErrorMsg('Recipient information is missing.');
       return;
     }
 
@@ -330,95 +458,74 @@ export function DirectPaymentModal({
       return;
     }
 
+    const parsedAmount = Number(amount);
+    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
+      setErrorMsg('Please enter a valid payment amount (minimum ₹1).');
+      return;
+    }
+
     setIsSubmittingUtr(true);
 
     try {
-      const parsedAmount = Number(amount);
       const attemptRef = activeAttemptRef || generatePaymentAttemptRef();
+      setActiveAttemptRef(attemptRef);
 
-      let targetId = activePaymentId;
+      const { data: rpcRes, error: rpcErr } = await supabase.rpc('record_direct_payment', {
+        p_payment_for_type: 'worker_wage',
+        p_reference_id: effectiveJobId,
+        p_assignment_id: assignmentId,
+        p_payee_id: recipientId,
+        p_amount: parsedAmount,
+        p_payment_method: paymentMethod,
+        p_payment_reference: attemptRef,
+        p_utr_number: cleanUtr,
+        p_idempotency_key: attemptRef,
+      });
 
-      // 1. Update existing payment or insert submitted record
-      if (targetId) {
-        const { error: updErr } = await supabase
-          .from('payments')
-          .update({
-            transaction_ref: cleanUtr,
-            status: 'submitted',
-            verification_status: 'pending_verification',
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', targetId);
-
-        if (updErr) {
-          console.warn('Payment update notice:', updErr.message);
-        }
-
-        // Record audit event: utr_submitted
-        try {
-          await supabase.from('payment_audit_events').insert([
-            {
-              payment_id: targetId,
-              previous_status: 'pending',
-              new_status: 'submitted',
-              event_type: 'utr_submitted',
-              actor_id: currentUser.id,
-              metadata: {
-                transaction_ref: cleanUtr,
-                submitted_by: currentUser.id,
-              },
-            },
-          ]);
-        } catch {
-          // non-blocking
-        }
-      } else {
-        // Fallback insert
-        const { data: inserted, error: insErr } = await supabase
-          .from('payments')
-          .insert([
-            {
-              payer_id: currentUser.id,
-              payee_id: recipientId,
-              payment_for_type: paymentForType,
-              reference_id: referenceId || null,
-              amount: parsedAmount,
-              payment_method: paymentMethod,
-              payment_reference: attemptRef,
-              transaction_ref: cleanUtr,
-              currency: 'INR',
-              status: 'submitted',
-              verification_status: 'pending_verification',
-            },
-          ])
-          .select();
-
-        if (insErr) {
-          console.warn('Fallback payment insert notice:', insErr.message);
-        }
-        if (inserted && inserted[0]) {
-          targetId = inserted[0].id;
-        }
+      if (rpcErr) {
+        throw rpcErr;
       }
 
+      interface RecordDirectPaymentResult {
+        success?: boolean;
+        payment_id?: string;
+        payment_for_type?: string;
+        assignment_id?: string;
+        job_id?: string;
+        amount?: number;
+        status?: string;
+        verification_status?: string;
+        receipt_number?: string;
+        idempotent_duplicate?: boolean;
+        message?: string;
+      }
+
+      const res = rpcRes as RecordDirectPaymentResult | null;
+      if (!res || res.success !== true) {
+        throw new Error(res?.message || 'Failed to submit payment reference.');
+      }
+
+      const targetId = res.payment_id || activePaymentId || `pay_${Date.now()}`;
+      setActivePaymentId(targetId);
+
       const recordedPayment: PaymentRecord = {
-        id: targetId || 'pay_' + Date.now(),
+        id: targetId,
         payer_id: currentUser.id,
         payee_id: recipientId,
-        payment_for_type: paymentForType,
-        reference_id: referenceId || null,
+        payment_for_type: 'worker_wage',
+        reference_id: effectiveJobId,
         amount: parsedAmount,
         payment_method: paymentMethod,
         payment_reference: attemptRef,
         transaction_ref: cleanUtr,
-        status: 'submitted',
-        verification_status: 'pending_verification',
+        status: (res.status as PaymentRecord['status']) || 'submitted',
+        verification_status: res.verification_status || 'pending_verification',
         created_at: new Date().toISOString(),
         payer_name: currentUser.user_metadata?.full_name || 'Employer',
         payee_name: recipientName,
       };
 
-      // 2. Local storage cache resilience for passbook immediate view
+      // Local storage cache resilience for passbook immediate view
       try {
         const localKey = `quickhire_payment_ledger_${currentUser.id}`;
         const stored = localStorage.getItem(localKey);
@@ -563,6 +670,19 @@ export function DirectPaymentModal({
             </div>
           </div>
 
+          {/* NOTICE IF MACHINE RENTAL PAYMENT */}
+          {paymentForType === 'machine_rental' && (
+            <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-2">
+              <div className="flex items-center gap-2 font-bold text-amber-950">
+                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Machine Rental Direct Payments Temporarily Disabled</span>
+              </div>
+              <p className="text-[11px] text-amber-800 leading-relaxed">
+                Machinery rental payments via in-app direct settlements are temporarily disabled pending rental booking contract verification. Please arrange rental settlement directly with the equipment owner.
+              </p>
+            </div>
+          )}
+
           {/* WARNING IF NO UPI ID CONFIGURED */}
           {!loadingRecipient && !hasValidUpi && (
             <div className="mb-4 p-4 rounded-2xl bg-rose-50 border border-rose-200 text-xs text-rose-900 space-y-2">
@@ -573,6 +693,13 @@ export function DirectPaymentModal({
               <p className="text-[11px] text-rose-800 leading-relaxed">
                 Direct UPI app payments require the worker to save a valid Virtual Payment Address (e.g. name@upi). You can call the worker directly to confirm details, or pay via Net Banking (IMPS/NEFT) if bank account details are configured.
               </p>
+            </div>
+          )}
+
+          {errorMsg && step === 'confirm' && (
+            <div className="mb-4 p-3.5 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-700 font-semibold flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+              <span>{errorMsg}</span>
             </div>
           )}
 
@@ -612,7 +739,41 @@ export function DirectPaymentModal({
                   <Building2 className="w-4 h-4 text-brand-600" />
                   <span>{t('netBankingTab')}</span>
                 </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveSubTab('cash');
+                    setPaymentMethod('Cash');
+                  }}
+                  className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                    activeSubTab === 'cash'
+                      ? 'bg-white text-amber-700 shadow-sm border border-slate-200/60'
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                >
+                  <IndianRupee className="w-4 h-4 text-amber-600" />
+                  <span>{t('tabCash')}</span>
+                </button>
               </div>
+
+              {/* MULTI-PAYMENT LEDGER BREAKDOWN (Requirement G) */}
+              {totalPreviouslyPaid > 0 && (
+                <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
+                  <div>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Agreed</span>
+                    <span className="font-bold text-slate-800">₹{defaultAmount}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-emerald-600 font-bold uppercase block">Paid So Far</span>
+                    <span className="font-bold text-emerald-700">₹{totalPreviouslyPaid}</span>
+                  </div>
+                  <div>
+                    <span className="text-[10px] text-amber-600 font-bold uppercase block">Remaining Balance</span>
+                    <span className="font-black text-amber-800">₹{remainingBalance}</span>
+                  </div>
+                </div>
+              )}
 
               {/* TAB 1: DIRECT UPI PAYMENT INTENT REVIEW */}
               {activeSubTab === 'upi' && (
@@ -661,6 +822,7 @@ export function DirectPaymentModal({
                         <input
                           type="number"
                           min="1"
+                          max={remainingBalance > 0 ? remainingBalance : undefined}
                           required
                           value={amount}
                           onChange={(e) => setAmount(e.target.value)}
@@ -677,7 +839,7 @@ export function DirectPaymentModal({
                       <button
                         type="button"
                         onClick={handleProceedToUpi}
-                        disabled={isLaunchingIntent}
+                        disabled={paymentForType === 'machine_rental' || isLaunchingIntent}
                         className="w-full py-4 rounded-2xl bg-emerald-600 hover:bg-emerald-700 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-emerald-600/30 transition-all hover:scale-[1.01] disabled:opacity-70 cursor-pointer"
                       >
                         {isLaunchingIntent ? (
@@ -704,6 +866,76 @@ export function DirectPaymentModal({
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] leading-relaxed flex items-start gap-2">
                     <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                     <span>{t('unverifiedPaymentDisclaimer')}</span>
+                  </div>
+                </div>
+              )}
+
+              {/* TAB 3: CASH PAYMENT (Requirement G) */}
+              {activeSubTab === 'cash' && (
+                <div className="space-y-4">
+                  <div className="p-5 rounded-2xl bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 space-y-4">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center font-black">
+                        <IndianRupee className="w-5 h-5" />
+                      </div>
+                      <div>
+                        <h4 className="font-heading font-extrabold text-sm text-slate-900">
+                          Handover Cash Directly in Person
+                        </h4>
+                        <p className="text-xs text-slate-500">
+                          Pay physical cash directly to {recipientName} with zero deductions.
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="space-y-1.5 bg-white p-4 rounded-xl border border-amber-200">
+                      <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
+                        Cash Amount Handed Over (₹ INR) *
+                      </label>
+                      <div className="relative">
+                        <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-slate-400">
+                          ₹
+                        </span>
+                        <input
+                          type="number"
+                          min="1"
+                          max={remainingBalance > 0 ? remainingBalance : undefined}
+                          required
+                          value={amount}
+                          onChange={(e) => setAmount(e.target.value)}
+                          className="w-full pl-8 pr-4 py-2.5 border border-slate-300 rounded-xl text-base font-extrabold text-slate-900 outline-none focus:border-amber-500 shadow-2xs"
+                        />
+                      </div>
+                    </div>
+
+                    <label className="flex items-start gap-2.5 bg-white p-3.5 rounded-xl border border-amber-200 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        checked={cashHandedOver}
+                        onChange={(e) => setCashHandedOver(e.target.checked)}
+                        className="mt-0.5 w-4 h-4 text-amber-600 rounded border-slate-300 focus:ring-amber-500"
+                      />
+                      <span className="text-xs text-slate-700 font-medium">
+                        {t('confirmCashReceived')} ({recipientName})
+                      </span>
+                    </label>
+
+                    <button
+                      type="button"
+                      disabled={paymentForType === 'machine_rental' || !cashHandedOver || isRecordingCash}
+                      onClick={handleRecordCashPayment}
+                      className="w-full py-4 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-amber-600/30 transition-all hover:scale-[1.01] disabled:opacity-50 cursor-pointer"
+                    >
+                      <Check className="w-5 h-5" />
+                      <span>{isRecordingCash ? 'Recording Cash Settlement...' : `${t('recordCashBtn')} (₹${amount})`}</span>
+                    </button>
+                  </div>
+
+                  <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] leading-relaxed flex items-start gap-2">
+                    <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
+                    <span>
+                      <strong>Notice:</strong> Cash settlements are recorded directly in QuickHire's permanent ledger as user-reported transactions. Both parties can view and print receipts immediately.
+                    </span>
                   </div>
                 </div>
               )}
@@ -800,8 +1032,12 @@ export function DirectPaymentModal({
 
                   <button
                     type="button"
-                    onClick={() => setStep('launched')}
-                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
+                    disabled={paymentForType === 'machine_rental'}
+                    onClick={() => {
+                      setPaymentMethod('Net Banking (IMPS/NEFT)');
+                      setStep('launched');
+                    }}
+                    className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <span>Transferred via Net Banking? Submit UTR Reference →</span>
                   </button>
@@ -921,7 +1157,7 @@ export function DirectPaymentModal({
                     </button>
                     <button
                       type="submit"
-                      disabled={isSubmittingUtr}
+                      disabled={isSubmittingUtr || paymentForType === 'machine_rental'}
                       className="flex-1 py-3 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 shadow-md transition-all disabled:opacity-70 cursor-pointer"
                     >
                       {isSubmittingUtr ? (

@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, lazy, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -16,17 +16,25 @@ import {
   Phone,
   AlertTriangle,
   Landmark,
-  ShieldCheck
+  ShieldCheck,
+  Download
 } from 'lucide-react';
-import { Auth } from './components/Auth';
-import { WorkerDiscoveryModal, WorkerItem } from './components/WorkerDiscoveryModal';
-import { WorkerProfileModal } from './components/WorkerProfileModal';
-import { PostEquipmentModal, EquipmentItem } from './components/PostEquipmentModal';
-import { DirectPaymentModal } from './components/DirectPaymentModal';
+import type { WorkerItem } from './components/WorkerDiscoveryModal';
+import type { EquipmentItem } from './components/PostEquipmentModal';
+import { OfflineBanner } from './components/OfflineBanner';
+import { PwaInstallBanner } from './components/PwaInstallBanner';
+import { usePwaInstall } from './hooks/usePwaInstall';
 import { speakText, getVoiceGuidance } from './lib/speech';
 import { VoiceSpeakerButton } from './components/VoiceSpeakerButton';
 import { AccessibleVoiceBar } from './components/AccessibleVoiceBar';
 import { extractErrorMessage } from './lib/errorHandler';
+
+// Lazy-loaded modals for code splitting and ultra-fast initial load
+const Auth = lazy(() => import('./components/Auth').then(m => ({ default: m.Auth })));
+const WorkerDiscoveryModal = lazy(() => import('./components/WorkerDiscoveryModal').then(m => ({ default: m.WorkerDiscoveryModal })));
+const WorkerProfileModal = lazy(() => import('./components/WorkerProfileModal').then(m => ({ default: m.WorkerProfileModal })));
+const PostEquipmentModal = lazy(() => import('./components/PostEquipmentModal').then(m => ({ default: m.PostEquipmentModal })));
+const DirectPaymentModal = lazy(() => import('./components/DirectPaymentModal').then(m => ({ default: m.DirectPaymentModal })));
 
 // Lazy-loaded tabs
 const HomeTab = lazy(() => import('./components/HomeTab'));
@@ -81,6 +89,24 @@ interface JobRecordItem {
   worker_id?: string;
   status: string;
   created_at: string;
+  hiring_source?: 'application' | 'direct_phone' | string | null;
+  agreement_evidence_type?: string | null;
+  reported_by?: string | null;
+  eta_minutes?: number | null;
+  eta_updated_at?: string | null;
+  arrived_at?: string | null;
+  arrived_reported_by?: string | null;
+  attendance_confirmed_at?: string | null;
+  attendance_confirmed_by?: string | null;
+  work_started_at?: string | null;
+  work_completed_at?: string | null;
+  break_minutes?: number | null;
+  overtime_hours?: number | null;
+  total_working_hours?: number | null;
+  agreed_wage?: number | null;
+  total_payable?: number | null;
+  total_paid?: number | null;
+  payment_status?: string | null;
   profiles?: {
     id?: string;
     phone_number?: string | null;
@@ -118,106 +144,6 @@ const COMMON_SKILLS_BY_CATEGORY: Record<WorkerCategory, string[]> = {
   'Skilled self-employed': ['Electrician', 'Plumber', 'Carpenter', 'Welder', 'Borewell Mechanic', 'Painter']
 };
 
-const INITIAL_EQUIPMENT_DATA: EquipmentItem[] = [
-  {
-    id: 'equip-agri-1',
-    owner_id: 'owner-ramesh-1',
-    title: 'Mahindra 575 DI Tractor with Rotavator & Plough',
-    category: 'Agriculture',
-    daily_rent: 1800,
-    deposit_required: 2000,
-    location: 'Rampur Village, Block 4',
-    status: 'available',
-    description: '45 HP Diesel Tractor with 6-feet rotavator, well-serviced. Experienced driver available on request.',
-    created_at: new Date(Date.now() - 86400000 * 2).toISOString(),
-    owner_name: 'Rameshwar Patil',
-    owner_phone: '9822012345',
-  },
-  {
-    id: 'equip-agri-2',
-    owner_id: 'owner-suresh-2',
-    title: 'High-Pressure 500L Orchard Power Sprayer (Tractor Mounted)',
-    category: 'Agriculture',
-    daily_rent: 900,
-    deposit_required: 1000,
-    location: 'Shivar Mala, Sector B',
-    status: 'available',
-    description: '500-liter chemical tank with 150m delivery hose, perfect for pomegranate and mango orchards.',
-    created_at: new Date(Date.now() - 86400000 * 3).toISOString(),
-    owner_name: 'Suresh More',
-    owner_phone: '9421098765',
-  },
-  {
-    id: 'equip-const-1',
-    owner_id: 'owner-ganesh-3',
-    title: 'Heavy-Duty 1-Bag Concrete Mixer Machine (Diesel Engine)',
-    category: 'Construction',
-    daily_rent: 1400,
-    deposit_required: 1500,
-    location: 'Bypass Road, Ward 2',
-    status: 'available',
-    description: 'Greaves 5HP diesel engine, tilt drum, mobile towing wheels for house foundations and slab casting.',
-    created_at: new Date(Date.now() - 86400000 * 4).toISOString(),
-    owner_name: 'Ganesh Construction Works',
-    owner_phone: '9890123456',
-  },
-  {
-    id: 'equip-const-2',
-    owner_id: 'owner-santosh-4',
-    title: 'Concrete Needle Vibrator & Earth Compactor Plate',
-    category: 'Construction',
-    daily_rent: 650,
-    deposit_required: 500,
-    location: 'Khadki Gate, Main Bazar',
-    status: 'available',
-    description: 'Petrol engine plate rammer for trench compaction and 40mm poker vibrator.',
-    created_at: new Date(Date.now() - 86400000 * 5).toISOString(),
-    owner_name: 'Santosh Jadhav',
-    owner_phone: '9765432109',
-  },
-  {
-    id: 'equip-daily-1',
-    owner_id: 'owner-anil-5',
-    title: 'Hydraulic Pallet Jack & 1.5-Ton Heavy Material Trolley',
-    category: 'Daily work',
-    daily_rent: 400,
-    deposit_required: 500,
-    location: 'Market Yard Warehouse Road',
-    status: 'available',
-    description: 'Heavy duty steel hand pallet truck for APMC market grains, godown unloading, and bag transport.',
-    created_at: new Date(Date.now() - 86400000 * 6).toISOString(),
-    owner_name: 'Anil Grain Transport',
-    owner_phone: '9922334455',
-  },
-  {
-    id: 'equip-skilled-1',
-    owner_id: 'owner-pravin-6',
-    title: '250A Portable Arc Inverter Welding Machine & Cutting Set',
-    category: 'Skilled self-employed',
-    daily_rent: 550,
-    deposit_required: 500,
-    location: 'MIDC Gate, Industrial Colony',
-    status: 'available',
-    description: 'Single phase IGBT inverter welder with 10m heavy cables, chipping hammer, and face shield.',
-    created_at: new Date(Date.now() - 86400000 * 7).toISOString(),
-    owner_name: 'Pravin Welding & Fabrication',
-    owner_phone: '9860112233',
-  },
-  {
-    id: 'equip-skilled-2',
-    owner_id: 'owner-vikram-7',
-    title: 'Rotary Hammer Drill & 1500W Demolition Breaker',
-    category: 'Skilled self-employed',
-    daily_rent: 600,
-    deposit_required: 800,
-    location: 'Navi Peth, Main Square',
-    status: 'available',
-    description: 'Bosch heavy breaker with pointed and flat chisels for wall breaking and electrical channelling.',
-    created_at: new Date(Date.now() - 86400000 * 8).toISOString(),
-    owner_name: 'Vikram Electricals',
-    owner_phone: '9823456780',
-  },
-];
 
 export default function App() {
   const [appRoute, setAppRoute] = useState<AppRoute>(() => getCurrentRoute().route);
@@ -248,16 +174,48 @@ export default function App() {
   // Compatibility aliases
   const setIsWorkerProfileOpen = setIsWorkerModalOpen;
 
+  // PWA Install state
+  const { isInstallable, isInstalled, isIos, promptInstall } = usePwaInstall();
+  const [showIosPwaHelp, setShowIosPwaHelp] = useState(false);
+
   // Auth & user state
   const [user, setUser] = useState<User | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [userRole, setUserRole] = useState<'worker' | 'employer' | 'admin' | null>(null);
+
+  // Stable refs to prevent circular callback identity thrashing
+  const userRef = useRef<User | null>(user);
+  useEffect(() => {
+    userRef.current = user;
+  }, [user]);
+
+  // Safe user state updater that prevents redundant re-renders when identity hasn't changed
+  const safeSetUser = useCallback((nextUser: User | null) => {
+    setUser((prev) => {
+      if (!prev && !nextUser) return null;
+      if (
+        prev &&
+        nextUser &&
+        prev.id === nextUser.id &&
+        prev.email === nextUser.email &&
+        prev.phone === nextUser.phone
+      ) {
+        return prev;
+      }
+      return nextUser;
+    });
+  }, []);
 
   // Workers directory state
   const [directoryWorkers, setDirectoryWorkers] = useState<WorkerItem[]>([]);
   const [workersLoading, setWorkersLoading] = useState(false);
   const [selectedCategory, setSelectedCategory] = useState<string>('All');
   const [searchQuery, setSearchQuery] = useState('');
+
+  const selectedCategoryRef = useRef<string>(selectedCategory);
+  useEffect(() => {
+    selectedCategoryRef.current = selectedCategory;
+  }, [selectedCategory]);
 
   // Equipment tab state
   const [equipmentList, setEquipmentList] = useState<EquipmentItem[]>([]);
@@ -275,6 +233,8 @@ export default function App() {
     recipientPhone?: string | null;
     paymentForType: 'worker_wage' | 'machine_rental';
     referenceId?: string | null;
+    jobId?: string | null;
+    assignmentId?: string | null;
     defaultAmount?: number;
   }>({
     isOpen: false,
@@ -349,8 +309,13 @@ export default function App() {
     }
   };
 
+  // Concurrency guard for open jobs catalog
+  const isFetchingOpenJobsRef = useRef(false);
+
   // Fetch open jobs
   const fetchOpenJobs = useCallback(async () => {
+    if (isFetchingOpenJobsRef.current) return;
+    isFetchingOpenJobsRef.current = true;
     try {
       const { data, error } = await supabase
         .from('jobs')
@@ -363,32 +328,41 @@ export default function App() {
       }
     } catch {
       // Ignore network errors gracefully
+    } finally {
+      isFetchingOpenJobsRef.current = false;
     }
   }, []);
 
+  // Concurrency guard for directory worker requests
+  const isFetchingWorkersRef = useRef(false);
+
   // Fetch directory workers
-  const fetchWorkers = useCallback(async () => {
-    // Session Guard: ONLY authenticated users may browse workers
-    const { data: { session } } = await supabase.auth.getSession();
-    const activeUser = session?.user ?? user;
-    if (!activeUser) {
-      setDirectoryWorkers([]);
-      setWorkersLoading(false);
-      return;
-    }
-    setWorkersLoading(true);
+  const fetchWorkers = useCallback(async (categoryOverride?: string) => {
+    if (isFetchingWorkersRef.current) return;
+    isFetchingWorkersRef.current = true;
     try {
+      // Session Guard: ONLY authenticated users may browse workers
+      const { data: { session } } = await supabase.auth.getSession();
+      const activeUser = session?.user ?? userRef.current;
+      if (!activeUser) {
+        setDirectoryWorkers([]);
+        return;
+      }
+      setWorkersLoading(true);
+
+      const targetCategory = categoryOverride ?? selectedCategoryRef.current;
+
       // 1. Primary secure discovery path: sanitized public_worker_directory view
-      let viewQuery = (supabase.from('public_worker_directory') as any).select('*');
-      if (selectedCategory !== 'All') {
-        viewQuery = viewQuery.eq('category', selectedCategory as WorkerCategory);
+      let viewQuery = supabase.from('public_worker_directory').select('*');
+      if (targetCategory !== 'All') {
+        viewQuery = viewQuery.eq('category', targetCategory as WorkerCategory);
       }
 
       const { data: viewData, error: viewError } = await viewQuery;
       // Robust check: view must succeed, return an array, and have at least 1 record.
       // If the view is missing (42P01), returns an error, or is empty (zero rows), proceed to resilient table fallback.
       if (!viewError && Array.isArray(viewData)) {
-        const mapped = (viewData as any[]).map((row: any) => {
+        const mapped = (viewData as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
           const lat = row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0 ? Number(row.latitude) : null;
           const lon = row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0 ? Number(row.longitude) : null;
           return {
@@ -438,11 +412,14 @@ export default function App() {
         `)
         .eq('is_available', true);
 
-      if (selectedCategory !== 'All') {
-        query = query.eq('category', selectedCategory as WorkerCategory);
+      if (targetCategory !== 'All') {
+        query = query.eq('category', targetCategory as WorkerCategory);
       }
 
-      let { data, error } = await query;
+      const { data, error: initialError } = await query;
+      let workerRows: unknown[] | null = data;
+      let error = initialError;
+
       // If extended address/wage columns fail on older schemas, retry with minimal baseline
       if (error && (error.code === '42703' || String(error.message).includes('column'))) {
         let minimalQuery = supabase
@@ -453,11 +430,11 @@ export default function App() {
           `)
           .eq('is_available', true);
 
-        if (selectedCategory !== 'All') {
-          minimalQuery = minimalQuery.eq('category', selectedCategory as WorkerCategory);
+        if (targetCategory !== 'All') {
+          minimalQuery = minimalQuery.eq('category', targetCategory as WorkerCategory);
         }
         const fallbackRes = await minimalQuery;
-        data = fallbackRes.data as any;
+        workerRows = fallbackRes.data;
         error = fallbackRes.error;
       }
 
@@ -465,9 +442,9 @@ export default function App() {
         console.error('Worker discovery fallback query failed:', error);
       }
 
-      if (!error && Array.isArray(data)) {
-        const normalized = data.map((row: any) => {
-          const prof = row.profiles || {};
+      if (!error && Array.isArray(workerRows)) {
+        const normalized = (workerRows as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
+          const prof = (row.profiles && typeof row.profiles === 'object' ? row.profiles : {}) as Record<string, unknown>;
           const compositeLoc =
             prof.location ||
             row.location ||
@@ -478,15 +455,15 @@ export default function App() {
             row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0
               ? Number(row.latitude)
               : prof.latitude !== null && prof.latitude !== undefined && !isNaN(Number(prof.latitude)) && Number(prof.latitude) !== 0
-              ? Number(prof.latitude)
-              : null;
+                ? Number(prof.latitude)
+                : null;
 
           const lon =
             row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0
               ? Number(row.longitude)
               : prof.longitude !== null && prof.longitude !== undefined && !isNaN(Number(prof.longitude)) && Number(prof.longitude) !== 0
-              ? Number(prof.longitude)
-              : null;
+                ? Number(prof.longitude)
+                : null;
 
           return {
             id: row.id,
@@ -521,46 +498,54 @@ export default function App() {
     } catch (fetchErr) {
       console.warn('Worker fetching error handled gracefully:', fetchErr);
     } finally {
+      isFetchingWorkersRef.current = false;
       setWorkersLoading(false);
     }
-  }, [user, selectedCategory]);
+  }, []);
 
   // Fetch jobs posted by the logged-in employer
   const fetchMyPostedJobs = useCallback(async (currentUserId: string) => {
     setLoadingMyJobs(true);
     try {
-      const { data, error } = await (supabase.from('jobs') as any)
+      // 1. Primary query: Query jobs with extended job_records fields
+      // Note: Do not nest profiles directly inside job_records in PostgREST to avoid PGRST200
+      const jobsQuery = supabase.from('jobs')
         .select(`
           id, title, category, offered_wages, description, status, created_at,
           job_records (
-            id, status, created_at, worker_id,
-            profiles ( phone_number, full_name )
+            id, status, created_at, worker_id, agreement_evidence_type, reported_by,
+            eta_minutes, arrived_at, arrived_reported_by, attendance_confirmed_at,
+            attendance_confirmed_by, work_started_at, work_completed_at, break_minutes,
+            overtime_hours, total_working_hours, agreed_wage, total_payable, total_paid,
+            payment_status
           )
         `)
         .eq('employer_id', currentUserId)
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setMyPostedJobs(data as unknown as PostedJobItem[]);
-        return;
+      let { data: jobsData, error: jobsErr } = await jobsQuery;
+
+      // 2. Resilient fallback if Phase 2 columns (agreement_evidence_type) are missing on older schemas (42703)
+      if (jobsErr && (jobsErr.code === '42703' || String(jobsErr.message).includes('column') || String(jobsErr.message).includes('agreement_evidence_type'))) {
+        const baselineRes = await supabase.from('jobs')
+          .select(`
+            id, title, category, offered_wages, description, status, created_at,
+            job_records (
+              id, status, created_at, worker_id
+            )
+          `)
+          .eq('employer_id', currentUserId)
+          .order('created_at', { ascending: false });
+        jobsData = baselineRes.data as typeof jobsData;
+        jobsErr = baselineRes.error;
       }
 
-      // Resilient fallback if PostgREST relationship cache prefers flat query with ID resolution
-      const { data: fallbackData, error: fbError } = await (supabase.from('jobs') as any)
-        .select(`
-          id, title, category, offered_wages, description, status, created_at,
-          job_records (
-            id, status, created_at, worker_id
-          )
-        `)
-        .eq('employer_id', currentUserId)
-        .order('created_at', { ascending: false });
-
-      if (!fbError && fallbackData) {
+      if (!jobsErr && jobsData) {
+        const rawJobs = jobsData as unknown as PostedJobItem[];
         const workerIds: string[] = Array.from(
           new Set(
-            (fallbackData as any[])
-              .flatMap((j: any) => (j.job_records || []).map((r: any) => r.worker_id))
+            rawJobs
+              .flatMap((j) => (j.job_records || []).map((r) => r.worker_id))
               .filter((id): id is string => Boolean(id))
           )
         );
@@ -574,11 +559,11 @@ export default function App() {
           (profs || []).forEach((p) => profilesMap.set(p.id, p));
         }
 
-        const enriched = (fallbackData as any[]).map((j: any) => ({
+        const enriched = rawJobs.map((j) => ({
           ...j,
-          job_records: (j.job_records || []).map((r: any) => ({
+          job_records: (j.job_records || []).map((r) => ({
             ...r,
-            profiles: profilesMap.get(r.worker_id) || null,
+            profiles: r.worker_id ? profilesMap.get(r.worker_id) || null : null,
           })),
         }));
         setMyPostedJobs(enriched as unknown as PostedJobItem[]);
@@ -609,15 +594,20 @@ export default function App() {
     } | null;
   }
 
+  // Concurrency guard for equipment listings catalog
+  const isFetchingEquipmentRef = useRef(false);
+
   // Fetch equipment listings
   const fetchEquipment = useCallback(async () => {
+    if (isFetchingEquipmentRef.current) return;
+    isFetchingEquipmentRef.current = true;
     setEquipmentLoading(true);
     try {
       const { data, error } = await supabase
         .from('equipment')
         .select(`
           id, owner_id, title, category, description, daily_rent, deposit_required, location, status, created_at, updated_at,
-          profiles:owner_id ( id, full_name, phone_number, upi_id, bank_account_no, bank_ifsc, bank_name )
+          profiles:owner_id ( id, full_name, phone_number )
         `)
         .order('created_at', { ascending: false });
 
@@ -630,13 +620,7 @@ export default function App() {
       }
 
       if (error || !data || data.length === 0) {
-        const merged = [...localEquip];
-        for (const item of INITIAL_EQUIPMENT_DATA) {
-          if (!merged.some((m) => m.id === item.id)) {
-            merged.push(item);
-          }
-        }
-        setEquipmentList(merged);
+        setEquipmentList(localEquip);
       } else {
         const mapped: EquipmentItem[] = (data as unknown as RawEquipmentQuery[]).map((d) => ({
           id: d.id,
@@ -662,22 +646,28 @@ export default function App() {
             merged.push(item);
           }
         }
-        for (const seed of INITIAL_EQUIPMENT_DATA) {
-          if (!merged.some((m) => m.id === seed.id)) {
-            merged.push(seed);
-          }
-        }
         setEquipmentList(merged);
       }
     } catch {
-      setEquipmentList(INITIAL_EQUIPMENT_DATA);
+      setEquipmentList([]);
     } finally {
+      isFetchingEquipmentRef.current = false;
       setEquipmentLoading(false);
     }
   }, []);
 
+  const isFetchingUserDataRef = useRef(false);
+  const lastFetchedUserIdRef = useRef<string | null>(null);
+
   // Authenticated data fetcher - ONLY runs after user is authenticated
-  const fetchUserData = useCallback(async (activeUser: User) => {
+  const fetchUserData = useCallback(async (activeUser: User, force = false) => {
+    if (!activeUser?.id) return;
+    if (isFetchingUserDataRef.current) return;
+    if (!force && lastFetchedUserIdRef.current === activeUser.id) return;
+
+    isFetchingUserDataRef.current = true;
+    lastFetchedUserIdRef.current = activeUser.id;
+
     try {
       // 1. Authoritative check: Is the authenticated user an active administrator?
       const adminCheck = await verifyAdminStatus(activeUser.id);
@@ -757,14 +747,21 @@ export default function App() {
       } else {
         setAppliedJobIds(new Set());
       }
+
+      // Contextual refresh for authenticated user
+      fetchWorkers();
+      fetchMyPostedJobs(activeUser.id);
     } catch (err) {
       console.warn('Error fetching user data:', err);
+    } finally {
+      isFetchingUserDataRef.current = false;
     }
-    fetchOpenJobs();
-    fetchWorkers();
-    fetchEquipment();
-    fetchMyPostedJobs(activeUser.id);
-  }, [fetchOpenJobs, fetchWorkers, fetchEquipment, fetchMyPostedJobs, showToast, t]);
+  }, [fetchWorkers, fetchMyPostedJobs, showToast, t]);
+
+  const fetchUserDataRef = useRef(fetchUserData);
+  useEffect(() => {
+    fetchUserDataRef.current = fetchUserData;
+  }, [fetchUserData]);
 
   // Handle soft-delete account deactivation with data retention
   const handleDeactivateAccount = useCallback(async () => {
@@ -773,7 +770,8 @@ export default function App() {
       await supabase.auth.signOut();
       localStorage.removeItem('quickhire_user_session');
       localStorage.removeItem('quickhire_user_role');
-      setUser(null);
+      lastFetchedUserIdRef.current = null;
+      safeSetUser(null);
       setUserRole(null);
       setAppliedJobIds(new Set());
       setMyPostedJobs([]);
@@ -785,10 +783,60 @@ export default function App() {
     } catch (err) {
       console.error('Error during deactivation sign out:', err);
     }
-  }, [showToast, t]);
+  }, [safeSetUser, showToast, t]);
 
-  // Auth listener & session check
+  // Unified reliable signout handling
+  const handleLogout = useCallback(async () => {
+    try {
+      clearAdminSession();
+      sessionStorage.removeItem('quickhire_admin_preview_citizen');
+      await supabase.auth.signOut();
+    } catch (err) {
+      console.warn('[QuickHire] Sign out notice:', err);
+    } finally {
+      // Security: Purge all cached user bank, payment ledger, credentials, and session data
+      const keysToRemove: string[] = [];
+      for (let i = 0; i < localStorage.length; i++) {
+        const key = localStorage.key(i);
+        if (
+          key &&
+          (key.startsWith('quickhire_bank_') ||
+            key.startsWith('quickhire_payment_ledger_') ||
+            key === 'quickhire_user_session' ||
+            key === 'quickhire_user_role' ||
+            key === 'quickhire_user_equipment')
+        ) {
+          keysToRemove.push(key);
+        }
+      }
+      keysToRemove.forEach((k) => localStorage.removeItem(k));
+
+      lastFetchedUserIdRef.current = null;
+      safeSetUser(null);
+      setUserRole(null);
+      setAppliedJobIds(new Set());
+      setMyPostedJobs([]);
+      setDirectoryWorkers([]);
+      setIsWorkerModalOpen(false);
+      navigateTo('/');
+      setAppRoute('public');
+      showToast('Logged out successfully', 'info');
+    }
+  }, [safeSetUser, showToast]);
+
+  // Auth listener & session check with 2500ms failsafe timeout
   useEffect(() => {
+    let isMounted = true;
+    let authTimeout: ReturnType<typeof setTimeout> | null = null;
+
+    // Failsafe timeout: Force authChecking to false after 2500ms max
+    // Prevents desktop & mobile stuck loading screen on slow connections or offline mode
+    authTimeout = setTimeout(() => {
+      if (isMounted) {
+        setAuthChecking(false);
+      }
+    }, 2500);
+
     const getStoredFallbackUser = (): User | null => {
       try {
         const stored = localStorage.getItem('quickhire_user_session');
@@ -799,42 +847,79 @@ export default function App() {
       return null;
     };
 
-    // Fetch public job & equipment catalogs for all visitors on initial mount
+    // Fetch public job & equipment catalogs once for all visitors on initial mount
     fetchOpenJobs();
     fetchEquipment();
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      const currentUser = session?.user ?? getStoredFallbackUser();
-      setUser(currentUser);
-      if (currentUser) {
-        await fetchUserData(currentUser);
-      }
-      setAuthChecking(false);
-    });
+    supabase.auth
+      .getSession()
+      .then(async ({ data: { session } }) => {
+        if (!isMounted) return;
+        const currentUser = session?.user ?? getStoredFallbackUser();
+        if (currentUser) {
+          safeSetUser(currentUser);
+          try {
+            await fetchUserDataRef.current(currentUser);
+          } catch (err) {
+            console.warn('[QuickHire] fetchUserData background notice:', err);
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('[QuickHire] Auth session retrieval error:', err);
+        if (isMounted) {
+          const fallbackUser = getStoredFallbackUser();
+          if (fallbackUser) {
+            safeSetUser(fallbackUser);
+          }
+        }
+      })
+      .finally(() => {
+        if (isMounted) {
+          if (authTimeout) clearTimeout(authTimeout);
+          setAuthChecking(false);
+        }
+      });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (_event, session) => {
-      const currentUser = session?.user ?? getStoredFallbackUser();
-      setUser(currentUser);
-      if (currentUser) {
-        await fetchUserData(currentUser);
-      } else {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (!isMounted) return;
+      if (event === 'SIGNED_OUT' || !session) {
+        lastFetchedUserIdRef.current = null;
+        localStorage.removeItem('quickhire_user_session');
+        localStorage.removeItem('quickhire_user_role');
+        safeSetUser(null);
         setUserRole(null);
         setMyPostedJobs([]);
         setAppliedJobIds(new Set());
         setDirectoryWorkers([]);
+        setAuthChecking(false);
+        return;
+      }
+      const currentUser = session.user;
+      safeSetUser(currentUser);
+      if (currentUser) {
+        try {
+          await fetchUserDataRef.current(currentUser);
+        } catch (err) {
+          console.warn('[QuickHire] onAuthStateChange fetchUserData notice:', err);
+        }
       }
       setAuthChecking(false);
     });
 
-    return () => subscription.unsubscribe();
-  }, [fetchUserData, fetchOpenJobs, fetchWorkers, fetchEquipment]);
+    return () => {
+      isMounted = false;
+      if (authTimeout) clearTimeout(authTimeout);
+      subscription.unsubscribe();
+    };
+  }, [fetchOpenJobs, fetchEquipment, safeSetUser]);
 
   // Refetch workers on category change when authenticated
   useEffect(() => {
-    if (user) {
-      fetchWorkers();
+    if (userRef.current) {
+      fetchWorkers(selectedCategory);
     }
-  }, [fetchWorkers, selectedCategory, user]);
+  }, [fetchWorkers, selectedCategory, user?.id]);
 
   // Handle worker expression of interest
   const handleApplyForJob = async (jobId: string) => {
@@ -846,7 +931,15 @@ export default function App() {
     try {
       const { error: applyError } = await supabase
         .from('job_records')
-        .insert([{ job_id: jobId, worker_id: user.id, status: 'contacted' }]);
+        .insert([
+          {
+            job_id: jobId,
+            worker_id: user.id,
+            status: 'applied',
+            hiring_source: 'application',
+            agreement_evidence_type: 'worker_application_and_employer_acceptance',
+          },
+        ]);
 
       if (applyError) {
         if (applyError.code === '23505') {
@@ -894,7 +987,7 @@ export default function App() {
           full_name: user.user_metadata?.full_name || 'QuickHire Employer',
           phone_number: user.phone || user.user_metadata?.phone_number || null,
           account_status: 'active',
-        } as any);
+        });
       }
 
       const parsedSkills = employerSkills
@@ -906,9 +999,8 @@ export default function App() {
       const cleanLocation = employerLocation.trim().normalize('NFC');
       const cleanDescription = employerDescription.trim().normalize('NFC');
 
-      const descriptionText = `Location: ${cleanLocation}${
-        cleanDescription ? ' | ' + cleanDescription : ''
-      } | Workers needed: ${employerCount}`;
+      const descriptionText = `Location: ${cleanLocation}${cleanDescription ? ' | ' + cleanDescription : ''
+        } | Workers needed: ${employerCount}`;
 
       const { error: jobError } = await supabase.from('jobs').insert([
         {
@@ -988,19 +1080,19 @@ export default function App() {
     const matchesSkill = matchesSkillSearch(w.skills || [], q);
     const matchesName = (w.profiles?.full_name || '').toLowerCase().normalize('NFC').includes(q);
     const matchesCategory = (w.category || '').toLowerCase().normalize('NFC').includes(q);
-    const matchesLoc = (w.profiles?.location || (w as any).location || '').toLowerCase().normalize('NFC').includes(q);
+    const matchesLoc = (w.profiles?.location || (w as unknown as { location?: string | null }).location || w.preferred_work_location || '').toLowerCase().normalize('NFC').includes(q);
     return matchesSkill || matchesName || matchesCategory || matchesLoc;
   });
 
-  // Loading screen while session is being verified
+  // Loading screen while session is being verified with fail-soft bypass
   if (authChecking) {
     return (
       <div className="min-h-screen bg-[#fbfcf8] flex flex-col items-center justify-center p-6 text-slate-800 font-sans">
-        <div className="flex flex-col items-center gap-4">
+        <div className="flex flex-col items-center gap-4 max-w-sm text-center">
           <div className="w-14 h-14 rounded-2xl bg-brand-500 text-white flex items-center justify-center shadow-lg shadow-brand-500/30 animate-bounce">
             <Check className="w-8 h-8 stroke-[3]" />
           </div>
-          <div className="text-center">
+          <div>
             <h1 className="font-heading font-black text-2xl tracking-tight text-slate-900">
               Quick<span className="text-brand-500">Hire</span>
             </h1>
@@ -1009,6 +1101,12 @@ export default function App() {
             </p>
           </div>
           <div className="w-8 h-8 border-3 border-brand-500 border-t-transparent rounded-full animate-spin mt-2" />
+          <button
+            onClick={() => setAuthChecking(false)}
+            className="mt-3 text-xs font-semibold text-slate-400 hover:text-brand-600 transition-colors underline underline-offset-4 cursor-pointer"
+          >
+            Skip to Home →
+          </button>
         </div>
       </div>
     );
@@ -1138,9 +1236,23 @@ export default function App() {
             } catch {
               // Ignore network signout errors
             }
-            localStorage.removeItem('quickhire_user_session');
-            localStorage.removeItem('quickhire_user_role');
-            setUser(null);
+            const keysToRemove: string[] = [];
+            for (let i = 0; i < localStorage.length; i++) {
+              const key = localStorage.key(i);
+              if (
+                key &&
+                (key.startsWith('quickhire_bank_') ||
+                  key.startsWith('quickhire_payment_ledger_') ||
+                  key === 'quickhire_user_session' ||
+                  key === 'quickhire_user_role' ||
+                  key === 'quickhire_user_equipment')
+              ) {
+                keysToRemove.push(key);
+              }
+            }
+            keysToRemove.forEach((k) => localStorage.removeItem(k));
+            lastFetchedUserIdRef.current = null;
+            safeSetUser(null);
             setUserRole(null);
             navigateTo('/admin/login');
             setAppRoute('admin-login');
@@ -1166,9 +1278,11 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#0f2942] selection:text-white overflow-x-hidden w-full ${
-      fontSizeZoom === 'larger' ? 'text-base' : fontSizeZoom === 'large' ? 'text-[15px]' : 'text-sm'
-    }`}>
+    <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#0f2942] selection:text-white overflow-x-hidden w-full ${fontSizeZoom === 'larger' ? 'text-base' : fontSizeZoom === 'large' ? 'text-[15px]' : 'text-sm'
+      }`}>
+      {/* REAL-TIME NETWORK STATUS BANNER */}
+      <OfflineBanner />
+
       {/* FLOATING TOAST NOTIFICATIONS */}
       <div className="fixed top-24 right-4 z-[120] flex flex-col gap-2 max-w-sm w-full pointer-events-none">
         <AnimatePresence>
@@ -1178,13 +1292,12 @@ export default function App() {
               initial={{ opacity: 0, y: -12, scale: 0.95 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -10, scale: 0.95 }}
-              className={`p-4 rounded-2xl shadow-xl border flex items-center justify-between gap-3 pointer-events-auto backdrop-blur-md ${
-                toast.type === 'error'
+              className={`p-4 rounded-2xl shadow-xl border flex items-center justify-between gap-3 pointer-events-auto backdrop-blur-md ${toast.type === 'error'
                   ? 'bg-rose-50/95 text-rose-900 border-rose-200'
                   : toast.type === 'info'
-                  ? 'bg-amber-50/95 text-amber-900 border-amber-200'
-                  : 'bg-emerald-50/95 text-emerald-950 border-emerald-200'
-              }`}
+                    ? 'bg-amber-50/95 text-amber-900 border-amber-200'
+                    : 'bg-emerald-50/95 text-emerald-950 border-emerald-200'
+                }`}
             >
               <div className="flex items-center gap-2.5">
                 {toast.type === 'error' ? (
@@ -1207,78 +1320,92 @@ export default function App() {
         </AnimatePresence>
       </div>
 
-      {/* MODALS */}
-      <Auth
-        isOpen={isLoginOpen}
-        onClose={() => setIsLoginOpen(false)}
-        currentLang={currentLang}
-        onLoginSuccess={(loggedInUser, role) => {
-          setUser(loggedInUser);
-          setUserRole(role);
-          fetchUserData(loggedInUser);
-          setIsLoginOpen(false);
-          if (role === 'admin') {
-            navigateTo('/admin');
-            setAppRoute('admin-overview');
-          }
-        }}
-      />
-      <WorkerDiscoveryModal
-        isOpen={isDiscoveryOpen}
-        onClose={() => setIsDiscoveryOpen(false)}
-        initialCategory={discoveryCategory}
-        initialSkillSearch={discoverySkill}
-        currentLang={currentLang}
-        user={user}
-        onRequireLogin={() => {
-          setIsDiscoveryOpen(false);
-          setIsLoginOpen(true);
-        }}
-      />
-      <WorkerProfileModal
-        isOpen={isWorkerModalOpen}
-        onClose={() => setIsWorkerModalOpen(false)}
-        user={user}
-        onSaved={() => fetchWorkers()}
-        currentLang={currentLang}
-        onDeactivateAccount={handleDeactivateAccount}
-      />
-      <PostEquipmentModal
-        isOpen={isPostEquipModalOpen}
-        onClose={() => {
-          setIsPostEquipModalOpen(false);
-          setEquipmentToEdit(null);
-        }}
-        user={user}
-        currentLang={currentLang}
-        equipmentToEdit={equipmentToEdit}
-        onEquipmentPosted={(savedItem) => {
-          setEquipmentList((prev) => {
-            const idx = prev.findIndex((e) => e.id === savedItem.id);
-            if (idx >= 0) {
-              const copy = [...prev];
-              copy[idx] = savedItem;
-              return copy;
-            }
-            return [savedItem, ...prev];
-          });
-          fetchEquipment();
-        }}
-        onRequireLogin={() => setIsLoginOpen(true)}
-      />
-      <DirectPaymentModal
-        isOpen={directPaymentModal.isOpen}
-        onClose={() => setDirectPaymentModal((prev) => ({ ...prev, isOpen: false }))}
-        currentUser={user}
-        recipientId={directPaymentModal.recipientId}
-        recipientName={directPaymentModal.recipientName}
-        recipientPhone={directPaymentModal.recipientPhone}
-        paymentForType={directPaymentModal.paymentForType}
-        referenceId={directPaymentModal.referenceId}
-        defaultAmount={directPaymentModal.defaultAmount}
-        currentLang={currentLang}
-        onRequireLogin={() => setIsLoginOpen(true)}
-      />
+      {/* MODALS WITH CODE SPLITTING & SUSPENSE */}
+      <Suspense fallback={null}>
+        {isLoginOpen && (
+          <Auth
+            isOpen={isLoginOpen}
+            onClose={() => setIsLoginOpen(false)}
+            currentLang={currentLang}
+            onLoginSuccess={(loggedInUser, role) => {
+              safeSetUser(loggedInUser);
+              setUserRole(role);
+              fetchUserData(loggedInUser, true);
+              setIsLoginOpen(false);
+              if (role === 'admin') {
+                navigateTo('/admin');
+                setAppRoute('admin-overview');
+              }
+            }}
+          />
+        )}
+        {isDiscoveryOpen && (
+          <WorkerDiscoveryModal
+            isOpen={isDiscoveryOpen}
+            onClose={() => setIsDiscoveryOpen(false)}
+            initialCategory={discoveryCategory}
+            initialSkillSearch={discoverySkill}
+            currentLang={currentLang}
+            user={user}
+            onRequireLogin={() => {
+              setIsDiscoveryOpen(false);
+              setIsLoginOpen(true);
+            }}
+          />
+        )}
+        {isWorkerModalOpen && (
+          <WorkerProfileModal
+            isOpen={isWorkerModalOpen}
+            onClose={() => setIsWorkerModalOpen(false)}
+            user={user}
+            onSaved={() => fetchWorkers()}
+            currentLang={currentLang}
+            onDeactivateAccount={handleDeactivateAccount}
+          />
+        )}
+        {isPostEquipModalOpen && (
+          <PostEquipmentModal
+            isOpen={isPostEquipModalOpen}
+            onClose={() => {
+              setIsPostEquipModalOpen(false);
+              setEquipmentToEdit(null);
+            }}
+            user={user}
+            currentLang={currentLang}
+            equipmentToEdit={equipmentToEdit}
+            onEquipmentPosted={(savedItem) => {
+              setEquipmentList((prev) => {
+                const idx = prev.findIndex((e) => e.id === savedItem.id);
+                if (idx >= 0) {
+                  const copy = [...prev];
+                  copy[idx] = savedItem;
+                  return copy;
+                }
+                return [savedItem, ...prev];
+              });
+              fetchEquipment();
+            }}
+            onRequireLogin={() => setIsLoginOpen(true)}
+          />
+        )}
+        {directPaymentModal.isOpen && (
+          <DirectPaymentModal
+            isOpen={directPaymentModal.isOpen}
+            onClose={() => setDirectPaymentModal((prev) => ({ ...prev, isOpen: false }))}
+            currentUser={user}
+            recipientId={directPaymentModal.recipientId}
+            recipientName={directPaymentModal.recipientName}
+            recipientPhone={directPaymentModal.recipientPhone}
+            paymentForType={directPaymentModal.paymentForType}
+            referenceId={directPaymentModal.referenceId}
+            jobId={directPaymentModal.jobId}
+            assignmentId={directPaymentModal.assignmentId}
+            defaultAmount={directPaymentModal.defaultAmount}
+            currentLang={currentLang}
+            onRequireLogin={() => setIsLoginOpen(true)}
+          />
+        )}
+      </Suspense>
 
       {/* QUICK JOB POSTING MODAL */}
       <AnimatePresence>
@@ -1610,6 +1737,8 @@ export default function App() {
                                                 recipientPhone: phone,
                                                 paymentForType: 'worker_wage',
                                                 referenceId: job.id,
+                                                jobId: job.id,
+                                                assignmentId: rec.id,
                                                 defaultAmount: job.offered_wages || 500,
                                               });
                                             }}
@@ -1686,33 +1815,30 @@ export default function App() {
               <span className="text-[10px] text-slate-400 font-semibold mr-1 hidden sm:inline">Font:</span>
               <button
                 onClick={() => setFontSizeZoom('normal')}
-                className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${
-                  fontSizeZoom === 'normal'
+                className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'normal'
                     ? 'bg-[#FF9933] text-slate-900'
                     : 'text-slate-300 hover:text-white'
-                }`}
+                  }`}
                 title="Default font size"
               >
                 A-
               </button>
               <button
                 onClick={() => setFontSizeZoom('large')}
-                className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${
-                  fontSizeZoom === 'large'
+                className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'large'
                     ? 'bg-[#FF9933] text-slate-900'
                     : 'text-slate-300 hover:text-white'
-                }`}
+                  }`}
                 title="Large font size"
               >
                 A
               </button>
               <button
                 onClick={() => setFontSizeZoom('larger')}
-                className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${
-                  fontSizeZoom === 'larger'
+                className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'larger'
                     ? 'bg-[#FF9933] text-slate-900'
                     : 'text-slate-300 hover:text-white'
-                }`}
+                  }`}
                 title="Extra large font size"
               >
                 A+
@@ -1795,11 +1921,10 @@ export default function App() {
                       <button
                         key={lang}
                         onClick={() => handleLangChange(lang)}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm rounded-xl text-left transition-colors ${
-                          currentLang === lang
+                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm rounded-xl text-left transition-colors ${currentLang === lang
                             ? 'bg-emerald-50 text-[#138808] font-bold'
                             : 'text-slate-700 hover:bg-slate-50'
-                        }`}
+                          }`}
                       >
                         <span>{lang}</span>
                         {currentLang === lang && <Check className="w-4 h-4 text-[#138808] stroke-[3]" />}
@@ -1857,22 +1982,22 @@ export default function App() {
               </button>
             )}
 
+            {/* Install QuickHire App Button (Desktop) */}
+            {isInstallable && !isInstalled && (
+              <button
+                onClick={() => promptInstall()}
+                className="hidden md:flex px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#FF9933] hover:bg-[#e68a2e] text-slate-900 shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                title="Install QuickHire on your device"
+              >
+                <Download className="w-3.5 h-3.5 text-slate-900" />
+                <span>Install App</span>
+              </button>
+            )}
+
             {/* Logout / Login Button */}
             {user ? (
               <button
-                onClick={async () => {
-                  clearAdminSession();
-                  sessionStorage.removeItem('quickhire_admin_preview_citizen');
-                  await supabase.auth.signOut();
-                  localStorage.removeItem('quickhire_user_session');
-                  localStorage.removeItem('quickhire_user_role');
-                  setUser(null);
-                  setUserRole(null);
-                  setAppliedJobIds(new Set());
-                  setMyPostedJobs([]);
-                  navigateTo('/');
-                  setAppRoute('public');
-                }}
+                onClick={handleLogout}
                 className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors whitespace-nowrap"
               >
                 {t('logout')}
@@ -1906,11 +2031,10 @@ export default function App() {
             {/* Tab 1: 🏛️ Home / Portal Overview */}
             <button
               onClick={() => setActiveTab('home')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${
-                activeTab === 'home'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'home'
                   ? 'border-b-[#FF9933] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <span>🏛️</span>
               <span>{t('tabHome')}</span>
@@ -1919,11 +2043,10 @@ export default function App() {
             {/* Tab 2: 👥 Workers Directory */}
             <button
               onClick={() => setActiveTab('workers')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${
-                activeTab === 'workers'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
                   ? 'border-b-[#FF9933] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <span>👥</span>
               <span>{t('tabWorkers')}</span>
@@ -1932,11 +2055,10 @@ export default function App() {
             {/* Tab 3: 🚜 Equipment & Tool Bank */}
             <button
               onClick={() => setActiveTab('equipment')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${
-                activeTab === 'equipment'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'equipment'
                   ? 'border-b-[#FF9933] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <span>🚜</span>
               <span>{t('tabEquipment')}</span>
@@ -1945,11 +2067,10 @@ export default function App() {
             {/* Tab 4: 📋 Post Employment */}
             <button
               onClick={() => setActiveTab('post-job')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${
-                activeTab === 'post-job'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
                   ? 'border-b-[#FF9933] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <span>📋</span>
               <span>{t('tabPostJob')}</span>
@@ -1958,11 +2079,10 @@ export default function App() {
             {/* Tab 5: 📊 Citizen Dashboard */}
             <button
               onClick={() => setActiveTab('my-jobs')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 relative ${
-                activeTab === 'my-jobs'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 relative ${activeTab === 'my-jobs'
                   ? 'border-b-[#FF9933] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <span>📊</span>
               <span>{t('tabMyJobs')}</span>
@@ -1976,11 +2096,10 @@ export default function App() {
             {/* Tab 6: 🏦 Bank & DBT Payouts */}
             <button
               onClick={() => setActiveTab('bank')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${
-                activeTab === 'bank'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'bank'
                   ? 'border-b-[#FF9933] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <span>🏦</span>
               <span>{t('tabBank')}</span>
@@ -1989,11 +2108,10 @@ export default function App() {
             {/* Tab 7: 🛡️ Grievance & SOS Helplines */}
             <button
               onClick={() => setActiveTab('safety')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${
-                activeTab === 'safety'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'safety'
                   ? 'border-b-[#FF9933] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
-              }`}
+                }`}
             >
               <span>🛡️</span>
               <span>{t('tabSafety')}</span>
@@ -2015,9 +2133,8 @@ export default function App() {
                   setActiveTab('home');
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${
-                  activeTab === 'home' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'home' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  }`}
               >
                 <span>🏛️</span>
                 <span>{t('tabHome')}</span>
@@ -2027,9 +2144,8 @@ export default function App() {
                   setActiveTab('workers');
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${
-                  activeTab === 'workers' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'workers' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  }`}
               >
                 <span>👥</span>
                 <span>{t('tabWorkers')}</span>
@@ -2039,9 +2155,8 @@ export default function App() {
                   setActiveTab('equipment');
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${
-                  activeTab === 'equipment' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'equipment' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  }`}
               >
                 <span>🚜</span>
                 <span>{t('tabEquipment')}</span>
@@ -2051,9 +2166,8 @@ export default function App() {
                   setActiveTab('post-job');
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${
-                  activeTab === 'post-job' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'post-job' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  }`}
               >
                 <span>📋</span>
                 <span>{t('tabPostJob')}</span>
@@ -2063,9 +2177,8 @@ export default function App() {
                   setActiveTab('my-jobs');
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${
-                  activeTab === 'my-jobs' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'my-jobs' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  }`}
               >
                 <div className="flex items-center gap-3">
                   <span>📊</span>
@@ -2082,9 +2195,8 @@ export default function App() {
                   setActiveTab('bank');
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${
-                  activeTab === 'bank' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'bank' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  }`}
               >
                 <span>🏦</span>
                 <span>{t('tabBank')}</span>
@@ -2094,9 +2206,8 @@ export default function App() {
                   setActiveTab('safety');
                   setMobileMenuOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${
-                  activeTab === 'safety' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                }`}
+                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'safety' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  }`}
               >
                 <span>🛡️</span>
                 <span>{t('tabSafety')}</span>
@@ -2113,12 +2224,49 @@ export default function App() {
                   <span>Citizen Profile & Settings</span>
                 </button>
               )}
+
+              {/* Install App button on mobile */}
+              {!isInstalled && (
+                <button
+                  onClick={async () => {
+                    setMobileMenuOpen(false);
+                    if (isIos) {
+                      setShowIosPwaHelp(true);
+                    } else {
+                      await promptInstall();
+                    }
+                  }}
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-[#FF9933]/15 text-[#FF9933] border border-[#FF9933]/30 hover:bg-[#FF9933]/25 transition-colors"
+                >
+                  <div className="flex items-center gap-3">
+                    <Download className="w-4 h-4 text-[#FF9933]" />
+                    <span>Install QuickHire App</span>
+                  </div>
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#FF9933]/20 text-white">
+                    PWA
+                  </span>
+                </button>
+              )}
+
+              {/* Mobile Logout if authenticated */}
+              {user && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    handleLogout();
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-rose-950/60 text-rose-300 border border-rose-600/50 hover:bg-rose-900/60 transition-colors"
+                >
+                  <X className="w-4 h-4 text-rose-400" />
+                  <span>{t('logout')}</span>
+                </button>
+              )}
             </motion.div>
           )}
         </AnimatePresence>
       </div>
 
-            {/* MAIN CONTENT AREA PER ACTIVE TAB WITH CODE SPLITTING & SUSPENSE */}
+      {/* MAIN CONTENT AREA PER ACTIVE TAB WITH CODE SPLITTING & SUSPENSE */}
       <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
         <Suspense
           fallback={
@@ -2197,6 +2345,11 @@ export default function App() {
                 setIsDiscoveryOpen(true);
               }}
               onRefreshWorkers={fetchWorkers}
+              onAssignmentCreated={() => {
+                if (user) fetchMyPostedJobs(user.id);
+                showToast('Direct hiring confirmed! Assignment recorded in your dashboard.', 'success');
+                setActiveTab('my-jobs');
+              }}
             />
           )}
 
@@ -2286,7 +2439,7 @@ export default function App() {
                 setSelectedCategory(category);
                 setActiveTab('workers');
               }}
-              onPayWage={(recipientId, recipientName, recipientPhone, jobId, amount) => {
+              onPayWage={(recipientId, recipientName, recipientPhone, jobId, amount, assignmentId) => {
                 setDirectPaymentModal({
                   isOpen: true,
                   recipientId,
@@ -2294,6 +2447,8 @@ export default function App() {
                   recipientPhone,
                   paymentForType: 'worker_wage',
                   referenceId: jobId,
+                  jobId: jobId || null,
+                  assignmentId: assignmentId || null,
                   defaultAmount: amount || 500,
                 });
               }}
@@ -2491,11 +2646,10 @@ export default function App() {
                   <button
                     key={lang}
                     onClick={() => handleLangChange(lang)}
-                    className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${
-                      currentLang === lang
+                    className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${currentLang === lang
                         ? 'bg-[#FF9933] text-slate-900 font-bold'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
-                    }`}
+                      }`}
                   >
                     {lang}
                   </button>
@@ -2534,6 +2688,13 @@ export default function App() {
 
       {/* FLOATING ACCESSIBLE VOICE HELPER */}
       <AccessibleVoiceBar activeTab={activeTab} currentLang={currentLang} />
+
+      {/* PWA INSTALL BANNER */}
+      <PwaInstallBanner
+        currentLang={currentLang}
+        forceShowIosHelp={showIosPwaHelp}
+        onCloseIosHelp={() => setShowIosPwaHelp(false)}
+      />
     </div>
   );
 }

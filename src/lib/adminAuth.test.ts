@@ -1,4 +1,5 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
+import type { User } from '@supabase/supabase-js';
 import {
   ADMIN_CONFIG,
   getStoredAdminSession,
@@ -115,7 +116,7 @@ vi.mock('./supabase', () => {
           });
         }),
         signOut: vi.fn().mockResolvedValue({ error: null }),
-        updateUser: vi.fn().mockImplementation(({ email, password }) => {
+        updateUser: vi.fn().mockImplementation(({ email }: { email?: string; password?: string }) => {
           return Promise.resolve({
             data: { user: { id: '00000000-0000-4000-a000-000000000001', email } },
             error: null,
@@ -453,7 +454,7 @@ describe('MANDATORY SECURITY ARCHITECTURE TEST SUITE', () => {
     it('Case 23: Validates active admin session and invalidates forged session storage', async () => {
       // Valid session
       setAdminSession({
-        user: { id: DESIGNATED_ADMIN_UUID } as any,
+        user: { id: DESIGNATED_ADMIN_UUID } as unknown as User,
         adminRole: 'super_admin',
         authMethod: 'email',
         verifiedIdentifier: 'workconnectapk@gmail.com',
@@ -467,7 +468,7 @@ describe('MANDATORY SECURITY ARCHITECTURE TEST SUITE', () => {
 
       // Forged session with invalid user ID
       setAdminSession({
-        user: { id: 'forged-attacker-uuid' } as any,
+        user: { id: 'forged-attacker-uuid' } as unknown as User,
         adminRole: 'super_admin',
         authMethod: 'email',
         verifiedIdentifier: 'hacker@attacker.com',
@@ -479,6 +480,56 @@ describe('MANDATORY SECURITY ARCHITECTURE TEST SUITE', () => {
       const invalid = await verifyActiveAdminSession();
       expect(invalid).toBe(false);
       expect(getStoredAdminSession()).toBeNull();
+    });
+
+    it('Case 24: Gracefully handles missing verified_email column (42703) with resilient schema fallback', async () => {
+      const originalFrom = supabase.from;
+      try {
+        vi.mocked(supabase.from).mockImplementation(((table: string) => {
+          if (table === 'admin_users') {
+            const qb: Record<string, unknown> = {
+              select: vi.fn((cols: string) => {
+                if (cols.includes('verified_email')) {
+                  return {
+                    eq: vi.fn(() => ({
+                      eq: vi.fn(() => ({
+                        maybeSingle: vi.fn().mockResolvedValue({
+                          data: null,
+                          error: { code: '42703', message: 'column admin_users.verified_email does not exist' },
+                        }),
+                      })),
+                    })),
+                  };
+                }
+                return {
+                  eq: vi.fn(() => ({
+                    eq: vi.fn(() => ({
+                      maybeSingle: vi.fn().mockResolvedValue({
+                        data: {
+                          role: 'super_admin',
+                          verified_phone: '+919876543210',
+                          is_active: true,
+                        },
+                        error: null,
+                      }),
+                    })),
+                  })),
+                };
+              }),
+            };
+            return qb;
+          }
+          return originalFrom(table);
+        }) as unknown as typeof supabase.from);
+
+        const res = await verifyAdminStatus('00000000-0000-4000-a000-000000000001');
+        expect(res.isAdmin).toBe(true);
+        expect(res.role).toBe('super_admin');
+        expect(res.verifiedEmail).toBeNull();
+        expect(res.verifiedPhone).toBe('+919876543210');
+      } finally {
+        supabase.from = originalFrom;
+      }
     });
   });
 });

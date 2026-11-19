@@ -193,7 +193,6 @@ RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.email LIKE '%@quickhire.local' THEN
     NEW.email_confirmed_at = COALESCE(NEW.email_confirmed_at, NOW());
-    NEW.confirmed_at = COALESCE(NEW.confirmed_at, NOW());
   END IF;
   RETURN NEW;
 END;
@@ -207,6 +206,5 @@ CREATE TRIGGER trg_auto_confirm_quickhire_local_users
 
 -- Retroactively confirm existing @quickhire.local accounts
 UPDATE auth.users
-SET email_confirmed_at = COALESCE(email_confirmed_at, NOW()),
-    confirmed_at = COALESCE(confirmed_at, NOW())
+SET email_confirmed_at = COALESCE(email_confirmed_at, NOW())
 WHERE email LIKE '%@quickhire.local' AND email_confirmed_at IS NULL;

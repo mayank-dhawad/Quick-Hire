@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { WorkerDiscoveryModal } from './WorkerDiscoveryModal';
 import { supabase } from '../lib/supabase';
+import type { User, Session } from '@supabase/supabase-js';
 
 // Mock speech
 vi.mock('../lib/speech', () => ({
@@ -48,10 +49,10 @@ vi.mock('../lib/supabase', () => {
 });
 
 describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification', () => {
-  const mockUser: any = {
+  const mockUser = {
     id: 'auth-user-uuid-1',
     email: 'hirer@quickhire.in',
-  };
+  } as unknown as User;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -59,7 +60,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
 
   it('renders login prompt and prevents worker queries when user is unauthenticated', async () => {
     const onRequireLogin = vi.fn();
-    (supabase.auth.getSession as any).mockResolvedValue({
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
       data: { session: null },
       error: null,
     });
@@ -93,8 +94,8 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
   });
 
   it('queries public_worker_directory view for authenticated users', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
-      data: { session: { user: mockUser } },
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: { user: mockUser } as unknown as Session },
       error: null,
     });
 
@@ -117,23 +118,18 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
       },
     ];
 
-    const mockSelect = vi.fn().mockReturnValue({
-      eq: vi.fn().mockResolvedValue({ data: mockViewData, error: null }),
-      then: vi.fn((resolve: any) => resolve({ data: mockViewData, error: null })),
-    });
-
     // Handle view query
-    (supabase.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
       if (table === 'public_worker_directory') {
         return {
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockResolvedValue({ data: mockViewData, error: null }),
-            then: vi.fn((resolve: any) => resolve({ data: mockViewData, error: null })),
+            then: vi.fn((resolve: (val: unknown) => void) => resolve({ data: mockViewData, error: null })),
           }),
         };
       }
       return { select: vi.fn() };
-    });
+    }) as unknown as typeof supabase.from);
 
     render(
       <WorkerDiscoveryModal
@@ -154,8 +150,8 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
   });
 
   it('falls back to workers and profiles tables with warning if public_worker_directory view errors', async () => {
-    (supabase.auth.getSession as any).mockResolvedValue({
-      data: { session: { user: mockUser } },
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: { user: mockUser } as unknown as Session },
       error: null,
     });
 
@@ -184,7 +180,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
       },
     ];
 
-    (supabase.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
       if (table === 'public_worker_directory') {
         return {
           select: vi.fn().mockReturnValue({
@@ -192,7 +188,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
               data: null,
               error: { code: '42P01', message: 'relation public_worker_directory does not exist' },
             }),
-            then: vi.fn((resolve: any) =>
+            then: vi.fn((resolve: (val: unknown) => void) =>
               resolve({
                 data: null,
                 error: { code: '42P01', message: 'relation public_worker_directory does not exist' },
@@ -206,13 +202,13 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
           select: vi.fn().mockReturnValue({
             eq: vi.fn().mockReturnValue({
               eq: vi.fn().mockResolvedValue({ data: mockFallbackWorkers, error: null }),
-              then: vi.fn((resolve: any) => resolve({ data: mockFallbackWorkers, error: null })),
+              then: vi.fn((resolve: (val: unknown) => void) => resolve({ data: mockFallbackWorkers, error: null })),
             }),
           }),
         };
       }
       return { select: vi.fn() };
-    });
+    }) as unknown as typeof supabase.from);
 
     render(
       <WorkerDiscoveryModal

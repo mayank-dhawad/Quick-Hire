@@ -29,6 +29,7 @@ vi.mock('../lib/supabase', () => ({
 
 describe('QuickHire Application Routing & Access Isolation', () => {
   beforeEach(() => {
+    vi.clearAllMocks();
     localStorage.clear();
     sessionStorage.clear();
     window.history.pushState(null, '', '/');
@@ -88,5 +89,37 @@ describe('QuickHire Application Routing & Access Isolation', () => {
 
     // Path must remain root '/' — no forced hijack to '/admin'
     expect(window.location.pathname).toBe('/');
+  });
+
+  it('guarantees single initialization and prevents infinite request storm on authenticated session', async () => {
+    const mockUser = {
+      id: 'worker-user-999',
+      email: 'worker@quickhire.in',
+      phone: '+919876543210',
+      user_metadata: { full_name: 'Ramesh Worker' },
+    };
+
+    const { supabase } = await import('../lib/supabase');
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: { user: mockUser as unknown as import('@supabase/supabase-js').User } as unknown as import('@supabase/supabase-js').Session },
+      error: null,
+    });
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.queryByText(/Verifying authentication/i)).not.toBeInTheDocument();
+    });
+
+    // Verify that Supabase from() calls for user data and catalogs are strictly bounded
+    const fromCalls = vi.mocked(supabase.from).mock.calls.map(([table]) => table);
+    const profileCalls = fromCalls.filter((t) => t === 'profiles').length;
+    const jobRecordCalls = fromCalls.filter((t) => t === 'job_records').length;
+    const jobCalls = fromCalls.filter((t) => t === 'jobs').length;
+
+    // Must be strictly bounded and never enter an infinite request loop
+    expect(profileCalls).toBeLessThanOrEqual(2);
+    expect(jobRecordCalls).toBeLessThanOrEqual(2);
+    expect(jobCalls).toBeLessThanOrEqual(3);
   });
 });

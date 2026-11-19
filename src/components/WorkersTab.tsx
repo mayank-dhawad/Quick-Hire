@@ -34,8 +34,9 @@ import {
   resolveLocalityCoordinates
 } from '../lib/geocoding';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { speakText, getVoiceGuidance, getWorkerSpeechText } from '../lib/speech';
+import { speakText, getVoiceGuidance } from '../lib/speech';
 import { getTranslation, getSuggestedSkillTags } from '../lib/translations';
+import { PostCallDirectHireModal, DirectHireWorkerInfo } from './PostCallDirectHireModal';
 
 interface WorkersTabProps {
   currentLang?: string;
@@ -51,6 +52,7 @@ interface WorkersTabProps {
   onOpenDirectPayment: (recipientId: string, recipientName: string, recipientPhone?: string | null) => void;
   onOpenWorkerDiscovery: (category: string, skill: string) => void;
   onRefreshWorkers?: () => void;
+  onAssignmentCreated?: (assignment: Record<string, unknown>, job: Record<string, unknown>) => void;
 }
 
 export function WorkersTab({
@@ -67,6 +69,7 @@ export function WorkersTab({
   onOpenDirectPayment,
   onOpenWorkerDiscovery,
   onRefreshWorkers,
+  onAssignmentCreated,
 }: WorkersTabProps) {
   const t = (key: string): string => getTranslation(currentLang, key);
   const suggestedTags = getSuggestedSkillTags(currentLang);
@@ -87,9 +90,27 @@ export function WorkersTab({
   const [callingWorkerId, setCallingWorkerId] = React.useState<string | null>(null);
   const [callError, setCallError] = React.useState<{ workerId: string; message: string } | null>(null);
 
+  // Post-Call Direct Hiring State (Workflow B)
+  const [postCallWorker, setPostCallWorker] = React.useState<DirectHireWorkerInfo | null>(null);
+  const [isPostCallOpen, setIsPostCallOpen] = React.useState<boolean>(false);
+
   const handleCallWorker = async (workerId: string, initialPhone?: string | null) => {
     const existing = initialPhone || workerPhones[workerId];
     if (existing) {
+      const target = filteredWorkers.find((w) => w.id === workerId);
+      if (target && user) {
+        setPostCallWorker({
+          id: target.id,
+          full_name: target.profiles?.full_name || 'Worker',
+          category: target.category,
+          daily_wage: target.daily_wage || 500,
+          phone_number: existing,
+          location: target.preferred_work_location || target.profiles?.location,
+          village: target.profiles?.village,
+          city: target.profiles?.city || target.profiles?.district,
+        });
+        setIsPostCallOpen(true);
+      }
       window.location.href = `tel:${existing}`;
       return;
     }
@@ -100,7 +121,7 @@ export function WorkersTab({
     setCallingWorkerId(workerId);
     setCallError(null);
     try {
-      const { data, error } = await (supabase.rpc as any)('get_worker_contact_phone', {
+      const { data, error } = await supabase.rpc('get_worker_contact_phone', {
         p_worker_id: workerId,
       });
       if (error) {
@@ -110,15 +131,30 @@ export function WorkersTab({
         });
         return;
       }
-      if (data && (data as any).phone_number) {
-        const retrievedPhone = (data as any).phone_number;
+      const contactData = data as { phone_number?: string } | null;
+      if (contactData?.phone_number) {
+        const retrievedPhone = contactData.phone_number;
         setWorkerPhones((prev) => ({ ...prev, [workerId]: retrievedPhone }));
+        const target = filteredWorkers.find((w) => w.id === workerId);
+        if (target && user) {
+          setPostCallWorker({
+            id: target.id,
+            full_name: target.profiles?.full_name || 'Worker',
+            category: target.category,
+            daily_wage: target.daily_wage || 500,
+            phone_number: retrievedPhone,
+            location: target.preferred_work_location || target.profiles?.location,
+            village: target.profiles?.village,
+            city: target.profiles?.city || target.profiles?.district,
+          });
+          setIsPostCallOpen(true);
+        }
         window.location.href = `tel:${retrievedPhone}`;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       setCallError({
         workerId,
-        message: err.message || 'Network error retrieving contact details.',
+        message: err instanceof Error ? err.message : 'Network error retrieving contact details.',
       });
     } finally {
       setCallingWorkerId(null);
@@ -222,14 +258,14 @@ export function WorkersTab({
     return filteredWorkers
       .map((w) => {
         // Resolve worker coordinates from worker record, profile, or known rural locality
-        let lat =
+        const lat =
           w.latitude !== null && w.latitude !== undefined && !isNaN(Number(w.latitude)) && Number(w.latitude) !== 0
             ? Number(w.latitude)
             : w.profiles?.latitude !== null && w.profiles?.latitude !== undefined && !isNaN(Number(w.profiles.latitude)) && Number(w.profiles.latitude) !== 0
             ? Number(w.profiles.latitude)
             : null;
 
-        let lon =
+        const lon =
           w.longitude !== null && w.longitude !== undefined && !isNaN(Number(w.longitude)) && Number(w.longitude) !== 0
             ? Number(w.longitude)
             : w.profiles?.longitude !== null && w.profiles?.longitude !== undefined && !isNaN(Number(w.profiles.longitude)) && Number(w.profiles.longitude) !== 0
@@ -874,6 +910,21 @@ export function WorkersTab({
       </div>
         </>
       )}
+
+      {/* POST-CALL DIRECT HIRE PROMPT (Workflow B) */}
+      <PostCallDirectHireModal
+        isOpen={isPostCallOpen}
+        onClose={() => setIsPostCallOpen(false)}
+        worker={postCallWorker}
+        currentUser={user}
+        currentLang={currentLang}
+        onAssignmentCreated={(assignment, job) => {
+          setIsPostCallOpen(false);
+          if (onRefreshWorkers) onRefreshWorkers();
+          if (onAssignmentCreated) onAssignmentCreated(assignment, job);
+        }}
+        onRequireLogin={onRequireLogin}
+      />
     </motion.div>
   );
 }

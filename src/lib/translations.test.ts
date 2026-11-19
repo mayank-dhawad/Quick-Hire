@@ -225,4 +225,54 @@ describe('Multilingual Translation Dictionary', () => {
       expect(teluguSample.normalize('NFC')).toBe(teluguSample);
     });
   });
+
+  describe('Phase 2 Direct Hiring, Lifecycle & Payment Keys (5 Official Languages)', () => {
+    const phase2Keys = [
+      'tabCash',
+      'confirmCashReceived',
+      'recordCashBtn',
+      'remainingBalance',
+      'totalPaid',
+      'receiptTitle',
+      'printReceipt',
+      'directHireTitle',
+      'didWorkerAgree',
+      'workerAgreed',
+      'workerDeclined',
+      'notDecided',
+      'confirmDirectHire',
+      'markOnTheWay',
+      'markArrived',
+      'confirmAttendance',
+      'startWork',
+      'startBreak',
+      'resumeWork',
+      'completeWork',
+      'overtimeHours',
+      'netWorkingHours',
+    ];
+
+    it('verifies that Kannada is NOT in SUPPORTED_LANGUAGES and exactly 5 languages are active', () => {
+      expect(SUPPORTED_LANGUAGES).not.toContain('ಕನ್ನಡ (Kannada)');
+      expect(SUPPORTED_LANGUAGES).not.toContain('Kannada');
+      expect(SUPPORTED_LANGUAGES).toHaveLength(5);
+    });
+
+    for (const key of phase2Keys) {
+      for (const lang of SUPPORTED_LANGUAGES) {
+        it(`provides natural translation for Phase 2 key "${key}" in ${lang}`, () => {
+          const val = getTranslation(lang, key);
+          expect(val).toBeDefined();
+          expect(typeof val).toBe('string');
+          expect(val.trim().length).toBeGreaterThan(0);
+          expect(val).not.toBe(key);
+        });
+      }
+    }
+
+    it('falls back to English when an unconfigured language is passed', () => {
+      const val = getTranslation('Kannada', 'tabCash');
+      expect(val).toBe('Cash Payment');
+    });
+  });
 });

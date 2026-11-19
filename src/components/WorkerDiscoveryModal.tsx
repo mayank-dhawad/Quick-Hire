@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Star, Search, UserCheck, MapPin, IndianRupee, Briefcase, Award, Lock, Users } from 'lucide-react';
+import { Phone, Star, Search, UserCheck, MapPin, IndianRupee, Lock, Users } from 'lucide-react';
 import { speakText, getVoiceGuidance, getWorkerSpeechText } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
@@ -90,14 +90,14 @@ export function WorkerDiscoveryModal({
     setLoading(true);
     try {
       // 1. Primary secure discovery path: sanitized public_worker_directory view
-      let viewQuery = (supabase.from('public_worker_directory') as any).select('*');
+      let viewQuery = supabase.from('public_worker_directory').select('*');
       if (categoryFilter !== 'All') {
         viewQuery = viewQuery.eq('category', categoryFilter as WorkerCategory);
       }
 
       const { data: viewData, error: viewError } = await viewQuery;
       if (!viewError && Array.isArray(viewData)) {
-        const mapped = (viewData as any[]).map((row: any) => {
+        const mapped = (viewData as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
           const lat = row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0 ? Number(row.latitude) : null;
           const lon = row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0 ? Number(row.longitude) : null;
           return {
@@ -149,7 +149,10 @@ export function WorkerDiscoveryModal({
         query = query.eq('category', categoryFilter as WorkerCategory);
       }
 
-      let { data, error } = await query;
+      const { data, error: initialError } = await query;
+      let workerRows: unknown[] | null = data;
+      let error = initialError;
+
       if (error && (error.code === '42703' || String(error.message).includes('column'))) {
         let minimalQuery = supabase
           .from('workers')
@@ -163,7 +166,7 @@ export function WorkerDiscoveryModal({
           minimalQuery = minimalQuery.eq('category', categoryFilter as WorkerCategory);
         }
         const fallbackRes = await minimalQuery;
-        data = fallbackRes.data as any;
+        workerRows = fallbackRes.data;
         error = fallbackRes.error;
       }
 
@@ -171,9 +174,9 @@ export function WorkerDiscoveryModal({
         console.error('WorkerDiscoveryModal: Fallback query failed:', error);
       }
 
-      if (!error && Array.isArray(data)) {
-        const normalized = data.map((row: any) => {
-          const prof = row.profiles || {};
+      if (!error && Array.isArray(workerRows)) {
+        const normalized = (workerRows as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
+          const prof = (row.profiles && typeof row.profiles === 'object' ? row.profiles : {}) as Record<string, unknown>;
           const compositeLoc =
             prof.location ||
             row.location ||

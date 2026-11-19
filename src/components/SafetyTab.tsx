@@ -24,6 +24,8 @@ import {
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
 
+type GrievanceCategory = 'unpaid_wages' | 'unsafe_conditions' | 'harassment' | 'fraud' | 'misleading_equipment' | 'platform_abuse' | 'other';
+
 interface SafetyTabProps {
   currentLang?: string;
 }
@@ -33,7 +35,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
 
   const [isGrievanceOpen, setIsGrievanceOpen] = useState(false);
   const [complaintTitle, setComplaintTitle] = useState('');
-  const [complaintCategory, setComplaintCategory] = useState<'unpaid_wages' | 'unsafe_conditions' | 'harassment' | 'fraud' | 'misleading_equipment' | 'platform_abuse' | 'other'>('unpaid_wages');
+  const [complaintCategory, setComplaintCategory] = useState<GrievanceCategory>('unpaid_wages');
   const [complaintName, setComplaintName] = useState('');
   const [complaintPhone, setComplaintPhone] = useState('');
   const [complaintDesc, setComplaintDesc] = useState('');
@@ -82,31 +84,43 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
   const [isBroadcastingSos, setIsBroadcastingSos] = useState(false);
   const [sosBroadcastAlert, setSosBroadcastAlert] = useState<string | null>(null);
 
-  // Fetch current user's emergency contact from profiles
+  // Fetch current user's emergency contact from profile_private_details exclusively
   useEffect(() => {
+    let isMounted = true;
     supabase.auth.getSession().then(async ({ data: { session } }) => {
       if (session?.user?.id) {
         try {
-          const { data } = await supabase
-            .from('profiles')
+          const privQuery = supabase
+            .from('profile_private_details')
             .select('emergency_contact_name, emergency_contact_phone')
-            .eq('id', session.user.id)
-            .single();
-          if (data) {
-            if (data.emergency_contact_name) setEmergencyContactName(data.emergency_contact_name);
-            if (data.emergency_contact_phone) setEmergencyContactPhone(data.emergency_contact_phone);
+            .eq('profile_id', session.user.id);
+          const { data: privData, error: privErr } = typeof privQuery.maybeSingle === 'function'
+            ? await privQuery.maybeSingle()
+            : await privQuery.single();
+
+          if (privErr) {
+            console.warn('Could not load emergency contact from profile_private_details:', privErr.message);
+            return;
           }
-        } catch {
-          // Graceful fallback if column not present yet
+
+          if (isMounted && privData) {
+            if (privData.emergency_contact_name) setEmergencyContactName(privData.emergency_contact_name);
+            if (privData.emergency_contact_phone) setEmergencyContactPhone(privData.emergency_contact_phone);
+          }
+        } catch (err) {
+          console.warn('Notice loading emergency contact:', err);
         }
       }
     });
+    return () => {
+      isMounted = false;
+    };
   }, []);
 
   const handleSaveEmergencyContact = async (e: React.FormEvent) => {
     e.preventDefault();
     const cleanPhone = emergencyContactPhone.trim();
-    if (!cleanPhone) return;
+    const cleanName = emergencyContactName.trim();
 
     setIsSavingContact(true);
     setContactSavedNotice('');
@@ -116,19 +130,64 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
         alert('Please log in to save your personal emergency contact.');
         return;
       }
-      await supabase
-        .from('profiles')
-        .update({
-          emergency_contact_name: emergencyContactName.trim() || 'Trusted Emergency Contact',
-          emergency_contact_phone: cleanPhone,
-        } as any)
-        .eq('id', session.user.id);
+      // Upsert directly to profile_private_details — zero legacy fallback
+      const { error: privErr } = await supabase
+        .from('profile_private_details')
+        .upsert({
+          profile_id: session.user.id,
+          emergency_contact_name: cleanName || null,
+          emergency_contact_phone: cleanPhone || null,
+          updated_at: new Date().toISOString(),
+        });
 
-      setContactSavedNotice('Emergency contact saved successfully!');
+      if (privErr) {
+        throw new Error(privErr.message);
+      }
+
+      setContactSavedNotice(cleanPhone ? 'Emergency contact saved successfully!' : 'Emergency contact cleared successfully.');
       setIsEditingContact(false);
       setTimeout(() => setContactSavedNotice(''), 3000);
-    } catch (err) {
-      console.warn('Error saving emergency contact:', err);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to save emergency contact';
+      console.warn('Error saving emergency contact:', msg);
+      alert('Could not save emergency contact: ' + msg);
+    } finally {
+      setIsSavingContact(false);
+    }
+  };
+
+  const handleClearEmergencyContact = async () => {
+    setIsSavingContact(true);
+    setContactSavedNotice('');
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        alert('Please log in to update your emergency contact.');
+        return;
+      }
+
+      const { error: privErr } = await supabase
+        .from('profile_private_details')
+        .upsert({
+          profile_id: session.user.id,
+          emergency_contact_name: null,
+          emergency_contact_phone: null,
+          updated_at: new Date().toISOString(),
+        });
+
+      if (privErr) {
+        throw new Error(privErr.message);
+      }
+
+      setEmergencyContactName('');
+      setEmergencyContactPhone('');
+      setIsEditingContact(false);
+      setContactSavedNotice('Emergency contact cleared successfully.');
+      setTimeout(() => setContactSavedNotice(''), 3000);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'Failed to clear emergency contact';
+      console.warn('Error clearing emergency contact:', msg);
+      alert('Could not clear emergency contact: ' + msg);
     } finally {
       setIsSavingContact(false);
     }
@@ -440,7 +499,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex items-center gap-2 pt-1 flex-wrap">
                 <button
                   type="submit"
                   disabled={isSavingContact}
@@ -449,15 +508,23 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>{isSavingContact ? 'Saving...' : 'Save Emergency Contact'}</span>
                 </button>
-                {emergencyContactPhone && (
+                {(emergencyContactPhone || emergencyContactName) && (
                   <button
                     type="button"
-                    onClick={() => setIsEditingContact(false)}
-                    className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs transition cursor-pointer"
+                    disabled={isSavingContact}
+                    onClick={handleClearEmergencyContact}
+                    className="px-3 py-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs transition cursor-pointer disabled:opacity-50"
                   >
-                    Cancel
+                    Clear Contact
                   </button>
                 )}
+                <button
+                  type="button"
+                  onClick={() => setIsEditingContact(false)}
+                  className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs transition cursor-pointer"
+                >
+                  Cancel
+                </button>
               </div>
             </form>
           )}
@@ -965,7 +1032,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                     <select
                       id="public-g-cat"
                       value={complaintCategory}
-                      onChange={(e) => setComplaintCategory(e.target.value as any)}
+                      onChange={(e) => setComplaintCategory(e.target.value as GrievanceCategory)}
                       className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-300 rounded-xl text-slate-900 focus:outline-none focus:ring-2 focus:ring-emerald-500"
                     >
                       <option value="unpaid_wages">Unpaid Wages / Settlement Delay</option>

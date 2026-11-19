@@ -10,11 +10,11 @@ import {
   ShieldAlert,
   MapPin,
   Mail,
-  Calendar,
-  User as UserIcon,
-  Briefcase,
+
+
+
   IndianRupee,
-  FileText,
+
   Edit3,
   ArrowLeft,
   Sparkles,
@@ -27,6 +27,50 @@ import { extractErrorMessage } from '../lib/errorHandler';
 import { geocodeAddress } from '../lib/geocoding';
 
 type WorkerCategory = 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed';
+type GenderOption = 'Male' | 'Female' | 'Other' | 'Prefer not to say' | '';
+
+interface WorkerProfileRecord {
+  id?: string;
+  full_name?: string | null;
+  phone_number?: string | null;
+  email?: string | null;
+  gender?: GenderOption | null;
+  date_of_birth?: string | null;
+  village?: string | null;
+  city?: string | null;
+  district?: string | null;
+  state?: string | null;
+  pincode?: string | null;
+  address_line?: string | null;
+  location?: string | null;
+  category?: WorkerCategory | null;
+  skills?: string[] | null;
+  experience_years?: number | null;
+  daily_wage?: number | null;
+  experience_description?: string | null;
+  average_rating?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geocoded_address?: string | null;
+  is_available?: boolean | null;
+  [key: string]: unknown;
+}
+
+interface WorkerRecordData {
+  id?: string;
+  category?: WorkerCategory | null;
+  skills?: string[] | null;
+  experience_years?: number | null;
+  daily_wage?: number | null;
+  experience_description?: string | null;
+  preferred_work_location?: string | null;
+  average_rating?: number | null;
+  latitude?: number | null;
+  longitude?: number | null;
+  geocoded_address?: string | null;
+  is_available?: boolean | null;
+  [key: string]: unknown;
+}
 
 interface WorkerProfileProps {
   isOpen: boolean;
@@ -88,7 +132,7 @@ export function WorkerProfileModal({
   const [fullName, setFullName] = useState('');
   const [phoneNumber, setPhoneNumber] = useState('');
   const [email, setEmail] = useState('');
-  const [gender, setGender] = useState<'Male' | 'Female' | 'Other' | 'Prefer not to say' | ''>('');
+  const [gender, setGender] = useState<GenderOption>('');
   const [dateOfBirth, setDateOfBirth] = useState('');
 
   // Structured Address details
@@ -111,13 +155,14 @@ export function WorkerProfileModal({
   // Profile management & states
   const [hasExistingProfile, setHasExistingProfile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
-  const [existingProfileData, setExistingProfileData] = useState<Record<string, any> | null>(null);
-  const [existingWorkerData, setExistingWorkerData] = useState<Record<string, any> | null>(null);
+  const [existingProfileData, setExistingProfileData] = useState<WorkerProfileRecord | null>(null);
+  const [existingWorkerData, setExistingWorkerData] = useState<WorkerRecordData | null>(null);
   const [isAssisted, setIsAssisted] = useState(Boolean(isAssistedRegistration));
   const [assistedWorkerId, setAssistedWorkerId] = useState<string | null>(initialAssistedWorkerId);
   const [saving, setSaving] = useState(false);
   const [showDeactivateConfirm, setShowDeactivateConfirm] = useState(false);
   const [isDeactivating, setIsDeactivating] = useState(false);
+  const [privateDetailsLoadFailed, setPrivateDetailsLoadFailed] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
 
   const t = useCallback((key: string): string => {
@@ -147,10 +192,16 @@ export function WorkerProfileModal({
   const loadExistingProfile = useCallback(async () => {
     if (!user) return;
     try {
-      let profile: any = null;
+      let profile: WorkerProfileRecord | null = null;
+      const profileSelectFields = `
+        id, full_name, phone_number, email, gender,
+        village, city, district, state, pincode, location,
+        category, skills, experience_years, daily_wage,
+        account_status, role
+      `;
       const { data: pById } = await supabase
         .from('profiles')
-        .select('*')
+        .select(profileSelectFields)
         .eq('id', user.id)
         .maybeSingle();
 
@@ -161,11 +212,38 @@ export function WorkerProfileModal({
         const cleanPhone = user.phone.trim();
         const { data: pByPhone } = await supabase
           .from('profiles')
-          .select('*')
+          .select(profileSelectFields)
           .eq('phone_number', cleanPhone)
           .maybeSingle();
         profile = pByPhone;
       }
+
+      // Fetch private details from profile_private_details
+      let hasPrivateRecord = false;
+      let privateDob: string | null = null;
+      let privateAddress: string | null = null;
+      let privLoadError = false;
+      if (user?.id) {
+        try {
+          const { data: priv, error: privErr } = await supabase
+            .from('profile_private_details')
+            .select('date_of_birth, address_line')
+            .eq('profile_id', user.id)
+            .maybeSingle();
+          if (privErr) {
+            console.warn('Notice loading private profile details:', privErr.message);
+            privLoadError = true;
+          } else if (priv) {
+            hasPrivateRecord = true;
+            privateDob = priv.date_of_birth;
+            privateAddress = priv.address_line;
+          }
+        } catch (err) {
+          console.warn('Notice loading private profile details:', err);
+          privLoadError = true;
+        }
+      }
+      setPrivateDetailsLoadFailed(privLoadError);
 
       if (profile && (profile.full_name || profile.phone_number)) {
         setExistingProfileData(profile);
@@ -175,15 +253,22 @@ export function WorkerProfileModal({
         setFullName(profile.full_name || '');
         setPhoneNumber(profile.phone_number || (user.phone || ''));
         setEmail(profile.email || (user.email || ''));
-        if (profile.gender) setGender(profile.gender as any);
-        if (profile.date_of_birth) setDateOfBirth(profile.date_of_birth);
+        if (profile.gender) setGender(profile.gender as GenderOption);
+
+        // When profile_private_details has a record, it is the sole source of truth (respecting cleared fields)
+        if (hasPrivateRecord) {
+          setDateOfBirth(privateDob || '');
+          setAddressLine(privateAddress || '');
+        } else {
+          setDateOfBirth(profile.date_of_birth || '');
+          setAddressLine(profile.address_line || '');
+        }
 
         setVillage(profile.village || '');
         setCity(profile.city || '');
         setDistrict(profile.district || '');
         setStateName(profile.state || '');
         setPincode(profile.pincode || '');
-        setAddressLine(profile.address_line || '');
 
         const computedLoc = profile.location || [profile.village, profile.district, profile.state].filter(Boolean).join(', ');
         setLocation(computedLoc);
@@ -284,10 +369,11 @@ export function WorkerProfileModal({
       const cleanDistrict = district.trim().normalize('NFC') || existingProfileData?.district || '';
       const cleanState = stateName.trim().normalize('NFC') || existingProfileData?.state || '';
       const cleanPincode = pincode.trim().normalize('NFC') || existingProfileData?.pincode || '';
-      const cleanAddressLine = addressLine.trim().normalize('NFC') || existingProfileData?.address_line || '';
+      // Allow user to update or intentionally clear private DOB & address
+      const finalAddressLine = addressLine.trim().normalize('NFC') || null;
+      const finalDob = dateOfBirth.trim() || null;
       const cleanEmail = email.trim() || existingProfileData?.email || null;
       const cleanGender = gender || existingProfileData?.gender || null;
-      const cleanDob = dateOfBirth || existingProfileData?.date_of_birth || null;
       const cleanExpDesc = experienceDescription.trim().normalize('NFC') || existingWorkerData?.experience_description || null;
       const cleanPreferredLoc = preferredWorkLocation.trim().normalize('NFC') || existingWorkerData?.preferred_work_location || null;
       const cleanWage = Number(dailyWage) || existingProfileData?.daily_wage || 500;
@@ -349,8 +435,8 @@ export function WorkerProfileModal({
         phone_number: cleanPhoneNumber,
         email: cleanEmail,
         gender: cleanGender,
-        date_of_birth: cleanDob,
-        address_line: cleanAddressLine || null,
+        date_of_birth: finalDob,
+        address_line: finalAddressLine,
         village: cleanVillage || null,
         city: cleanCity || null,
         district: cleanDistrict || null,
@@ -371,15 +457,19 @@ export function WorkerProfileModal({
       };
 
       // Upsert profile
-      let profError: any = null;
-      const resProf = await supabase.from('profiles').upsert(fullProfilePayload as any);
+      let profError: { code?: string; message?: string } | null = null;
+      const resProf = await supabase.from('profiles').upsert(fullProfilePayload);
       profError = resProf.error;
 
       // Graceful fallback if database schema lacks location or coordinate columns on older schemas
       if (profError && (profError.code === '42703' || String(profError.message).includes('column') || String(profError.message).includes('location') || String(profError.message).includes('latitude'))) {
         console.warn('Profiles schema mismatch (e.g. location/coordinates missing), saving without optional location columns:', profError.message);
-        const { location: _omittedLoc, latitude: _omittedLat, longitude: _omittedLon, geocoded_address: _omittedGeo, ...safeProfilePayload } = fullProfilePayload;
-        const retryRes = await supabase.from('profiles').upsert(safeProfilePayload as any);
+        const safeProfilePayload = { ...fullProfilePayload };
+        delete (safeProfilePayload as Record<string, unknown>).location;
+        delete (safeProfilePayload as Record<string, unknown>).latitude;
+        delete (safeProfilePayload as Record<string, unknown>).longitude;
+        delete (safeProfilePayload as Record<string, unknown>).geocoded_address;
+        const retryRes = await supabase.from('profiles').upsert(safeProfilePayload);
         profError = retryRes.error;
 
         // If another optional column also fails, fall back to core baseline columns
@@ -397,13 +487,40 @@ export function WorkerProfileModal({
             created_by: isAssisted ? user.id : null,
             account_status: 'active',
           };
-          const baselineRetry = await supabase.from('profiles').upsert(baselinePayload as any);
+          const baselineRetry = await supabase.from('profiles').upsert(baselinePayload);
           profError = baselineRetry.error;
         }
       }
 
       if (profError) {
         throw profError;
+      }
+
+      // 1b. Save private fields to profile_private_details for owner
+      // Always persist even if values are null (allowing users to intentionally clear DOB & address)
+      // BUT if initial load of profile_private_details failed (e.g. network/permission issue),
+      // do NOT overwrite existing remote private details with nulls if user did not edit them!
+      if (isSelf) {
+        const hasUserProvidedPrivateData = Boolean(dateOfBirth.trim() || addressLine.trim());
+        if (privateDetailsLoadFailed && !hasUserProvidedPrivateData) {
+          console.warn('Skipping profile_private_details upsert: initial load failed and no private fields were entered, preserving remote data.');
+        } else {
+          try {
+            const { error: privSaveErr } = await supabase
+              .from('profile_private_details')
+              .upsert({
+                profile_id: user.id,
+                date_of_birth: finalDob,
+                address_line: finalAddressLine,
+                updated_at: new Date().toISOString(),
+              });
+            if (privSaveErr) {
+              console.warn('Notice saving private profile details:', privSaveErr.message);
+            }
+          } catch (privErr) {
+            console.warn('Notice saving private profile details:', privErr);
+          }
+        }
       }
 
       // 2. Prepare workers payload
@@ -423,8 +540,8 @@ export function WorkerProfileModal({
         geocoded_address: geoAddress,
       };
 
-      let workerErr: any = null;
-      const resWorker = await supabase.from('workers').upsert(fullWorkerPayload as any);
+      let workerErr: { code?: string; message?: string } | null = null;
+      const resWorker = await supabase.from('workers').upsert(fullWorkerPayload);
       workerErr = resWorker.error;
 
       if (workerErr && (workerErr.code === '42703' || String(workerErr.message).includes('column'))) {
@@ -437,7 +554,7 @@ export function WorkerProfileModal({
           experience_years: cleanYears,
           is_available: true,
         };
-        const retryWorker = await supabase.from('workers').upsert(coreWorkerPayload as any);
+        const retryWorker = await supabase.from('workers').upsert(coreWorkerPayload);
         workerErr = retryWorker.error;
       }
 
@@ -863,7 +980,7 @@ export function WorkerProfileModal({
                   </label>
                   <select
                     value={gender}
-                    onChange={(e) => setGender(e.target.value as any)}
+                    onChange={(e) => setGender(e.target.value as GenderOption)}
                     className="w-full px-3 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium bg-white focus:border-brand-500 shadow-2xs"
                   >
                     <option value="">Select Gender</option>

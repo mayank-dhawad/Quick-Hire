@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { WorkerProfileModal } from './WorkerProfileModal';
 import { supabase } from '../lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
 // Mock speech synthesis and recognition
 vi.mock('../lib/speech', () => ({
@@ -47,11 +48,11 @@ vi.mock('../lib/geocoding', () => ({
 }));
 
 describe('WorkerProfileModal Component - Schema Resiliency & Profile Management', () => {
-  const mockUser: any = {
+  const mockUser = {
     id: 'worker-uuid-123',
     phone: '+919876543210',
     email: 'worker@example.com',
-  };
+  } as unknown as User;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -91,10 +92,15 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
           }),
         };
       }
-      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
     });
 
-    (supabase.from as any) = mockFrom;
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
 
     render(
       <WorkerProfileModal
@@ -155,10 +161,15 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
         };
       }
-      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
     });
 
-    (supabase.from as any) = mockFrom;
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
 
     render(
       <WorkerProfileModal
@@ -179,8 +190,8 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
   });
 
   it('gracefully handles missing location column by omitting location on upsert retry', async () => {
-    const upsertProfilesCalls: any[] = [];
-    const upsertWorkersCalls: any[] = [];
+    const upsertProfilesCalls: Record<string, unknown>[] = [];
+    const upsertWorkersCalls: Record<string, unknown>[] = [];
 
     const mockFrom = vi.fn().mockImplementation((table: string) => {
       if (table === 'profiles') {
@@ -188,7 +199,7 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          upsert: vi.fn().mockImplementation((payload: any) => {
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
             upsertProfilesCalls.push(payload);
             // First call has 'location', simulate DB error 42703
             if ('location' in payload && payload.location !== undefined) {
@@ -207,7 +218,7 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          upsert: vi.fn().mockImplementation((payload: any) => {
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
             upsertWorkersCalls.push(payload);
             // Simulate missing daily_wage or location column on workers table
             if ('daily_wage' in payload || 'location' in payload) {
@@ -224,10 +235,11 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
       };
     });
 
-    (supabase.from as any) = mockFrom;
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
 
     const mockSaved = vi.fn();
     render(
@@ -296,14 +308,14 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
       role: 'worker',
     };
 
-    const upsertCalls: any[] = [];
+    const upsertCalls: Record<string, unknown>[] = [];
     const mockFrom = vi.fn().mockImplementation((table: string) => {
       if (table === 'profiles') {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: existingProfile, error: null }),
-          upsert: vi.fn().mockImplementation((payload: any) => {
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
             upsertCalls.push(payload);
             return Promise.resolve({ data: payload, error: null });
           }),
@@ -317,10 +329,15 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
           upsert: vi.fn().mockResolvedValue({ data: {}, error: null }),
         };
       }
-      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
     });
 
-    (supabase.from as any) = mockFrom;
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
 
     render(
       <WorkerProfileModal
@@ -357,14 +374,14 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
   });
 
   it('creates an assisted worker profile with a distinct UUID and stamps created_by with intermediary user ID', async () => {
-    const upsertProfilesCalls: any[] = [];
+    const upsertProfilesCalls: Record<string, unknown>[] = [];
     const mockFrom = vi.fn().mockImplementation((table: string) => {
       if (table === 'profiles') {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-          upsert: vi.fn().mockImplementation((payload: any) => {
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
             upsertProfilesCalls.push(payload);
             return Promise.resolve({ data: payload, error: null });
           }),
@@ -378,10 +395,15 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
           upsert: vi.fn().mockResolvedValue({ data: {}, error: null }),
         };
       }
-      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
     });
 
-    (supabase.from as any) = mockFrom;
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
 
     const mockSaved = vi.fn();
     render(
@@ -438,8 +460,8 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
       role: 'worker',
     };
 
-    const upsertProfilesCalls: any[] = [];
-    const upsertWorkersCalls: any[] = [];
+    const upsertProfilesCalls: Record<string, unknown>[] = [];
+    const upsertWorkersCalls: Record<string, unknown>[] = [];
 
     const mockFrom = vi.fn().mockImplementation((table: string) => {
       if (table === 'profiles') {
@@ -447,7 +469,7 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({ data: existingProfile, error: null }),
-          upsert: vi.fn().mockImplementation((payload: any) => {
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
             upsertProfilesCalls.push(payload);
             return Promise.resolve({ data: payload, error: null });
           }),
@@ -461,16 +483,21 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
             data: { id: 'existing-worker-uuid-999', category: 'Agriculture', skills: ['Organic Farming'] },
             error: null,
           }),
-          upsert: vi.fn().mockImplementation((payload: any) => {
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
             upsertWorkersCalls.push(payload);
             return Promise.resolve({ data: payload, error: null });
           }),
         };
       }
-      return { select: vi.fn().mockReturnThis(), eq: vi.fn().mockReturnThis(), maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
     });
 
-    (supabase.from as any) = mockFrom;
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
 
     const mockSaved = vi.fn();
     render(
@@ -479,7 +506,7 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
         onClose={vi.fn()}
         onSaved={mockSaved}
         currentLang="English"
-        user={{ id: 'existing-worker-uuid-999', phone: '+919876543210' } as any}
+        user={{ id: 'existing-worker-uuid-999', phone: '+919876543210' } as unknown as User}
       />
     );
 
@@ -512,4 +539,194 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
     expect(upsertWorkersCalls[0].id).toBe('existing-worker-uuid-999');
   });
 
+  it('allows user to update and intentionally clear date of birth and address in profile_private_details without skipping the update', async () => {
+    const existingProfile = {
+      id: 'worker-clear-123',
+      full_name: 'Anita Devi',
+      phone_number: '+919876543210',
+      village: 'Rampur',
+      district: 'Patna',
+      state: 'Bihar',
+      category: 'Agriculture',
+      role: 'worker',
+    };
+
+    const existingPrivateDetails = {
+      profile_id: 'worker-clear-123',
+      date_of_birth: '1995-01-01',
+      address_line: 'Old Colony 12',
+    };
+
+    const upsertPrivateCalls: Record<string, unknown>[] = [];
+
+    const mockFrom = vi.fn().mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: existingProfile, error: null }),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+      if (table === 'workers') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+      if (table === 'profile_private_details') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: existingPrivateDetails, error: null }),
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+            upsertPrivateCalls.push(payload);
+            return Promise.resolve({ data: payload, error: null });
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
+    });
+
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
+
+    const mockSaved = vi.fn();
+    render(
+      <WorkerProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={mockSaved}
+        currentLang="English"
+        user={{ id: 'worker-clear-123', phone: '+919876543210' } as unknown as User}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Anita Devi')).toBeInTheDocument();
+      expect(screen.getByText('Old Colony 12')).toBeInTheDocument();
+    });
+
+    // Enter edit mode
+    const editBtn = screen.getByRole('button', { name: /Edit Profile Information/i });
+    fireEvent.click(editBtn);
+
+    // Clear Address and DOB
+    const addressInput = await screen.findByPlaceholderText('Near Old Gram Panchayat');
+    fireEvent.change(addressInput, { target: { value: '' } });
+
+    // Find date input by type="date"
+    const dobInput = document.querySelector('input[type="date"]');
+    if (dobInput) {
+      fireEvent.change(dobInput, { target: { value: '' } });
+    }
+
+    // Submit save
+    const saveButton = screen.getByRole('button', { name: /update profile/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockSaved).toHaveBeenCalled();
+    });
+
+    // Verify profile_private_details upsert was called with nulls, not skipped
+    expect(upsertPrivateCalls.length).toBeGreaterThan(0);
+    const lastCall = upsertPrivateCalls[upsertPrivateCalls.length - 1];
+    expect(lastCall.profile_id).toBe('worker-clear-123');
+    expect(lastCall.date_of_birth).toBeNull();
+    expect(lastCall.address_line).toBeNull();
+  });
+
+  it('does NOT overwrite private fields with nulls if profile_private_details failed to load and user did not edit private data', async () => {
+    const existingProfile = {
+      id: 'worker-err-123',
+      full_name: 'Anita Devi',
+      phone_number: '+919876543210',
+      village: 'Kheda Village',
+      district: 'Anand',
+      state: 'Gujarat',
+      category: 'Agriculture',
+      role: 'worker',
+    };
+
+    const upsertPrivateCalls: Record<string, unknown>[] = [];
+
+    const mockFrom = vi.fn().mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: existingProfile, error: null }),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+      if (table === 'workers') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          upsert: vi.fn().mockResolvedValue({ error: null }),
+        };
+      }
+      if (table === 'profile_private_details') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: { message: 'Connection timeout', code: 'PGRST000' } }),
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+            upsertPrivateCalls.push(payload);
+            return Promise.resolve({ data: payload, error: null });
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
+    });
+
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
+
+    const mockSaved = vi.fn();
+    render(
+      <WorkerProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={mockSaved}
+        currentLang="English"
+        user={{ id: 'worker-err-123', phone: '+919876543210' } as unknown as User}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Anita Devi')).toBeInTheDocument();
+    });
+
+    // Enter edit mode
+    const editBtn = screen.getByRole('button', { name: /Edit Profile Information/i });
+    fireEvent.click(editBtn);
+
+    // Only update wage, do NOT edit DOB or address
+    const wageInput = await screen.findByDisplayValue('500');
+    fireEvent.change(wageInput, { target: { value: '650' } });
+
+    // Submit save
+    const saveButton = screen.getByRole('button', { name: /update profile/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockSaved).toHaveBeenCalled();
+    });
+
+    // Verify profile_private_details upsert was SKIPPED to protect existing remote data
+    expect(upsertPrivateCalls.length).toBe(0);
+  });
 });

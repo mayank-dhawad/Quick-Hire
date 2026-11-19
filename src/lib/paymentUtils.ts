@@ -33,6 +33,14 @@ export interface PaymentRecord {
 export const UPI_REGEX = /^[a-zA-Z0-9.\-_]{2,256}@[a-zA-Z]{2,64}$/;
 
 /**
+ * Standard Indian Financial System Code (IFSC) format:
+ * - 4 alphabetic characters representing bank code
+ * - 5th character is always '0' (reserved for future use)
+ * - 6 alphanumeric characters representing branch code
+ */
+export const IFSC_REGEX = /^[A-Z]{4}0[A-Z0-9]{6}$/;
+
+/**
  * Validates whether a given string matches the standard UPI VPA structure.
  */
 export function isValidUpiId(upiId: string | null | undefined): boolean {

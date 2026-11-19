@@ -47,6 +47,7 @@ interface AdminJobRecord {
 export function JobManagement() {
   const [jobs, setJobs] = useState<AdminJobRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('all');
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -84,6 +85,7 @@ export function JobManagement() {
 
   const fetchJobs = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const { data, error } = await supabase
         .from('jobs')
@@ -91,17 +93,52 @@ export function JobManagement() {
           id, employer_id, title, category, required_skills, offered_wages, description, status, created_at,
           profiles:employer_id ( id, full_name, phone_number, location ),
           job_records (
-            id, worker_id, status, created_at,
-            profiles:worker_id ( id, full_name, phone_number )
+            id, worker_id, status, created_at
           )
         `)
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setJobs(data as unknown as AdminJobRecord[]);
+      if (error) {
+        console.error('Error fetching jobs:', error);
+        setFetchError(error.message);
+        return;
+      }
+
+      if (data) {
+        const rawJobs = data as unknown as AdminJobRecord[];
+        const workerIds = Array.from(
+          new Set(
+            rawJobs
+              .flatMap((j) => (j.job_records || []).map((r) => r.worker_id))
+              .filter((id): id is string => Boolean(id))
+          )
+        );
+
+        const profilesMap = new Map<string, { id: string; full_name: string | null; phone_number: string | null }>();
+        if (workerIds.length > 0) {
+          const { data: profs, error: profsErr } = await supabase
+            .from('profiles')
+            .select('id, full_name, phone_number')
+            .in('id', workerIds);
+          if (!profsErr && profs) {
+            profs.forEach((p) => profilesMap.set(p.id, p));
+          }
+        }
+
+        const enriched = rawJobs.map((j) => ({
+          ...j,
+          job_records: (j.job_records || []).map((r) => ({
+            ...r,
+            profiles: r.worker_id ? profilesMap.get(r.worker_id) || null : null,
+          })),
+        }));
+
+        setJobs(enriched);
       }
     } catch (err) {
       console.warn('Error fetching jobs:', err);
+      const msg = err instanceof Error ? err.message : 'Failed to fetch platform jobs.';
+      setFetchError(msg);
     } finally {
       setLoading(false);
     }
@@ -312,6 +349,21 @@ export function JobManagement() {
                   <td colSpan={6} className="py-12 text-center text-slate-500">
                     <RefreshCw className="w-6 h-6 animate-spin mx-auto mb-2 text-emerald-400" />
                     <span>Loading platform jobs...</span>
+                  </td>
+                </tr>
+              ) : fetchError ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-rose-400">
+                    <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-rose-400" />
+                    <p className="font-semibold text-rose-300">Failed to load platform jobs</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">{fetchError}</p>
+                    <button
+                      onClick={() => fetchJobs()}
+                      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white transition border border-slate-700"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Retry
+                    </button>
                   </td>
                 </tr>
               ) : paginatedJobs.length === 0 ? (
