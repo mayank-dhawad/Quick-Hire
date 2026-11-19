@@ -1,50 +1,57 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { BankDetailsTab, IFSC_REGEX } from './BankDetailsTab';
+import { BankDetailsTab } from './BankDetailsTab';
+import { IFSC_REGEX } from '../lib/paymentUtils';
 import { User } from '@supabase/supabase-js';
 
 // Mock supabase client
-vi.mock('../lib/supabase', () => ({
-  supabase: {
-    from: vi.fn(() => ({
-      select: vi.fn(() => ({
-        eq: vi.fn(() => ({
-          single: vi.fn().mockResolvedValue({
-            data: {
-              bank_name: 'State Bank of India (SBI)',
-              bank_account_no: '123456789012',
-              bank_ifsc: 'SBIN0001234',
-              upi_id: 'testworker@oksbi',
-            },
-            error: null,
-          }),
+vi.mock('../lib/supabase', () => {
+  const mockSingleFn = vi.fn().mockResolvedValue({
+    data: {
+      bank_name: 'State Bank of India (SBI)',
+      bank_account_no: '123456789012',
+      bank_ifsc: 'SBIN0001234',
+      upi_id: 'testworker@oksbi',
+    },
+    error: null,
+  });
+
+  return {
+    supabase: {
+      from: vi.fn(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: mockSingleFn,
+            maybeSingle: mockSingleFn,
+          })),
+          or: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({
+              data: [
+                {
+                  id: 'pay_1',
+                  payer_id: 'user_employer_1',
+                  payee_id: 'mock_user_123',
+                  payment_for_type: 'worker_wage',
+                  amount: 1500,
+                  payment_method: 'Direct UPI',
+                  transaction_ref: 'UPI123456789012',
+                  status: 'settled',
+                  created_at: new Date().toISOString(),
+                },
+              ],
+              error: null,
+            }),
+          })),
         })),
-        or: vi.fn(() => ({
-          order: vi.fn().mockResolvedValue({
-            data: [
-              {
-                id: 'pay_1',
-                payer_id: 'user_employer_1',
-                payee_id: 'mock_user_123',
-                payment_for_type: 'worker_wage',
-                amount: 1500,
-                payment_method: 'Direct UPI',
-                transaction_ref: 'UPI123456789012',
-                status: 'settled',
-                created_at: new Date().toISOString(),
-              },
-            ],
-            error: null,
-          }),
+        update: vi.fn(() => ({
+          eq: vi.fn().mockResolvedValue({ error: null }),
         })),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
       })),
-      update: vi.fn(() => ({
-        eq: vi.fn().mockResolvedValue({ error: null }),
-      })),
-    })),
-  },
-}));
+    },
+  };
+});
 
 // Mock speech utility
 vi.mock('../lib/speech', () => ({
@@ -222,6 +229,46 @@ describe('BankDetailsTab & Validation Logic', () => {
       // Check Hindi translated strings
       expect(screen.getByText(/शून्य शुल्क/i)).toBeInTheDocument();
       expect(screen.getByText(/खाता संख्या की पुष्टि करें/i)).toBeInTheDocument();
+    });
+    it('handles Supabase save error gracefully without showing false positive success message', async () => {
+      render(
+        <BankDetailsTab
+          user={mockUser}
+          currentLang="English"
+          onRequireLogin={vi.fn()}
+        />
+      );
+
+      await waitFor(() => {
+        expect(screen.getByPlaceholderText(/9876543210@paytm/i)).toBeInTheDocument();
+      });
+
+      // Override upsert for this specific test
+      const { supabase } = await import('../lib/supabase');
+      vi.mocked(supabase.from).mockImplementationOnce(() => ({
+        select: vi.fn(() => ({
+          eq: vi.fn(() => ({
+            single: vi.fn().mockResolvedValue({ data: null, error: null }),
+            maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          })),
+          or: vi.fn(() => ({
+            order: vi.fn().mockResolvedValue({ data: [], error: null }),
+          })),
+        })),
+        upsert: vi.fn().mockResolvedValue({ error: { code: '42501', message: 'Permission denied' } }),
+      } as unknown as ReturnType<typeof supabase.from>));
+
+      const upiInput = screen.getByPlaceholderText(/9876543210@paytm/i);
+      fireEvent.change(upiInput, { target: { value: 'testuser@upi' } });
+
+      const saveBtn = screen.getByRole('button', { name: /Save Bank & UPI Details/i });
+      fireEvent.click(saveBtn);
+
+      // Verify that error message is displayed
+      expect(await screen.findByText(/Permission denied/i)).toBeInTheDocument();
+
+      // Verify that success message is NOT displayed
+      expect(screen.queryByText(/Bank and UPI details saved successfully/i)).not.toBeInTheDocument();
     });
   });
 });

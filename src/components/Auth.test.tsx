@@ -2,6 +2,7 @@ import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { Auth } from './Auth';
 import { supabase } from '../lib/supabase';
+import type { AuthError } from '@supabase/supabase-js';
 
 // Mock Supabase client
 vi.mock('../lib/supabase', () => {
@@ -193,7 +194,7 @@ describe('Auth Component with Supabase Native Phone Authentication', () => {
   it('displays clear error when OTP verification fails and rejects invalid codes', async () => {
     vi.mocked(supabase.auth.verifyOtp).mockResolvedValueOnce({
       data: { user: null, session: null },
-      error: { message: 'Invalid verification token' } as any,
+      error: { message: 'Invalid verification token' } as unknown as AuthError,
     });
 
     render(<Auth isOpen={true} isGate={false} currentLang="English" />);

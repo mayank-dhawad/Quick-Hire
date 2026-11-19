@@ -9,7 +9,6 @@ import {
   Minimize2,
   X,
   Compass,
-  AlertCircle,
   Users
 } from 'lucide-react';
 import { getTranslation } from '../lib/translations';
@@ -318,10 +317,21 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
       mapInstanceRef.current = map;
 
       // OpenStreetMap Base Tile Layer with proper attribution
-      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      const tileLayer = L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         maxZoom: 18,
         attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-      }).addTo(map);
+      });
+      tileLayer.on('tileerror', () => {
+        console.warn('[QuickHire Map] Tile load notice: Map tiles updating or offline.');
+      });
+      tileLayer.addTo(map);
+
+      // Invalidate size after DOM settles so tiles render without gray corners
+      setTimeout(() => {
+        if (mapInstanceRef.current) {
+          mapInstanceRef.current.invalidateSize();
+        }
+      }, 200);
 
       // Create managed layer groups
       markersLayerRef.current = L.layerGroup().addTo(map);
@@ -353,6 +363,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
         centerLayerRef.current = null;
       }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Update center marker and radius circle whenever search center / radius changes
@@ -494,7 +505,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
 
       {/* Empty / Unmapped Overlay */}
       {workersWithCoords.length === 0 && (
-        <div className="absolute inset-0 z-5 flex items-center justify-center p-6 bg-slate-900/10 pointer-events-none">
+        <div className="absolute inset-0 z-10 flex items-center justify-center p-6 bg-slate-900/10 pointer-events-none">
           <div className="bg-white/95 backdrop-blur-md rounded-2xl border border-slate-200 shadow-md p-5 max-w-sm text-center pointer-events-auto space-y-2">
             <Users className="w-8 h-8 text-brand-600 mx-auto" />
             <h4 className="font-heading font-bold text-sm text-slate-800">

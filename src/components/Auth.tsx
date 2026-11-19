@@ -24,7 +24,7 @@ import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation, normalizeLanguage, SUPPORTED_LANGUAGES } from '../lib/translations';
 import { AccessibleVoiceBar } from './AccessibleVoiceBar';
-import { verifyAdminStatus, setAdminSession, ensureAdminSession, ADMIN_CONFIG } from '../lib/adminAuth';
+import { verifyAdminStatus, ensureAdminSession } from '../lib/adminAuth';
 import { navigateTo } from '../lib/adminRouter';
 
 const COUNTRY_CODES = [
@@ -214,10 +214,10 @@ export function Auth({
             const { error: rpcErr } = await supabase.rpc('register_as_employer');
             if (rpcErr) {
               console.warn('register_as_employer RPC unavailable, falling back:', rpcErr);
-              const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload as any);
+              const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload);
               if (insErr && (insErr.code === '42703' || String(insErr.message).includes('column'))) {
                 delete newProfilePayload.email;
-                await supabase.from('profiles').insert(newProfilePayload as any);
+                await supabase.from('profiles').insert(newProfilePayload);
               }
             } else {
               // Update additional profile fields
@@ -226,15 +226,15 @@ export function Auth({
               if (normalizedPhone) metaUpdate.phone_number = normalizedPhone;
               if (profileEmail) metaUpdate.email = profileEmail;
               if (Object.keys(metaUpdate).length > 0) {
-                await supabase.from('profiles').update(metaUpdate as any).eq('id', authUser.id);
+                await supabase.from('profiles').update(metaUpdate).eq('id', authUser.id);
               }
             }
           } else {
             // Worker registration
-            const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload as any);
+            const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload);
             if (insErr && (insErr.code === '42703' || String(insErr.message).includes('column'))) {
               delete newProfilePayload.email;
-              await supabase.from('profiles').insert(newProfilePayload as any);
+              await supabase.from('profiles').insert(newProfilePayload);
             }
 
             await supabase.from('workers').insert({
@@ -262,14 +262,14 @@ export function Auth({
           if (Object.keys(updatePayload).length > 0) {
             const { error: updErr } = await supabase
               .from('profiles')
-              .update(updatePayload as any)
+              .update(updatePayload)
               .eq('id', authUser.id);
 
             if (updErr && (updErr.code === '42703' || String(updErr.message).includes('column'))) {
               delete updatePayload.email;
               await supabase
                 .from('profiles')
-                .update(updatePayload as any)
+                .update(updatePayload)
                 .eq('id', authUser.id);
             }
           }

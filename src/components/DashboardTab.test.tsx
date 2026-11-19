@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { DashboardTab, PostedJobItem } from './DashboardTab';
 import { supabase } from '../lib/supabase';
+import type { User } from '@supabase/supabase-js';
 
 // Mock supabase client
 vi.mock('../lib/supabase', () => {
@@ -17,7 +18,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
   const mockUser = {
     id: 'employer-user-uuid-123',
     email: 'employer@test.com',
-  } as any;
+  } as unknown as User;
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -25,7 +26,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
 
   it('renders "Rate Worker" on completed jobs with hired applicants', async () => {
     // Setup supabase mock for reviews & jobs
-    (supabase.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
       if (table === 'reviews') {
         return {
           select: vi.fn().mockReturnValue({
@@ -99,15 +100,15 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
         };
       }
       if (table === 'payments') {
+        const queryChain: Record<string, unknown> = {};
+        queryChain.eq = vi.fn().mockReturnValue(queryChain);
+        queryChain.or = vi.fn().mockReturnValue(queryChain);
+        queryChain.order = vi.fn().mockResolvedValue({
+          data: [],
+          error: null,
+        });
         return {
-          select: vi.fn().mockReturnValue({
-            eq: vi.fn().mockReturnValue({
-              order: vi.fn().mockResolvedValue({
-                data: [],
-                error: null,
-              }),
-            }),
-          }),
+          select: vi.fn().mockReturnValue(queryChain),
         };
       }
       return {
@@ -115,7 +116,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: [], error: null }),
       };
-    });
+    }) as unknown as typeof supabase.from);
 
     const mockPostedJobs: PostedJobItem[] = [
       {
@@ -175,7 +176,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
   it('triggers "onRehireWorker" pre-selection when "Hire Again" is clicked', async () => {
     const handleRehireWorker = vi.fn();
 
-    (supabase.from as any).mockImplementation((table: string) => {
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
       if (table === 'jobs') {
         return {
           select: vi.fn().mockReturnValue({
@@ -213,6 +214,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
                   id: 'worker-mason-1',
                   full_name: 'Suresh Kumar',
                   phone_number: '9123456789',
+                  daily_wage: 750,
                 },
               ],
               error: null,
@@ -243,7 +245,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
         eq: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: [], error: null }),
       };
-    });
+    }) as unknown as typeof supabase.from);
 
     render(
       <DashboardTab
@@ -277,5 +279,83 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
         wage: 750,
       })
     );
+  });
+
+  it('loads worker private banking details from profile_private_details and selects safe columns from profiles', async () => {
+    const selectedColumns: string[] = [];
+    const tablesQueried: string[] = [];
+
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      tablesQueried.push(table);
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockImplementation((cols: string) => {
+            selectedColumns.push(cols);
+            return {
+              eq: vi.fn().mockReturnValue({
+                single: vi.fn().mockResolvedValue({
+                  data: {
+                    id: 'worker-user-999',
+                    full_name: 'Anita Devi',
+                    phone_number: '9876543210',
+                    role: 'worker',
+                    account_status: 'active',
+                  },
+                  error: null,
+                }),
+              }),
+            };
+          }),
+        };
+      }
+      if (table === 'profile_private_details') {
+        return {
+          select: vi.fn().mockReturnValue({
+            eq: vi.fn().mockReturnValue({
+              maybeSingle: vi.fn().mockResolvedValue({
+                data: {
+                  bank_name: 'SBI',
+                  bank_account_no: '123456789012',
+                  bank_ifsc: 'SBIN0001234',
+                  upi_id: 'anita@oksbi',
+                },
+                error: null,
+              }),
+            }),
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        or: vi.fn().mockReturnThis(),
+        order: vi.fn().mockResolvedValue({ data: [], error: null }),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      };
+    }) as unknown as typeof supabase.from);
+
+    render(
+      <DashboardTab
+        user={{ id: 'worker-user-999', email: 'anita@example.com' } as unknown as User}
+        userRole="worker"
+        myPostedJobs={[]}
+        loadingMyJobs={false}
+        onNavigateTab={vi.fn()}
+        onRequireLogin={vi.fn()}
+        onMarkJobCompleted={vi.fn()}
+        onBrowseWorkers={vi.fn()}
+        onPayWage={vi.fn()}
+      />
+    );
+
+    await waitFor(() => {
+      expect(tablesQueried).toContain('profile_private_details');
+    });
+
+    // Ensure profiles query selected safe non-private columns only
+    const profilesQuery = selectedColumns.join(' ');
+    expect(profilesQuery).not.toContain('bank_name');
+    expect(profilesQuery).not.toContain('bank_account_no');
+    expect(profilesQuery).not.toContain('emergency_contact_phone');
   });
 });

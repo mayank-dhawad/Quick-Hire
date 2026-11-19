@@ -41,16 +41,15 @@ interface ProfileRecord {
     category?: string | null;
     skills?: string[] | null;
     experience_years?: number | null;
-    daily_wage?: number | null;
     average_rating?: number | null;
     is_available?: boolean | null;
-    experience_description?: string | null;
   } | null;
 }
 
 export function UserManagement() {
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [loading, setLoading] = useState(true);
+  const [fetchError, setFetchError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState<'all' | 'worker' | 'employer'>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'deactivated'>('all');
@@ -92,23 +91,71 @@ export function UserManagement() {
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
+    setFetchError(null);
     try {
       const { data, error } = await supabase
         .from('profiles')
         .select(`
           id, role, full_name, phone_number, email, location, village, district, state,
-          account_status, created_at, bank_account_no, upi_id, category, skills, experience_years, daily_wage,
+          account_status, created_at, category, skills, experience_years, daily_wage,
           workers (
-            category, skills, experience_years, daily_wage, average_rating, is_available, experience_description
+            category, skills, experience_years, average_rating, is_available
           )
         `)
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setProfiles(data as unknown as ProfileRecord[]);
+      if (error) {
+        console.error('Error fetching profiles:', error);
+        setFetchError(error.message);
+        return;
+      }
+
+      const privateMap: Record<string, { bank_account_no?: string | null; upi_id?: string | null }> = {};
+      try {
+        const { data: privData } = await supabase
+          .from('profile_private_details')
+          .select('profile_id, bank_account_no, upi_id');
+        if (privData) {
+          privData.forEach((row) => {
+            privateMap[row.profile_id] = row;
+          });
+        }
+      } catch {
+        // Fallback during migration
+      }
+
+      if (data) {
+        const maskAdminAccount = (acc?: string | null): string | null => {
+          if (!acc) return null;
+          const clean = acc.replace(/\s+/g, '');
+          if (clean.length <= 4) return '••••';
+          return `••••••••${clean.slice(-4)}`;
+        };
+        const maskAdminUpiId = (upi?: string | null): string | null => {
+          if (!upi) return null;
+          const parts = upi.split('@');
+          if (parts.length !== 2) return '••••@upi';
+          const handle = parts[0];
+          const maskedHandle = handle.length > 2 ? `${handle.slice(0, 2)}***` : `${handle}***`;
+          return `${maskedHandle}@${parts[1]}`;
+        };
+
+        const enriched = (data as unknown as ProfileRecord[]).map((p) => {
+          const rawWorker = p.workers;
+          const normalizedWorker = Array.isArray(rawWorker) ? rawWorker[0] : rawWorker;
+          return {
+            ...p,
+            workers: normalizedWorker || null,
+            bank_account_no: maskAdminAccount(privateMap[p.id]?.bank_account_no),
+            upi_id: maskAdminUpiId(privateMap[p.id]?.upi_id),
+          };
+        });
+        setProfiles(enriched);
       }
     } catch (err) {
       console.warn('Error fetching profiles:', err);
+      const msg = err instanceof Error ? err.message : 'Failed to fetch platform users.';
+      setFetchError(msg);
     } finally {
       setLoading(false);
     }
@@ -420,6 +467,21 @@ export function UserManagement() {
                     <span>Loading platform users...</span>
                   </td>
                 </tr>
+              ) : fetchError ? (
+                <tr>
+                  <td colSpan={6} className="py-12 text-center text-rose-400">
+                    <AlertTriangle className="w-6 h-6 mx-auto mb-2 text-rose-400" />
+                    <p className="font-semibold text-rose-300">Failed to load platform users</p>
+                    <p className="text-xs text-slate-400 mt-1 max-w-md mx-auto">{fetchError}</p>
+                    <button
+                      onClick={() => fetchUsers()}
+                      className="mt-3 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs text-white transition border border-slate-700"
+                    >
+                      <RefreshCw className="w-3.5 h-3.5" />
+                      Retry
+                    </button>
+                  </td>
+                </tr>
               ) : paginatedProfiles.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="py-12 text-center text-slate-500">
@@ -430,7 +492,7 @@ export function UserManagement() {
                 paginatedProfiles.map((p) => {
                   const isDeactivated = p.account_status === 'deactivated';
                   const domain = p.category || p.workers?.category || (p.role === 'employer' ? 'Hirer / Employer' : 'General Labor');
-                  const wage = p.daily_wage || p.workers?.daily_wage;
+                  const wage = p.daily_wage;
 
                   return (
                     <tr key={p.id} className="hover:bg-slate-800/40 transition">
@@ -676,7 +738,7 @@ export function UserManagement() {
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Expected Daily Wage:</span>
-                    <span className="font-bold text-emerald-400">₹{selectedProfile.daily_wage || selectedProfile.workers?.daily_wage || 500}/day</span>
+                    <span className="font-bold text-emerald-400">₹{selectedProfile.daily_wage || 500}/day</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <span className="text-slate-500">Experience Years:</span>

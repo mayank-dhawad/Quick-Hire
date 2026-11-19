@@ -2,6 +2,7 @@ import { render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { SafetyTab } from './SafetyTab';
+import { supabase } from '../lib/supabase';
 
 // Mock Supabase
 vi.mock('../lib/supabase', () => ({
@@ -123,6 +124,110 @@ describe('SafetyTab — Emergency Helplines & SOS Translation Verification', () 
     expect(container.textContent).not.toContain('sosSubtitle');
     expect(container.textContent).not.toContain('sos112Title');
     expect(container.textContent).not.toContain('callEmergency112');
+  });
+
+  describe('Emergency Contact & Private Details Isolation', () => {
+    it('loads emergency contact from profile_private_details exclusively', async () => {
+      const fromMock = vi.mocked(supabase.from);
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'profile_private_details') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                emergency_contact_name: 'Uncle Ramesh',
+                emergency_contact_phone: '+919876543210',
+              },
+              error: null,
+            }),
+            upsert: vi.fn().mockResolvedValue({ error: null }),
+          } as unknown as ReturnType<typeof supabase.from>;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      });
+
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: {
+          session: {
+            user: { id: 'user_safe_123' },
+          } as unknown as import('@supabase/supabase-js').Session,
+        },
+        error: null,
+      });
+
+      render(<SafetyTab currentLang="English" />);
+
+      expect(await screen.findByText('Uncle Ramesh')).toBeInTheDocument();
+      expect(screen.getByText('+919876543210')).toBeInTheDocument();
+
+      // Ensure profiles table was NOT queried for emergency contact
+      const tablesQueried = fromMock.mock.calls.map((c) => c[0]);
+      expect(tablesQueried).not.toContain('profiles');
+    });
+
+    it('clears emergency contact by persisting nulls to profile_private_details', async () => {
+      const upsertMock = vi.fn().mockResolvedValue({ error: null });
+      const fromMock = vi.mocked(supabase.from);
+      fromMock.mockImplementation((table: string) => {
+        if (table === 'profile_private_details') {
+          return {
+            select: vi.fn().mockReturnThis(),
+            eq: vi.fn().mockReturnThis(),
+            maybeSingle: vi.fn().mockResolvedValue({
+              data: {
+                emergency_contact_name: 'Uncle Ramesh',
+                emergency_contact_phone: '+919876543210',
+              },
+              error: null,
+            }),
+            upsert: upsertMock,
+          } as unknown as ReturnType<typeof supabase.from>;
+        }
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        } as unknown as ReturnType<typeof supabase.from>;
+      });
+
+      vi.mocked(supabase.auth.getSession).mockResolvedValue({
+        data: {
+          session: {
+            user: { id: 'user_safe_123' },
+          } as unknown as import('@supabase/supabase-js').Session,
+        },
+        error: null,
+      });
+
+      render(<SafetyTab currentLang="English" />);
+
+      expect(await screen.findByText('Uncle Ramesh')).toBeInTheDocument();
+
+      // Click Change Contact to enter editing mode
+      const changeBtn = screen.getByRole('button', { name: /Change Contact/i });
+      changeBtn.click();
+
+      // Click Clear Contact
+      const clearBtn = await screen.findByRole('button', { name: /Clear Contact/i });
+      clearBtn.click();
+
+      await screen.findByText(/Emergency contact cleared successfully/i);
+
+      // Verify null values persisted to profile_private_details
+      expect(upsertMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          profile_id: 'user_safe_123',
+          emergency_contact_name: null,
+          emergency_contact_phone: null,
+        })
+      );
+    });
   });
 });
 

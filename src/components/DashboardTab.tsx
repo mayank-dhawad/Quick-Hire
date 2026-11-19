@@ -24,12 +24,16 @@ import {
   History,
   RotateCcw,
   Eye,
-  UserCheck
+  UserCheck,
+  Clock,
+  Navigation,
+  Play,
+  Pause
 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { RateWorkerModal } from './RateWorkerModal';
-import { WorkerItem } from './WorkerDiscoveryModal';
+import { PaymentReceiptModal, PaymentReceiptData } from './PaymentReceiptModal';
 import { speakText } from '../lib/speech';
 import { getTranslation } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
@@ -39,6 +43,24 @@ export interface JobRecordItem {
   worker_id?: string;
   status: string;
   created_at: string;
+  hiring_source?: 'application' | 'direct_phone' | string | null;
+  agreement_evidence_type?: string | null;
+  reported_by?: string | null;
+  eta_minutes?: number | null;
+  eta_updated_at?: string | null;
+  arrived_at?: string | null;
+  arrived_reported_by?: string | null;
+  attendance_confirmed_at?: string | null;
+  attendance_confirmed_by?: string | null;
+  work_started_at?: string | null;
+  work_completed_at?: string | null;
+  break_minutes?: number | null;
+  overtime_hours?: number | null;
+  total_working_hours?: number | null;
+  agreed_wage?: number | null;
+  total_payable?: number | null;
+  total_paid?: number | null;
+  payment_status?: string | null;
   profiles?: {
     id?: string;
     phone_number?: string | null;
@@ -70,6 +92,23 @@ export interface WorkerAppliedJobItem {
   job_id: string;
   status: string;
   created_at: string;
+  hiring_source?: 'application' | 'direct_phone' | string | null;
+  agreement_evidence_type?: string | null;
+  reported_by?: string | null;
+  eta_minutes?: number | null;
+  arrived_at?: string | null;
+  arrived_reported_by?: string | null;
+  attendance_confirmed_at?: string | null;
+  attendance_confirmed_by?: string | null;
+  work_started_at?: string | null;
+  work_completed_at?: string | null;
+  break_minutes?: number | null;
+  overtime_hours?: number | null;
+  total_working_hours?: number | null;
+  agreed_wage?: number | null;
+  total_payable?: number | null;
+  total_paid?: number | null;
+  payment_status?: string | null;
   jobs?: {
     id: string;
     title: string;
@@ -82,6 +121,62 @@ export interface WorkerAppliedJobItem {
       phone_number: string | null;
     } | null;
   } | null;
+}
+
+export interface WorkerProfileState {
+  id?: string;
+  full_name?: string | null;
+  phone_number?: string | null;
+  village?: string | null;
+  district?: string | null;
+  state?: string | null;
+  city?: string | null;
+  pincode?: string | null;
+  address_line?: string | null;
+  location?: string | null;
+  category?: string | null;
+  skills?: string[] | null;
+  experience_years?: number | null;
+  daily_wage?: number | null;
+  experience_description?: string | null;
+  average_rating?: number | null;
+  total_working_hours?: number | null;
+  upi_id?: string | null;
+  bank_account_no?: string | null;
+  bank_ifsc?: string | null;
+  bank_account_name?: string | null;
+  [key: string]: unknown;
+}
+
+export interface ReceiptJobInput {
+  id?: string;
+  title?: string;
+  offered_wages?: number;
+  description?: string | null;
+  category?: string | null;
+  profiles?: { full_name?: string | null; phone_number?: string | null } | null;
+}
+
+export interface ReceiptRecordInput {
+  id?: string;
+  agreed_wage?: number | null;
+  total_payable?: number | null;
+  total_paid?: number | null;
+  total_working_hours?: number | null;
+  break_minutes?: number | null;
+  overtime_hours?: number | null;
+  profiles?: { full_name?: string | null; phone_number?: string | null } | null;
+  workers?: { profiles?: { full_name?: string | null; phone_number?: string | null } | null } | null;
+}
+
+export interface ReceiptPaymentInput {
+  id?: string;
+  receipt_number?: string;
+  amount?: number;
+  payment_method?: string;
+  created_at?: string;
+  transaction_ref?: string | null;
+  [key: string]: unknown;
 }
 
 export interface PaymentRecordItem {
@@ -138,7 +233,8 @@ interface DashboardTabProps {
     recipientName: string,
     recipientPhone?: string | null,
     jobId?: string,
-    amount?: number
+    amount?: number,
+    assignmentId?: string
   ) => void;
   onRehireWorker?: (worker: { id: string; name: string; category?: string; skills?: string[]; wage?: number }) => void;
   onViewWorkerProfile?: (workerId: string) => void;
@@ -175,7 +271,7 @@ export function DashboardTab({
   }, [userRole]);
 
   // Worker history state
-  const [workerProfile, setWorkerProfile] = useState<any>(null);
+  const [workerProfile, setWorkerProfile] = useState<WorkerProfileState | null>(null);
   const [appliedJobs, setAppliedJobs] = useState<WorkerAppliedJobItem[]>([]);
   const [wagePayments, setWagePayments] = useState<PaymentRecordItem[]>([]);
   const [rentalPayments, setRentalPayments] = useState<PaymentRecordItem[]>([]);
@@ -186,6 +282,9 @@ export function DashboardTab({
   const [loadingEmployerPayments, setLoadingEmployerPayments] = useState(false);
   const [workerFetchError, setWorkerFetchError] = useState<string | null>(null);
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
+  const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceiptData | null>(null);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [overtimeInputs, setOvertimeInputs] = useState<Record<string, string>>({});
 
   const handleUpdateApplicantStatus = async (recordId: string, newStatus: string) => {
     try {
@@ -199,6 +298,159 @@ export function DashboardTab({
     }
   };
 
+  // Manual ETA & Arrival Handlers
+  const handleWorkerOnTheWay = async (recordId: string, etaMins: number = 30) => {
+    try {
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'on_the_way' }));
+      await supabase.from('job_records')
+        .update({
+          status: 'on_the_way',
+          eta_minutes: etaMins,
+          eta_updated_at: new Date().toISOString(),
+        })
+        .eq('id', recordId);
+      fetchWorkerHistory();
+    } catch (err) {
+      console.warn('Error setting on the way:', err);
+    }
+  };
+
+  const handleWorkerArrived = async (recordId: string, isWorker: boolean) => {
+    if (!user) return;
+    try {
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'arrived' }));
+      await supabase.from('job_records')
+        .update({
+          status: 'arrived',
+          arrived_at: new Date().toISOString(),
+          arrived_reported_by: user.id,
+        })
+        .eq('id', recordId);
+      if (isWorker) {
+        fetchWorkerHistory();
+      }
+    } catch (err) {
+      console.warn('Error marking arrived:', err);
+    }
+  };
+
+  const handleConfirmAttendance = async (recordId: string) => {
+    if (!user) return;
+    try {
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'attendance_confirmed' }));
+      await supabase.from('job_records')
+        .update({
+          status: 'attendance_confirmed',
+          attendance_confirmed_at: new Date().toISOString(),
+          attendance_confirmed_by: user.id,
+        })
+        .eq('id', recordId);
+    } catch (err) {
+      console.warn('Error confirming attendance:', err);
+    }
+  };
+
+  const handleStartWork = async (recordId: string) => {
+    try {
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'in_progress' }));
+      await supabase.from('job_records')
+        .update({
+          status: 'in_progress',
+          work_started_at: new Date().toISOString(),
+        })
+        .eq('id', recordId);
+    } catch (err) {
+      console.warn('Error starting work:', err);
+    }
+  };
+
+  const handleToggleBreak = async (recordId: string, currentStatus: string, currentBreakMins: number = 0) => {
+    try {
+      const nextStatus = currentStatus === 'on_break' ? 'in_progress' : 'on_break';
+      const updatedBreak = currentStatus === 'on_break' ? (currentBreakMins || 0) + 30 : (currentBreakMins || 0);
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: nextStatus }));
+      await supabase.from('job_records')
+        .update({
+          status: nextStatus,
+          break_minutes: updatedBreak,
+        })
+        .eq('id', recordId);
+    } catch (err) {
+      console.warn('Error toggling break:', err);
+    }
+  };
+
+  const handleCompleteWork = async (
+    jobId: string,
+    recordId: string,
+    baseWage: number,
+    overtimeHours: number = 0,
+    baseShiftHours: number = 8
+  ) => {
+    try {
+      const hourlyRate = baseWage > 0 ? baseWage / 8 : 62.5;
+      const overtimeWage = Math.round(overtimeHours * hourlyRate);
+      const totalPayable = Math.round(baseWage + overtimeWage);
+      const netWorkingHours = baseShiftHours + overtimeHours;
+
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'completed' }));
+
+      await supabase.from('job_records')
+        .update({
+          status: 'completed',
+          work_completed_at: new Date().toISOString(),
+          overtime_hours: overtimeHours,
+          total_working_hours: netWorkingHours,
+          agreed_wage: baseWage,
+          total_payable: totalPayable,
+          payment_status: 'pending',
+        })
+        .eq('id', recordId);
+    } catch (err) {
+      console.warn('Error completing work:', err);
+    }
+  };
+
+  // Helper to open receipt
+  const handleOpenReceipt = (
+    job?: ReceiptJobInput | null,
+    rec?: ReceiptRecordInput | null,
+    payment?: ReceiptPaymentInput | null
+  ) => {
+    const receiptNum = (payment?.receipt_number as string) ||
+      `QH-RCP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${rec?.id ? String(rec.id).slice(0, 4).toUpperCase() : '0001'}`;
+
+    const wage = Number(rec?.agreed_wage) || Number(job?.offered_wages) || 500;
+    const payable = Number(rec?.total_payable) || wage;
+    const paid = Number(payment?.amount) || Number(rec?.total_paid) || payable;
+    const remaining = Math.max(0, payable - (Number(rec?.total_paid) || paid));
+
+    setSelectedReceipt({
+      receiptNumber: receiptNum,
+      paymentId: payment?.id,
+      jobId: job?.id,
+      assignmentId: rec?.id,
+      jobTitle: job?.title || 'Daily Wage Work',
+      employerName: job?.profiles?.full_name || user?.user_metadata?.full_name || 'Employer',
+      employerLocation: job?.description,
+      workerName: rec?.profiles?.full_name || rec?.workers?.profiles?.full_name || workerProfile?.full_name || 'Worker',
+      workerCategory: job?.category,
+      agreedWage: wage,
+      workingHours: rec?.total_working_hours || 8,
+      breakMinutes: rec?.break_minutes || 0,
+      approvedOvertimeHours: rec?.overtime_hours || 0,
+      totalPayable: payable,
+      amountPaid: paid,
+      remainingBalance: remaining,
+      paymentMethod: payment?.payment_method || 'Direct Cash / Settlement',
+      paymentDate: payment?.created_at || new Date().toISOString(),
+      transactionRef: payment?.transaction_ref,
+      recordedByName: user?.user_metadata?.full_name || 'QuickHire Employer',
+      isUserReported: true,
+    });
+    setIsReceiptOpen(true);
+  };
+
   // Fetch comprehensive worker history
   const fetchWorkerHistory = useCallback(async () => {
     if (!user) return;
@@ -206,10 +458,14 @@ export function DashboardTab({
     setWorkerFetchError(null);
 
     try {
-      // 1. Fetch Profile and Worker details
+      // 1. Fetch Profile and Worker details (non-private fields)
       const { data: prof } = await supabase
         .from('profiles')
-        .select('*')
+        .select(`
+          id, full_name, phone_number, role, account_status, category, skills,
+          experience_years, daily_wage, location, village, city, district,
+          state, pincode, created_at, updated_at
+        `)
         .eq('id', user.id)
         .single();
 
@@ -219,20 +475,48 @@ export function DashboardTab({
         .eq('id', user.id)
         .single();
 
-      if (prof || wrk) {
-        setWorkerProfile({ ...prof, ...(wrk || {}) });
+      // 1b. Fetch private banking details from profile_private_details exclusively
+      let privateBanking: { bank_name?: string | null; bank_account_no?: string | null; bank_ifsc?: string | null; upi_id?: string | null } | null = null;
+      try {
+        const { data: priv } = await supabase
+          .from('profile_private_details')
+          .select('bank_name, bank_account_no, bank_ifsc, upi_id')
+          .eq('profile_id', user.id)
+          .maybeSingle();
+        privateBanking = priv;
+      } catch {
+        // Non-blocking if table not yet provisioned
+      }
+
+      if (prof || wrk || privateBanking) {
+        setWorkerProfile({ ...prof, ...(wrk || {}), ...(privateBanking || {}) });
       }
 
       // 2. Fetch Applied / Assigned Jobs
       try {
-        const { data: records, error: recErr } = await supabase
+        let { data: records, error: recErr } = await supabase
           .from('job_records')
           .select(`
             id, job_id, status, created_at,
+            agreement_evidence_type, reported_by, eta_minutes, arrived_at, arrived_reported_by, attendance_confirmed_at, attendance_confirmed_by, work_started_at, work_completed_at, break_minutes, overtime_hours, total_working_hours, agreed_wage, total_payable, total_paid, payment_status,
             jobs ( id, title, category, offered_wages, description, status, profiles:employer_id ( full_name, phone_number ) )
           `)
           .eq('worker_id', user.id)
           .order('created_at', { ascending: false });
+
+        // Resilient fallback to baseline columns if extended Phase 2 columns do not exist yet (42703)
+        if (recErr && (recErr.code === '42703' || String(recErr.message).includes('column') || String(recErr.message).includes('agreement_evidence_type'))) {
+          const fallbackRes = await supabase
+            .from('job_records')
+            .select(`
+              id, job_id, status, created_at,
+              jobs ( id, title, category, offered_wages, description, status, profiles:employer_id ( full_name, phone_number ) )
+            `)
+            .eq('worker_id', user.id)
+            .order('created_at', { ascending: false });
+          records = fallbackRes.data as typeof records;
+          recErr = fallbackRes.error;
+        }
 
         if (recErr) throw recErr;
         setAppliedJobs((records as unknown as WorkerAppliedJobItem[]) || []);
@@ -374,7 +658,7 @@ export function DashboardTab({
 
       if (!error && data) {
         const revMap: Record<string, { id: string; rating: number; comment: string | null }> = {};
-        data.forEach((r: any) => {
+        data.forEach((r: { id: string; job_id: string; reviewed_profile_id: string; rating: number; comment: string | null }) => {
           // Key by job_id + worker_id
           const key = `${r.job_id}_${r.reviewed_profile_id}`;
           revMap[key] = {
@@ -419,9 +703,23 @@ export function DashboardTab({
         category: string;
       }>();
 
-      (jobsData || []).forEach((j: any) => {
+      interface JobHistoryItem {
+        id: string;
+        title: string;
+        category: string;
+        status: string;
+        created_at: string;
+        job_records?: {
+          id: string;
+          worker_id: string;
+          status: string;
+          created_at: string;
+        }[];
+      }
+
+      ((jobsData as JobHistoryItem[] | null) || []).forEach((j) => {
         const isJobDone = j.status === 'completed';
-        (j.job_records || []).forEach((r: any) => {
+        (j.job_records || []).forEach((r) => {
           // Count if job is completed or if worker status is 'hired'/'completed'
           if (r.worker_id && (isJobDone || r.status === 'hired' || r.status === 'completed')) {
             const existing = workerHistoryMap.get(r.worker_id);
@@ -456,16 +754,18 @@ export function DashboardTab({
       const [profilesRes, workersRes] = await Promise.all([
         supabase
           .from('profiles')
-          .select('id, full_name, phone_number')
+          .select('id, full_name, phone_number, daily_wage')
           .in('id', uniqueWorkerIds),
         supabase
           .from('workers')
-          .select('id, category, skills, average_rating, daily_wage')
+          .select('id, category, skills, average_rating')
           .in('id', uniqueWorkerIds),
       ]);
 
-      const profMap = new Map<string, any>((profilesRes.data || []).map((p: any) => [p.id, p]));
-      const wrkMap = new Map<string, any>((workersRes.data || []).map((w: any) => [w.id, w]));
+      interface ProfileSummary { id: string; full_name: string | null; phone_number: string | null; daily_wage: number | null; }
+      interface WorkerSummary { id: string; category: string; skills: string[]; average_rating: number | null; }
+      const profMap = new Map<string, ProfileSummary>((profilesRes.data || []).map((p: ProfileSummary) => [p.id, p]));
+      const wrkMap = new Map<string, WorkerSummary>((workersRes.data || []).map((w: WorkerSummary) => [w.id, w]));
 
       const combined = uniqueWorkerIds.map((wid) => {
         const hist = workerHistoryMap.get(wid)!;
@@ -482,7 +782,7 @@ export function DashboardTab({
           lastJobTitle: hist.lastJobTitle,
           lastHiredDate: hist.lastHiredDate,
           hiresCount: hist.hiresCount,
-          dailyWage: wrk?.daily_wage ? Number(wrk.daily_wage) : null,
+          dailyWage: prof?.daily_wage ? Number(prof.daily_wage) : ((wrk as { daily_wage?: number | null })?.daily_wage ? Number((wrk as { daily_wage?: number | null }).daily_wage) : null),
         };
       });
 
@@ -597,11 +897,10 @@ export function DashboardTab({
                   setViewMode('worker');
                   speakText('Switched to worker dashboard', currentLang);
                 }}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'worker'
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'worker'
                     ? 'bg-white text-emerald-800 shadow-2xs'
                     : 'text-slate-500 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 👷 Worker View
               </button>
@@ -611,11 +910,10 @@ export function DashboardTab({
                   setViewMode('employer');
                   speakText('Switched to employer dashboard', currentLang);
                 }}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${
-                  viewMode === 'employer'
+                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'employer'
                     ? 'bg-white text-amber-800 shadow-2xs'
                     : 'text-slate-500 hover:text-slate-800'
-                }`}
+                  }`}
               >
                 🏢 Employer View
               </button>
@@ -666,6 +964,11 @@ export function DashboardTab({
         /*                             WORKER DASHBOARD                              */
         /* ========================================================================= */
         <div className="space-y-8">
+          {workerFetchError && (
+            <div className="p-4 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
+              {workerFetchError}
+            </div>
+          )}
           {/* Worker Hero Profile Summary */}
           <div className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 rounded-3xl border border-emerald-200 p-6 sm:p-8 shadow-xs relative overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
@@ -935,6 +1238,88 @@ export function DashboardTab({
                           </a>
                         )}
                       </div>
+
+                      {/* WORKER LIFECYCLE CONTROLS */}
+                      {rec.status === 'hired' && (
+                        <div className="pt-2 flex items-center justify-between gap-2 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
+                          <span className="text-[11px] font-extrabold text-emerald-900">
+                            Assignment Confirmed!
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleWorkerOnTheWay(rec.id, 30)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Navigation className="w-3 h-3" />
+                            <span>Mark On the Way (30m)</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {rec.status === 'on_the_way' && (
+                        <div className="pt-2 flex items-center justify-between gap-2 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
+                          <span className="text-[11px] font-extrabold text-emerald-900 flex items-center gap-1.5">
+                            <Clock className="w-3.5 h-3.5 text-emerald-700" />
+                            <span>On the way (ETA: {rec.eta_minutes || 30}m)</span>
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => handleWorkerArrived(rec.id, true)}
+                            className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                            <span>Mark Arrived</span>
+                          </button>
+                        </div>
+                      )}
+
+                      {rec.status === 'arrived' && (
+                        <div className="pt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Arrived at Site · Awaiting Employer Attendance Confirmation</span>
+                        </div>
+                      )}
+
+                      {rec.status === 'attendance_confirmed' && (
+                        <div className="pt-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
+                          <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+                          <span>Attendance Confirmed · Work Starting Soon</span>
+                        </div>
+                      )}
+
+                      {rec.status === 'in_progress' && (
+                        <div className="pt-2 p-2.5 rounded-xl bg-brand-50 border border-brand-200 text-[11px] font-bold text-brand-800 flex items-center gap-1.5">
+                          <Clock className="w-4 h-4 text-brand-600 animate-pulse" />
+                          <span>Work in Progress</span>
+                        </div>
+                      )}
+
+                      {rec.status === 'on_break' && (
+                        <div className="pt-2 p-2.5 rounded-xl bg-amber-50 border border-amber-200 text-[11px] font-bold text-amber-800 flex items-center gap-1.5">
+                          <Pause className="w-4 h-4 text-amber-600" />
+                          <span>On Break ({rec.break_minutes || 0}m logged)</span>
+                        </div>
+                      )}
+
+                      {rec.status === 'completed' && (
+                        <div className="pt-2 flex items-center justify-between gap-2 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                          <div>
+                            <span className="text-[10px] font-extrabold uppercase text-emerald-800 block">Work Completed</span>
+                            <span className="text-xs font-bold text-slate-800">
+                              Total Payable: ₹{rec.total_payable || job?.offered_wages || 500}
+                              {rec.total_paid ? ` • Paid: ₹${rec.total_paid}` : ''}
+                            </span>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenReceipt(job, rec)}
+                            className="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                          >
+                            <Receipt className="w-3.5 h-3.5" />
+                            <span>View Receipt</span>
+                          </button>
+                        </div>
+                      )}
                     </div>
                   );
                 })}
@@ -1075,11 +1460,10 @@ export function DashboardTab({
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
                             key={star}
-                            className={`w-3.5 h-3.5 ${
-                              star <= (rev.rating || 5)
+                            className={`w-3.5 h-3.5 ${star <= (rev.rating || 5)
                                 ? 'fill-yellow-400 text-yellow-500'
                                 : 'text-slate-200'
-                            }`}
+                              }`}
                           />
                         ))}
                       </div>
@@ -1197,11 +1581,10 @@ export function DashboardTab({
                             {job.category}
                           </span>
                           <span
-                            className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded ${
-                              job.status === 'open'
+                            className={`text-[10px] uppercase tracking-wider font-extrabold px-2 py-0.5 rounded ${job.status === 'open'
                                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                                 : 'bg-slate-100 text-slate-600 border border-slate-200'
-                            }`}
+                              }`}
                           >
                             {job.status}
                           </span>
@@ -1256,103 +1639,230 @@ export function DashboardTab({
                           {applicants.map((rec) => {
                             const workerName = rec.profiles?.full_name || rec.workers?.profiles?.full_name || t('interestedWorkerFallback');
                             const phone = rec.profiles?.phone_number || rec.workers?.profiles?.phone_number;
-
                             const currentStatus = applicantStatusOverrides[rec.id] || rec.status || 'contacted';
+                            const isDirectPhoneAgreement = rec.agreement_evidence_type === 'employer_reported_verbal_agreement';
+                            const workerProfileId = rec.workers?.profiles?.id || rec.worker_id || rec.workers?.id || '';
+                            const totalPayable = rec.total_payable || rec.agreed_wage || job.offered_wages || 500;
+                            const totalPaid = rec.total_paid || 0;
+                            const remainingBal = Math.max(0, totalPayable - totalPaid);
 
                             return (
                               <div
                                 key={rec.id}
-                                className="p-3.5 rounded-xl bg-slate-50 border border-slate-200/70 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                                className="p-4 rounded-xl bg-slate-50 border border-slate-200/80 space-y-3"
                               >
-                                <div>
-                                  <div className="flex items-center gap-2">
-                                    <h4 className="font-bold text-xs sm:text-sm text-slate-900">
-                                      {workerName}
-                                    </h4>
-                                    <span
-                                      className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded ${
-                                        currentStatus === 'hired'
-                                          ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
-                                          : currentStatus === 'rejected'
-                                          ? 'bg-rose-100 text-rose-800 border border-rose-300'
-                                          : 'bg-amber-100 text-amber-800 border border-amber-300'
-                                      }`}
-                                    >
-                                      {currentStatus}
+                                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                                  <div>
+                                    <div className="flex items-center gap-2 flex-wrap">
+                                      <h4 className="font-bold text-xs sm:text-sm text-slate-900">
+                                        {workerName}
+                                      </h4>
+                                      <span
+                                        className={`text-[9px] uppercase tracking-wider font-extrabold px-1.5 py-0.5 rounded ${currentStatus === 'completed'
+                                            ? 'bg-purple-100 text-purple-800 border border-purple-300'
+                                            : currentStatus === 'hired' || currentStatus === 'in_progress' || currentStatus === 'attendance_confirmed'
+                                              ? 'bg-emerald-100 text-emerald-800 border border-emerald-300'
+                                              : currentStatus === 'rejected'
+                                                ? 'bg-rose-100 text-rose-800 border border-rose-300'
+                                                : 'bg-amber-100 text-amber-800 border border-amber-300'
+                                          }`}
+                                      >
+                                        {currentStatus.replace(/_/g, ' ')}
+                                      </span>
+
+                                      {rec.hiring_source === 'direct_phone' || isDirectPhoneAgreement ? (
+                                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-amber-50 text-amber-800 border border-amber-200">
+                                          Employer-Reported Phone Agreement
+                                        </span>
+                                      ) : (
+                                        <span className="text-[9px] font-extrabold px-1.5 py-0.5 rounded bg-blue-50 text-blue-800 border border-blue-200">
+                                          In-App Application
+                                        </span>
+                                      )}
+                                    </div>
+                                    <span className="text-[10px] text-slate-500 block mt-0.5">
+                                      Agreed Daily Wage: ₹{rec.agreed_wage || job.offered_wages || 500}
+                                      {rec.total_working_hours ? ` • ${rec.total_working_hours}h worked` : ''}
+                                      {rec.overtime_hours ? ` (+${rec.overtime_hours}h overtime)` : ''}
                                     </span>
                                   </div>
-                                  <span className="text-[10px] text-slate-500">
-                                    {t('appliedOn')}: {new Date(rec.created_at).toLocaleDateString()}
-                                  </span>
+
+                                  <div className="flex items-center gap-1.5 flex-wrap shrink-0">
+                                    {phone && (
+                                      <a
+                                        href={`tel:${phone}`}
+                                        className="px-2.5 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors"
+                                        title="Call worker"
+                                      >
+                                        <PhoneCall className="w-3.5 h-3.5" />
+                                        <span>{t('call')}</span>
+                                      </a>
+                                    )}
+
+                                    {/* WORKFLOW A: INITIAL HIRE / REJECT */}
+                                    {currentStatus !== 'hired' && currentStatus !== 'on_the_way' && currentStatus !== 'arrived' && currentStatus !== 'attendance_confirmed' && currentStatus !== 'in_progress' && currentStatus !== 'on_break' && currentStatus !== 'completed' && (
+                                      <>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleUpdateApplicantStatus(rec.id, 'hired')}
+                                          className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                                          title="Hire / Accept this worker"
+                                        >
+                                          <CheckCircle2 className="w-3.5 h-3.5" />
+                                          <span>Hire</span>
+                                        </button>
+
+                                        {currentStatus !== 'rejected' && (
+                                          <button
+                                            type="button"
+                                            onClick={() => handleUpdateApplicantStatus(rec.id, 'rejected')}
+                                            className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
+                                            title="Decline applicant"
+                                          >
+                                            <X className="w-3.5 h-3.5" />
+                                          </button>
+                                        )}
+                                      </>
+                                    )}
+                                  </div>
                                 </div>
 
-                                <div className="flex items-center gap-1.5 flex-wrap shrink-0">
-                                  {phone ? (
-                                    <a
-                                      href={`tel:${phone}`}
-                                      className="px-2.5 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors"
-                                      title="Call worker"
-                                    >
-                                      <PhoneCall className="w-3.5 h-3.5" />
-                                      <span>{t('call')}</span>
-                                    </a>
-                                  ) : (
-                                    <span className="text-[10px] text-slate-400 font-medium">
-                                      {t('numberNotShared')}
+                                {/* UNIFIED LIFECYCLE CONTROLS (Requirements D, E, F) */}
+                                {(currentStatus === 'hired' || currentStatus === 'on_the_way') && (
+                                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2 flex-wrap">
+                                    <span className="text-[11px] font-bold text-slate-700">
+                                      {currentStatus === 'on_the_way'
+                                        ? `Worker is on the way (ETA: ${rec.eta_minutes || 30} mins)`
+                                        : 'Awaiting arrival at farm / work site'}
                                     </span>
-                                  )}
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleUpdateApplicantStatus(rec.id, 'no_show')}
+                                        className="px-2 py-1.5 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 text-xs font-bold transition-colors cursor-pointer"
+                                        title="Mark as did not arrive"
+                                      >
+                                        No-Show
+                                      </button>
+                                      <button
+                                        type="button"
+                                        onClick={() => handleWorkerArrived(rec.id, false)}
+                                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                                      >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>Mark Worker Arrived</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
 
-                                  {currentStatus !== 'hired' && (
+                                {currentStatus === 'arrived' && (
+                                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2 flex-wrap">
+                                    <span className="text-[11px] font-bold text-slate-700">
+                                      Worker Arrived ({rec.arrived_reported_by === rec.worker_id ? 'Worker-reported' : 'Employer-reported'})
+                                    </span>
                                     <button
                                       type="button"
-                                      onClick={() => handleUpdateApplicantStatus(rec.id, 'hired')}
-                                      className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
-                                      title="Hire / Accept this worker"
+                                      onClick={() => handleConfirmAttendance(rec.id)}
+                                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
                                       <CheckCircle2 className="w-3.5 h-3.5" />
-                                      <span>Hire</span>
+                                      <span>Confirm Attendance</span>
                                     </button>
-                                  )}
+                                  </div>
+                                )}
 
-                                  {currentStatus !== 'rejected' && currentStatus !== 'hired' && (
+                                {currentStatus === 'attendance_confirmed' && (
+                                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2 flex-wrap">
+                                    <span className="text-[11px] font-bold text-emerald-800">
+                                      Attendance Confirmed · Ready to start
+                                    </span>
                                     <button
                                       type="button"
-                                      onClick={() => handleUpdateApplicantStatus(rec.id, 'rejected')}
-                                      className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
-                                      title="Decline applicant"
+                                      onClick={() => handleStartWork(rec.id)}
+                                      className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
-                                      <X className="w-3.5 h-3.5" />
+                                      <Play className="w-3.5 h-3.5" />
+                                      <span>Start Work</span>
                                     </button>
-                                  )}
+                                  </div>
+                                )}
 
-                                  <button
-                                    onClick={() => {
-                                      if (!user) {
-                                        onRequireLogin();
-                                        return;
-                                      }
-                                      onPayWage(
-                                        rec.workers?.profiles?.id || rec.worker_id || rec.workers?.id || '',
-                                        workerName,
-                                        phone,
-                                        job.id,
-                                        job.offered_wages || 500
-                                      );
-                                    }}
-                                    className="px-2.5 py-1.5 rounded-lg bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center gap-1 border border-emerald-200 transition-colors cursor-pointer"
-                                  >
-                                    <Landmark className="w-3.5 h-3.5 text-emerald-700" />
-                                    <span>₹ {t('payWageToBank')}</span>
-                                  </button>
+                                {(currentStatus === 'in_progress' || currentStatus === 'on_break') && (
+                                  <div className="pt-2 border-t border-slate-200/60 flex items-center justify-between gap-2 flex-wrap">
+                                    <div className="flex items-center gap-2">
+                                      <span className="text-[11px] font-bold text-brand-800 flex items-center gap-1">
+                                        <Clock className="w-3.5 h-3.5 text-brand-600" />
+                                        <span>{currentStatus === 'on_break' ? 'Worker on break' : 'Work in progress'}</span>
+                                      </span>
+                                      {currentStatus === 'in_progress' && (
+                                        <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
+                                          <span className="text-[10px] text-slate-400 font-bold">OT hrs:</span>
+                                          <input
+                                            type="number"
+                                            min="0"
+                                            max="8"
+                                            placeholder="0"
+                                            value={overtimeInputs[rec.id] || ''}
+                                            onChange={(e) => setOvertimeInputs((prev) => ({ ...prev, [rec.id]: e.target.value }))}
+                                            className="w-10 text-xs font-bold text-slate-800 outline-none text-center"
+                                          />
+                                        </div>
+                                      )}
+                                    </div>
 
-                                  {/* RATE WORKER BUTTON: Enabled when job is completed or worker was hired */}
-                                  {(job.status === 'completed' || currentStatus === 'hired' || currentStatus === 'completed') && (
-                                    (() => {
-                                      const workerProfileId = rec.workers?.profiles?.id || rec.worker_id || rec.workers?.id || '';
-                                      const reviewKey = `${job.id}_${workerProfileId}`;
-                                      const existing = employerSubmittedReviews[reviewKey];
+                                    <div className="flex items-center gap-1.5">
+                                      <button
+                                        type="button"
+                                        onClick={() => handleToggleBreak(rec.id, currentStatus, rec.break_minutes || 0)}
+                                        className="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                                      >
+                                        {currentStatus === 'on_break' ? (
+                                          <>
+                                            <Play className="w-3 h-3 text-emerald-600" />
+                                            <span>Resume Work</span>
+                                          </>
+                                        ) : (
+                                          <>
+                                            <Pause className="w-3 h-3 text-amber-600" />
+                                            <span>Take Break</span>
+                                          </>
+                                        )}
+                                      </button>
 
-                                      return (
+                                      <button
+                                        type="button"
+                                        onClick={() => handleCompleteWork(job.id, rec.id, rec.agreed_wage || job.offered_wages || 500, Number(overtimeInputs[rec.id] || 0))}
+                                        className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
+                                      >
+                                        <CheckCircle2 className="w-3.5 h-3.5" />
+                                        <span>Complete Work</span>
+                                      </button>
+                                    </div>
+                                  </div>
+                                )}
+
+                                {/* SETTLEMENT, RECEIPTS & REVIEWS (Requirement G, H) */}
+                                {(job.status === 'completed' || currentStatus === 'completed' || currentStatus === 'hired') && (
+                                  <div className="pt-2 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
+                                    <div className="text-xs">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-bold text-slate-800">Total Payable: ₹{totalPayable}</span>
+                                        <span className="font-bold text-emerald-700">Paid: ₹{totalPaid}</span>
+                                        {remainingBal > 0 ? (
+                                          <span className="font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
+                                            Balance: ₹{remainingBal}
+                                          </span>
+                                        ) : (
+                                          <span className="font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded text-[10px]">
+                                            Fully Paid
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                      {remainingBal > 0 && (
                                         <button
                                           type="button"
                                           onClick={() => {
@@ -1360,29 +1870,63 @@ export function DashboardTab({
                                               onRequireLogin();
                                               return;
                                             }
-                                            setRateModalState({
-                                              isOpen: true,
-                                              jobId: job.id,
-                                              jobTitle: job.title,
-                                              workerId: workerProfileId,
+                                            onPayWage(
+                                              workerProfileId,
                                               workerName,
-                                              existingReview: existing || null,
-                                            });
+                                              phone,
+                                              job.id,
+                                              remainingBal,
+                                              rec.id
+                                            );
                                           }}
-                                          className={`px-2.5 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1 border transition-colors cursor-pointer ${
-                                            existing
-                                              ? 'bg-amber-50 hover:bg-amber-100 text-amber-900 border-amber-300'
-                                              : 'bg-yellow-500 hover:bg-yellow-600 text-slate-900 border-yellow-600 shadow-2xs'
-                                          }`}
-                                          title={existing ? `Rated ${existing.rating} stars. Click to edit review.` : 'Rate worker for this job'}
+                                          className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                         >
-                                          <Star className={`w-3.5 h-3.5 ${existing ? 'fill-amber-500 text-amber-600' : 'fill-slate-900 text-slate-900'}`} />
-                                          <span>{existing ? `★ ${existing.rating.toFixed(1)} (${t('editRating')})` : t('rateWorker')}</span>
+                                          <Landmark className="w-3.5 h-3.5" />
+                                          <span>Record Settlement (₹{remainingBal})</span>
                                         </button>
-                                      );
-                                    })()
-                                  )}
-                                </div>
+                                      )}
+
+                                      <button
+                                        type="button"
+                                        onClick={() => handleOpenReceipt(job, rec)}
+                                        className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                                      >
+                                        <Receipt className="w-3.5 h-3.5 text-brand-600" />
+                                        <span>Receipt</span>
+                                      </button>
+
+                                      {(() => {
+                                        const reviewKey = `${job.id}_${workerProfileId}`;
+                                        const existing = employerSubmittedReviews[reviewKey];
+
+                                        return (
+                                          <button
+                                            type="button"
+                                            onClick={() => {
+                                              if (!user) {
+                                                onRequireLogin();
+                                                return;
+                                              }
+                                              setRateModalState({
+                                                isOpen: true,
+                                                jobId: job.id,
+                                                jobTitle: job.title,
+                                                workerId: workerProfileId,
+                                                workerName,
+                                                existingReview: existing || null,
+                                              });
+                                            }}
+                                            className="px-2.5 py-1.5 rounded-lg bg-yellow-50 hover:bg-yellow-100 text-yellow-800 font-bold text-xs flex items-center gap-1 border border-yellow-200 transition-colors cursor-pointer"
+                                            title="Rate worker performance"
+                                          >
+                                            <Star className="w-3.5 h-3.5 fill-yellow-400 text-yellow-600" />
+                                            <span>{existing ? t('editRating') : t('rateWorker')}</span>
+                                          </button>
+                                        );
+                                      })()}
+                                    </div>
+                                  </div>
+                                )}
                               </div>
                             );
                           })}
@@ -1620,6 +2164,13 @@ export function DashboardTab({
           </div>
         </div>
       )}
+
+      {/* PAYMENT RECEIPT MODAL */}
+      <PaymentReceiptModal
+        isOpen={isReceiptOpen}
+        onClose={() => setIsReceiptOpen(false)}
+        receipt={selectedReceipt}
+      />
 
       {/* RATE WORKER MODAL */}
       {user && (

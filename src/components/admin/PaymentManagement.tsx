@@ -12,13 +12,13 @@ import {
   ChevronRight,
   X,
   CreditCard,
-  Building2,
-  QrCode,
-  ShieldCheck,
+
+
+
   FileText,
   Clock,
-  ArrowDownLeft,
-  ArrowUpRight
+
+
 } from 'lucide-react';
 
 export interface AdminPaymentRecord {
@@ -48,9 +48,11 @@ export interface PaymentAuditEvent {
   new_status: string;
   event_type: string;
   actor_id: string | null;
-  metadata: any;
+  metadata: Record<string, unknown> | null;
   created_at: string;
 }
+
+type TargetReconcileStatus = 'paid' | 'failed' | 'cancelled';
 
 export function PaymentManagement() {
   const [payments, setPayments] = useState<AdminPaymentRecord[]>([]);
@@ -70,7 +72,7 @@ export function PaymentManagement() {
 
   // Reconciliation Modal
   const [reconcileModalOpen, setReconcileModalOpen] = useState(false);
-  const [targetStatus, setTargetStatus] = useState<'paid' | 'failed' | 'cancelled'>('paid');
+  const [targetStatus, setTargetStatus] = useState<TargetReconcileStatus>('paid');
   const [reconcileNotes, setReconcileNotes] = useState('');
   const [isReconciling, setIsReconciling] = useState(false);
   const [actionError, setActionError] = useState('');
@@ -85,9 +87,28 @@ export function PaymentManagement() {
         .select(`
           *,
           payer:payer_id ( id, full_name, phone_number ),
-          payee:payee_id ( id, full_name, phone_number, upi_id )
+          payee:payee_id ( id, full_name, phone_number )
         `)
         .order('created_at', { ascending: false });
+
+      const privateMap: Record<string, string | null> = {};
+      try {
+        const records = (data || []) as unknown as Array<{ payee_id?: string }>;
+        const payeeIds = [...new Set(records.map((p) => p.payee_id).filter(Boolean))];
+        if (payeeIds.length > 0) {
+          const { data: privData } = await supabase
+            .from('profile_private_details')
+            .select('profile_id, upi_id')
+            .in('profile_id', payeeIds as string[]);
+          if (privData) {
+            privData.forEach((row) => {
+              privateMap[row.profile_id] = row.upi_id;
+            });
+          }
+        }
+      } catch {
+        // Fallback during migration
+      }
 
       if (error) {
         console.warn('Admin payments fetch notice:', error.message);
@@ -98,7 +119,11 @@ export function PaymentManagement() {
           .order('created_at', { ascending: false });
         setPayments((rawData as unknown as AdminPaymentRecord[]) || []);
       } else {
-        setPayments((data as unknown as AdminPaymentRecord[]) || []);
+        const enriched = ((data as unknown as AdminPaymentRecord[]) || []).map((p) => ({
+          ...p,
+          payee: p.payee ? { ...p.payee, upi_id: privateMap[p.payee.id] ?? null } : null,
+        }));
+        setPayments(enriched);
       }
     } catch (err) {
       console.warn('Error fetching payments:', err);
@@ -200,7 +225,7 @@ export function PaymentManagement() {
       const newVerificationStatus = targetStatus === 'paid' ? 'verified' : 'rejected';
 
       // 1. Try authoritative RPC if installed in database
-      const { data: rpcData, error: rpcErr } = await (supabase as any).rpc('reconcile_payment_admin', {
+      const { error: rpcErr } = await supabase.rpc('reconcile_payment_admin', {
         p_payment_id: selectedPayment.id,
         p_new_status: targetStatus,
         p_verification_status: newVerificationStatus,
@@ -261,15 +286,15 @@ export function PaymentManagement() {
       setSelectedPayment((prev) =>
         prev
           ? {
-              ...prev,
-              status: targetStatus,
-              verification_status: newVerificationStatus,
-              verification_notes: reconcileNotes,
-            }
+            ...prev,
+            status: targetStatus,
+            verification_status: newVerificationStatus,
+            verification_notes: reconcileNotes,
+          }
           : null
       );
-    } catch (err: any) {
-      setActionError(err.message || 'Failed to reconcile payment');
+    } catch (err: unknown) {
+      setActionError(err instanceof Error ? err.message : 'Failed to reconcile payment');
     } finally {
       setIsReconciling(false);
     }
@@ -576,6 +601,11 @@ export function PaymentManagement() {
               </button>
             </div>
 
+            {actionSuccess && (
+              <div className="p-3 rounded-xl bg-emerald-950/80 border border-emerald-800 text-emerald-300 text-xs">
+                {actionSuccess}
+              </div>
+            )}
             {/* STATUS BANNER */}
             <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
               <div>
@@ -739,7 +769,7 @@ export function PaymentManagement() {
                 </label>
                 <select
                   value={targetStatus}
-                  onChange={(e) => setTargetStatus(e.target.value as any)}
+                  onChange={(e) => setTargetStatus(e.target.value as TargetReconcileStatus)}
                   className="w-full px-3 py-2.5 bg-slate-950 border border-slate-800 rounded-xl text-slate-200 outline-none focus:border-emerald-500"
                 >
                   <option value="paid">Verified & Paid (Money Received)</option>

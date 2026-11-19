@@ -1,0 +1,102 @@
+{
+  "name": "QuickHire — Rural Workforce & Agricultural Equipment Platform",
+  "short_name": "QuickHire",
+  "description": "Accessible, zero-commission rural digital public infrastructure platform connecting skilled workers, employers, and machinery rentals across India.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "theme_color": "#0f2942",
+  "background_color": "#fbfcf8",
+  "lang": "en",
+  "dir": "ltr",
+  "categories": [
+    "business",
+    "productivity",
+    "utilities"
+  ],
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/icons/icon-maskable-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Find Workers",
+      "short_name": "Workers",
+      "description": "Discover verified local farm and construction workers",
+      "url": "/?tab=workers",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Rent Machinery",
+      "short_name": "Equipment",
+      "description": "Rent tractors, sprayers, and farm equipment directly",
+      "url": "/?tab=equipment",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Post a Job",
+      "short_name": "Post Job",
+      "description": "Post employment listings for local laborers",
+      "url": "/?tab=post-job",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    },
+    {
+      "name": "Citizen SOS & Helplines",
+      "short_name": "Emergency",
+      "description": "Official 24x7 toll-free farmer, labor and women helplines",
+      "url": "/?tab=safety",
+      "icons": [
+        {
+          "src": "/icons/icon-192.png",
+          "sizes": "192x192"
+        }
+      ]
+    }
+  ],
+  "prefer_related_applications": false
+}
+

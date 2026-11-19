@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#0f2942" />
+  <title>Offline — QuickHire Rural Digital Public Infrastructure</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+  <style>
+    :root {
+      --brand-navy: #0f2942;
+      --brand-saffron: #FF9933;
+      --brand-emerald: #059669;
+      --bg-cream: #fbfcf8;
+      --text-dark: #0f172a;
+      --text-muted: #64748b;
+    }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      background-color: var(--bg-cream);
+      color: var(--text-dark);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 1.5rem;
+      text-align: center;
+    }
+    .card {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 1.5rem;
+      padding: 2.25rem 1.75rem;
+      max-width: 480px;
+      width: 100%;
+      box-shadow: 0 10px 25px -5px rgba(15, 41, 66, 0.08), 0 8px 10px -6px rgba(15, 41, 66, 0.04);
+    }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.35rem 0.85rem;
+      border-radius: 9999px;
+      background: #fff7ed;
+      color: #c2410c;
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      border: 1px solid #ffedd5;
+      margin-bottom: 1.25rem;
+    }
+    .icon-wrap {
+      width: 4rem;
+      height: 4rem;
+      border-radius: 1.25rem;
+      background: rgba(255, 153, 51, 0.15);
+      color: var(--brand-saffron);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 1.25rem;
+      font-size: 2rem;
+    }
+    h1 {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: var(--brand-navy);
+      margin-bottom: 0.5rem;
+      line-height: 1.2;
+    }
+    .sub {
+      font-size: 0.875rem;
+      color: var(--text-muted);
+      line-height: 1.5;
+      margin-bottom: 1.5rem;
+    }
+    .notice-box {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 1rem;
+      padding: 1rem;
+      text-align: left;
+      font-size: 0.8125rem;
+      color: #334155;
+      line-height: 1.45;
+      margin-bottom: 1.5rem;
+    }
+    .notice-box strong {
+      color: var(--brand-navy);
+      display: block;
+      margin-bottom: 0.25rem;
+    }
+    .btn-retry {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.5rem;
+      width: 100%;
+      padding: 0.875rem 1.25rem;
+      background: var(--brand-navy);
+      color: #ffffff;
+      font-size: 0.9375rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 0.875rem;
+      cursor: pointer;
+      box-shadow: 0 4px 12px rgba(15, 41, 66, 0.2);
+      transition: background 0.2s, transform 0.1s;
+    }
+    .btn-retry:hover {
+      background: #1a3d60;
+    }
+    .btn-retry:active {
+      transform: scale(0.98);
+    }
+    .helplines {
+      margin-top: 1.75rem;
+      padding-top: 1.25rem;
+      border-top: 1px dashed #cbd5e1;
+    }
+    .helpline-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      color: var(--text-muted);
+      margin-bottom: 0.75rem;
+      letter-spacing: 0.05em;
+    }
+    .helpline-buttons {
+      display: flex;
+      gap: 0.5rem;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    .helpline-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.375rem;
+      padding: 0.5rem 0.875rem;
+      background: #ecfdf5;
+      color: var(--brand-emerald);
+      border: 1px solid #a7f3d0;
+      border-radius: 0.625rem;
+      font-size: 0.8125rem;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .helpline-btn:hover {
+      background: #d1fae5;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="badge">📡 Network Disconnected</div>
+    <div class="icon-wrap">⚡</div>
+    <h1>You Are Currently Offline</h1>
+    <p class="sub">
+      QuickHire couldn't reach the server. Please check your mobile data or Wi-Fi connection.
+    </p>
+
+    <div class="notice-box">
+      <strong>🔒 Data Security Notice:</strong>
+      Job applications, profile updates, and wage payments require an active connection to securely synchronize with Supabase. Unsaved forms are held safely on your device.
+    </div>
+
+    <button id="retryBtn" class="btn-retry" onclick="checkConnection()">
+      🔄 Try Reconnecting Now
+    </button>
+
+    <div class="helplines">
+      <div class="helpline-title">Offline Toll-Free Helplines (Carrier Voice)</div>
+      <div class="helpline-buttons">
+        <a href="tel:1551" class="helpline-btn">🌾 Kisan 1551</a>
+        <a href="tel:1091" class="helpline-btn">🛡️ Women 1091</a>
+        <a href="tel:14434" class="helpline-btn">⚖️ Shramik 14434</a>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function checkConnection() {
+      const btn = document.getElementById('retryBtn');
+      btn.innerText = 'Checking connection...';
+      btn.style.opacity = '0.7';
+
+      fetch('/', { method: 'HEAD', cache: 'no-store' })
+        .then(() => {
+          window.location.reload();
+        })
+        .catch(() => {
+          setTimeout(() => {
+            btn.innerText = '⚠️ Still Offline — Tap to Retry';
+            btn.style.opacity = '1';
+          }, 800);
+        });
+    }
+
+    // Auto-reload when network reconnects
+    window.addEventListener('online', () => {
+      window.location.reload();
+    });
+  </script>
+</body>
+</html>
+

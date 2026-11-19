@@ -105,6 +105,56 @@ export interface Database {
         }
         Relationships: []
       }
+      profile_private_details: {
+        Row: {
+          profile_id: string
+          bank_name: string | null
+          bank_account_no: string | null
+          bank_ifsc: string | null
+          upi_id: string | null
+          date_of_birth: string | null
+          address_line: string | null
+          emergency_contact_name: string | null
+          emergency_contact_phone: string | null
+          created_at: string
+          updated_at: string
+        }
+        Insert: {
+          profile_id: string
+          bank_name?: string | null
+          bank_account_no?: string | null
+          bank_ifsc?: string | null
+          upi_id?: string | null
+          date_of_birth?: string | null
+          address_line?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Update: {
+          profile_id?: string
+          bank_name?: string | null
+          bank_account_no?: string | null
+          bank_ifsc?: string | null
+          upi_id?: string | null
+          date_of_birth?: string | null
+          address_line?: string | null
+          emergency_contact_name?: string | null
+          emergency_contact_phone?: string | null
+          created_at?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "profile_private_details_profile_id_fkey"
+            columns: ["profile_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          }
+        ]
+      }
       workers: {
         Row: {
           id: string
@@ -160,6 +210,14 @@ export interface Database {
           required_skills: string[]
           offered_wages: number | null
           status: 'open' | 'in_progress' | 'completed' | 'cancelled' | null
+          scheduled_date?: string | null
+          start_time?: string | null
+          expected_duration_hours?: number | null
+          workers_needed?: number | null
+          hiring_source?: 'application' | 'direct_phone' | null
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
+          cancelled_at?: string | null
           created_at: string | null
           updated_at: string | null
         }
@@ -172,6 +230,14 @@ export interface Database {
           required_skills?: string[]
           offered_wages?: number | null
           status?: 'open' | 'in_progress' | 'completed' | 'cancelled' | null
+          scheduled_date?: string | null
+          start_time?: string | null
+          expected_duration_hours?: number | null
+          workers_needed?: number | null
+          hiring_source?: 'application' | 'direct_phone' | null
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
+          cancelled_at?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -179,11 +245,19 @@ export interface Database {
           id?: string
           employer_id?: string
           title?: string
-          category?: 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed'
+          category: 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed'
           description?: string | null
           required_skills?: string[]
           offered_wages?: number | null
           status?: 'open' | 'in_progress' | 'completed' | 'cancelled' | null
+          scheduled_date?: string | null
+          start_time?: string | null
+          expected_duration_hours?: number | null
+          workers_needed?: number | null
+          hiring_source?: 'application' | 'direct_phone' | null
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
+          cancelled_at?: string | null
           created_at?: string | null
           updated_at?: string | null
         }
@@ -195,6 +269,27 @@ export interface Database {
           job_id: string
           worker_id: string
           status: string | null
+          hiring_source?: 'application' | 'direct_phone' | null
+          agreement_evidence_type?: 'worker_application_and_employer_acceptance' | 'employer_reported_verbal_agreement' | null
+          reported_by?: string | null
+          eta_minutes?: number | null
+          eta_updated_at?: string | null
+          arrived_at?: string | null
+          arrived_reported_by?: string | null
+          attendance_confirmed_at?: string | null
+          attendance_confirmed_by?: string | null
+          work_started_at?: string | null
+          work_completed_at?: string | null
+          break_minutes?: number | null
+          overtime_hours?: number | null
+          total_working_hours?: number | null
+          agreed_wage?: number | null
+          total_payable?: number | null
+          total_paid?: number | null
+          payment_status?: 'pending' | 'partially_paid' | 'paid' | 'disputed' | null
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
+          cancelled_at?: string | null
           created_at: string | null
         }
         Insert: {
@@ -202,6 +297,27 @@ export interface Database {
           job_id: string
           worker_id: string
           status?: string | null
+          hiring_source?: 'application' | 'direct_phone' | null
+          agreement_evidence_type?: 'worker_application_and_employer_acceptance' | 'employer_reported_verbal_agreement' | null
+          reported_by?: string | null
+          eta_minutes?: number | null
+          eta_updated_at?: string | null
+          arrived_at?: string | null
+          arrived_reported_by?: string | null
+          attendance_confirmed_at?: string | null
+          attendance_confirmed_by?: string | null
+          work_started_at?: string | null
+          work_completed_at?: string | null
+          break_minutes?: number | null
+          overtime_hours?: number | null
+          total_working_hours?: number | null
+          agreed_wage?: number | null
+          total_payable?: number | null
+          total_paid?: number | null
+          payment_status?: 'pending' | 'partially_paid' | 'paid' | 'disputed' | null
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
+          cancelled_at?: string | null
           created_at?: string | null
         }
         Update: {
@@ -209,6 +325,27 @@ export interface Database {
           job_id?: string
           worker_id?: string
           status?: string | null
+          hiring_source?: 'application' | 'direct_phone' | null
+          agreement_evidence_type?: 'worker_application_and_employer_acceptance' | 'employer_reported_verbal_agreement' | null
+          reported_by?: string | null
+          eta_minutes?: number | null
+          eta_updated_at?: string | null
+          arrived_at?: string | null
+          arrived_reported_by?: string | null
+          attendance_confirmed_at?: string | null
+          attendance_confirmed_by?: string | null
+          work_started_at?: string | null
+          work_completed_at?: string | null
+          break_minutes?: number | null
+          overtime_hours?: number | null
+          total_working_hours?: number | null
+          agreed_wage?: number | null
+          total_payable?: number | null
+          total_paid?: number | null
+          payment_status?: 'pending' | 'partially_paid' | 'paid' | 'disputed' | null
+          cancellation_reason?: string | null
+          cancelled_by?: string | null
+          cancelled_at?: string | null
           created_at?: string | null
         }
         Relationships: []
@@ -330,6 +467,9 @@ export interface Database {
           payee_id: string
           payment_for_type: 'worker_wage' | 'machine_rental'
           reference_id: string | null
+          assignment_id?: string | null
+          receipt_number?: string | null
+          recorded_by?: string | null
           amount: number
           payment_method: 'Net Banking (IMPS/NEFT)' | 'Direct UPI' | 'Cash'
           transaction_ref: string | null
@@ -349,6 +489,9 @@ export interface Database {
           payee_id: string
           payment_for_type: 'worker_wage' | 'machine_rental'
           reference_id?: string | null
+          assignment_id?: string | null
+          receipt_number?: string | null
+          recorded_by?: string | null
           amount: number
           payment_method: 'Net Banking (IMPS/NEFT)' | 'Direct UPI' | 'Cash'
           transaction_ref?: string | null
@@ -775,6 +918,20 @@ export interface Database {
           bank_ifsc: string | null
           upi_id: string | null
         }
+      }
+      record_direct_payment: {
+        Args: {
+          p_payment_for_type: string
+          p_reference_id: string
+          p_assignment_id: string
+          p_payee_id: string
+          p_amount: number
+          p_payment_method: string
+          p_payment_reference: string
+          p_utr_number?: string | null
+          p_idempotency_key?: string | null
+        }
+        Returns: Json
       }
       search_nearby_workers: {
         Args: {

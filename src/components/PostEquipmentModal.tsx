@@ -139,7 +139,7 @@ export function PostEquipmentModal({
           full_name: user.user_metadata?.full_name || 'Equipment Owner',
           phone_number: user.phone || user.user_metadata?.phone_number || null,
           account_status: 'active'
-        } as any);
+        });
       }
 
       // If updating an existing listing

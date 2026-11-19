@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Star, X, CheckCircle2, AlertCircle, Loader2 } from 'lucide-react';
 import { supabase } from '../lib/supabase';
-import { getTranslation } from '../lib/translations';
+
 
 interface RateWorkerModalProps {
   isOpen: boolean;
@@ -29,7 +29,7 @@ export const RateWorkerModal: React.FC<RateWorkerModalProps> = ({
   workerId,
   workerName,
   currentUserId,
-  currentLang = 'English',
+
   existingReview = null,
   onReviewSubmitted,
 }) => {
@@ -41,7 +41,7 @@ export const RateWorkerModal: React.FC<RateWorkerModalProps> = ({
 
   if (!isOpen) return null;
 
-  const t = (key: string): string => getTranslation(currentLang, key);
+
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -106,9 +106,10 @@ export const RateWorkerModal: React.FC<RateWorkerModalProps> = ({
       }
 
       onClose();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Error submitting review:', err);
-      setErrorMsg(err.message || 'Unable to save rating. Ensure this job is completed and you hired this worker.');
+      const message = err instanceof Error ? err.message : (err && typeof err === 'object' && 'message' in err ? String(err.message) : 'Unable to save rating. Ensure this job is completed and you hired this worker.');
+      setErrorMsg(message);
     } finally {
       setIsSubmitting(false);
     }

@@ -3,6 +3,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { WorkersTab } from './WorkersTab';
 import { WorkerItem } from './WorkerDiscoveryModal';
+import type { User } from '@supabase/supabase-js';
 
 // Mock speech and translations
 vi.mock('../lib/speech', () => ({
@@ -24,13 +25,14 @@ vi.mock('../lib/geocoding', () => ({
     }
     return null;
   }),
-  calculateHaversineDistanceKm: vi.fn((lat1, lon1, lat2, lon2) => {
+  calculateHaversineDistanceKm: vi.fn((...args: number[]) => {
+    const lat2 = args[2];
     // If worker is in Pune (same coords), 0 km; if in Shirur, ~60 km; if Mumbai, ~120 km
     if (lat2 === 18.5204) return 0.0;
     if (lat2 === 18.8256) return 60.5;
     return 120.0;
   }),
-  resolveLocalityCoordinates: vi.fn((input: any) => {
+  resolveLocalityCoordinates: vi.fn((input: unknown) => {
     const str = typeof input === 'string' ? input : '';
     if (str.toLowerCase().includes('shirur')) {
       return { latitude: 18.8256, longitude: 74.3789, displayName: 'Shirur, Pune, Maharashtra' };
@@ -44,7 +46,7 @@ vi.mock('../lib/geocoding', () => ({
 
 // Mock Leaflet WorkersMapView to avoid WebGL / Canvas issues in Node environment
 vi.mock('./WorkersMapView', () => ({
-  WorkersMapView: ({ onSelectLocation, onRefreshAvailability }: any) => (
+  WorkersMapView: ({ onSelectLocation, onRefreshAvailability }: { onSelectLocation?: (lat: number, lon: number, name: string) => void; onRefreshAvailability?: () => void }) => (
     <div data-testid="mock-workers-map">
       <span>Workers Map View</span>
       <button onClick={() => onSelectLocation && onSelectLocation(18.5204, 73.8567, 'Mock Selected Point')}>
@@ -77,7 +79,7 @@ vi.mock('../lib/supabase', () => ({
 }));
 
 describe('WorkersTab - Nearby Workers Search Feature', () => {
-  const mockUser = { id: 'test-user-uuid-1', email: 'test@example.com' } as any;
+  const mockUser = { id: 'test-user-uuid-1', email: 'test@example.com' } as unknown as User;
 
   const mockWorkers: WorkerItem[] = [
     {
@@ -272,7 +274,7 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         })
       ),
     };
-    (global as any).navigator.geolocation = mockGeolocation;
+    Object.defineProperty(navigator, 'geolocation', { value: mockGeolocation, writable: true, configurable: true });
 
     render(
       <WorkersTab

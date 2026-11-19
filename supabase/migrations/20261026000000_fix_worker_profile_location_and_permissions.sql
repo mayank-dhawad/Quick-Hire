@@ -92,9 +92,7 @@ WHERE (location IS NULL OR location = '')
 UPDATE public.workers w
 SET location = COALESCE(NULLIF(w.location, ''), p.location),
     daily_wage = COALESCE(w.daily_wage, p.daily_wage),
-    experience_description = COALESCE(NULLIF(w.experience_description, ''), p.experience_description),
-    preferred_work_location = COALESCE(NULLIF(w.preferred_work_location, ''), p.preferred_work_location),
-    availability_status = COALESCE(NULLIF(w.availability_status, ''), NULLIF(p.availability_status, ''), 'available')
+    availability_status = COALESCE(NULLIF(w.availability_status, ''), 'available')
 FROM public.profiles p
 WHERE w.id = p.id;
 
