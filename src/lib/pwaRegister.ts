@@ -28,7 +28,7 @@ export function registerServiceWorker(options: PwaRegistrationOptions = {}): Pro
 
   // Register once the window finishes loading for non-blocking initial paint
   return new Promise((resolve) => {
-    window.addEventListener('load', async () => {
+    const doRegister = async () => {
       try {
         const registration = await navigator.serviceWorker.register('/sw.js', {
           scope: '/',
@@ -70,7 +70,13 @@ export function registerServiceWorker(options: PwaRegistrationOptions = {}): Pro
         console.warn('[QuickHire PWA] Service worker registration failed:', err);
         resolve(null);
       }
-    });
+    };
+
+    if (document.readyState === 'complete') {
+      doRegister();
+    } else {
+      window.addEventListener('load', doRegister);
+    }
 
     // Detect when the new service worker takes over and reload the page smoothly
     let refreshing = false;

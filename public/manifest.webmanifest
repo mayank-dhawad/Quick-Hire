@@ -1,11 +1,12 @@
 {
-  "name": "QuickHire — Rural Workforce & Agricultural Equipment Platform",
+  "id": "/",
+  "name": "QuickHire",
   "short_name": "QuickHire",
   "description": "Accessible, zero-commission rural digital public infrastructure platform connecting skilled workers, employers, and machinery rentals across India.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "orientation": "portrait-primary",
+  "orientation": "natural",
   "theme_color": "#0f2942",
   "background_color": "#fbfcf8",
   "lang": "en",
@@ -39,6 +40,12 @@
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "maskable"
+    },
+    {
+      "src": "/icons/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
     },
     {
       "src": "/favicon.svg",
@@ -99,4 +106,3 @@
   ],
   "prefer_related_applications": false
 }
-

@@ -402,13 +402,14 @@ export default function App() {
       }
 
       // 2. Resilient fallback for unmigrated, empty, or view-missing database environments
-      // Queries verified columns: workers (id, category, skills, experience_years, average_rating, is_available, location)
-      // and profiles (id, full_name, phone_number, is_assisted_profile, location, village, city, district, state, daily_wage)
+      // Queries verified columns: workers (id, category, skills, experience_years, average_rating, is_available, location, latitude, longitude)
+      // and profiles (id, full_name, is_assisted_profile, location, village, city, district, state, daily_wage, latitude, longitude)
+      // NOTE: phone_number is never fetched here to preserve worker privacy; contact numbers are retrieved via get_worker_contact_phone RPC
       let query = supabase
         .from('workers')
         .select(`
-          id, category, skills, experience_years, average_rating, is_available, location,
-          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, city, district, state, daily_wage )
+          id, category, skills, experience_years, average_rating, is_available, location, latitude, longitude, geocoded_address,
+          profiles ( id, full_name, is_assisted_profile, location, village, city, district, state, daily_wage, latitude, longitude, geocoded_address )
         `)
         .eq('is_available', true);
 
@@ -420,13 +421,13 @@ export default function App() {
       let workerRows: unknown[] | null = data;
       let error = initialError;
 
-      // If extended address/wage columns fail on older schemas, retry with minimal baseline
+      // If extended address/wage/geocode columns fail on older schemas, retry with minimal baseline
       if (error && (error.code === '42703' || String(error.message).includes('column'))) {
         let minimalQuery = supabase
           .from('workers')
           .select(`
-            id, category, skills, experience_years, average_rating, is_available, location,
-            profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state )
+            id, category, skills, experience_years, average_rating, is_available, location, latitude, longitude,
+            profiles ( id, full_name, is_assisted_profile, location, village, district, state, latitude, longitude )
           `)
           .eq('is_available', true);
 
@@ -478,10 +479,11 @@ export default function App() {
             is_available: row.is_available,
             latitude: lat,
             longitude: lon,
+            geocoded_address: (row.geocoded_address as string) || (prof.geocoded_address as string) || null,
             profiles: {
               id: prof.id || row.id,
               full_name: prof.full_name || null,
-              phone_number: prof.phone_number || null,
+              phone_number: null, // Protected: retrieved exclusively via authorized get_worker_contact_phone RPC
               is_assisted_profile: prof.is_assisted_profile ?? false,
               location: compositeLoc,
               village: prof.village || null,
@@ -490,6 +492,7 @@ export default function App() {
               state: prof.state || null,
               latitude: lat,
               longitude: lon,
+              geocoded_address: (prof.geocoded_address as string) || (row.geocoded_address as string) || null,
             },
           };
         });
@@ -1789,19 +1792,19 @@ export default function App() {
 
       {/* LAYER 1: TOP TRICOLOR & GIGW ACCESSIBILITY STRIP */}
       <div className="bg-slate-900 text-white text-xs py-1.5 border-t-4 border-t-[#FF9933] shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-2 text-[11px] sm:text-xs">
-            <span className="flex items-center gap-1">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 text-[11px] sm:text-xs min-w-0">
+            <span className="flex items-center gap-1 shrink-0">
               <span className="w-2 h-2 rounded-full bg-[#FF9933]" />
               <span className="w-2 h-2 rounded-full bg-[#FFFFFF]" />
               <span className="w-2 h-2 rounded-full bg-[#138808]" />
             </span>
-            <span className="font-semibold text-slate-200">
+            <span className="font-semibold text-slate-200 truncate">
               ग्रामीण रोजगार एवं श्रम कल्याण पोर्टल | Rural Employment & Workforce Welfare Initiative — Direct 0% Commission Platform
             </span>
           </div>
 
-          <div className="flex items-center gap-3 text-[11px] shrink-0">
+          <div className="flex items-center gap-2 sm:gap-3 text-[11px] shrink-0">
             {/* Skip to Main Content */}
             <a
               href="#main-content"
@@ -1811,7 +1814,7 @@ export default function App() {
             </a>
 
             {/* Font Size Accessibility Controls */}
-            <div className="flex items-center gap-1 bg-slate-800 px-2 py-0.5 rounded border border-slate-700">
+            <div className="flex items-center gap-1 bg-slate-800 px-1.5 sm:px-2 py-0.5 rounded border border-slate-700">
               <span className="text-[10px] text-slate-400 font-semibold mr-1 hidden sm:inline">Font:</span>
               <button
                 onClick={() => setFontSizeZoom('normal')}
@@ -1855,30 +1858,31 @@ export default function App() {
               className="flex items-center gap-1 text-amber-300 hover:text-amber-200 font-bold tracking-wide"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span>Toll-Free: 1800-180-1551</span>
+              <span className="hidden sm:inline">Toll-Free: 1800-180-1551</span>
+              <span className="sm:hidden">1800-180-1551</span>
             </a>
           </div>
         </div>
       </div>
 
       {/* LAYER 2: INSTITUTIONAL BRANDING BAR */}
-      <div className="bg-white border-b border-slate-200 py-3.5 w-full shadow-2xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
+      <div className="bg-white border-b border-slate-200 py-3 sm:py-3.5 w-full shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-3 sm:gap-4">
           {/* Left: Formal Emblem & Institutional Title */}
           <div
             onClick={() => setActiveTab('home')}
-            className="flex items-center gap-3 cursor-pointer group shrink-0"
+            className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0 min-w-0"
           >
-            <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0f2942] to-[#1a3d60] text-white flex flex-col items-center justify-center shadow-md border-2 border-[#FF9933]/60 group-hover:scale-105 transition-transform">
-              <Landmark className="w-5 h-5 text-amber-300" />
+            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#0f2942] to-[#1a3d60] text-white flex flex-col items-center justify-center shadow-md border-2 border-[#FF9933]/60 group-hover:scale-105 transition-transform shrink-0">
+              <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
               <span className="text-[7px] font-black tracking-widest uppercase text-emerald-300">DPI</span>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
+            <div className="min-w-0">
+              <div className="flex items-center gap-1.5 sm:gap-2">
                 <span className="font-heading font-black text-xl sm:text-2xl tracking-tight text-[#0f2942]">
                   Quick<span className="text-[#138808]">Hire</span>
                 </span>
-                <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-sm bg-[#0f2942] text-white">
+                <span className="text-[9px] sm:text-[10px] uppercase font-extrabold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-sm bg-[#0f2942] text-white">
                   Portal
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
@@ -1886,7 +1890,7 @@ export default function App() {
                   Direct Benefit & Wage Settlement
                 </span>
               </div>
-              <p className="text-[11px] sm:text-xs text-slate-600 font-medium">
+              <p className="text-[11px] sm:text-xs text-slate-600 font-medium hidden sm:block">
                 Rural Workforce, Skill Discovery & Agricultural Equipment Platform (Independent DPI Initiative)
               </p>
             </div>
@@ -1899,7 +1903,7 @@ export default function App() {
             <div className="relative shrink-0">
               <button
                 onClick={() => setLangMenuOpen(!langMenuOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 transition-colors shadow-2xs"
+                className="flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 transition-colors shadow-2xs"
               >
                 <Globe2 className="w-4 h-4 text-[#0f2942]" />
                 <span className="hidden sm:inline">{currentLang}</span>
@@ -1955,11 +1959,11 @@ export default function App() {
               )
             )}
 
-            {/* Worker Profile Button - Only for non-admin users */}
+            {/* Worker Profile Button - non-admin users */}
             {user && userRole !== 'admin' && (
               <button
                 onClick={() => setIsWorkerProfileOpen(true)}
-                className="px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 hover:bg-emerald-100 text-[#138808] border border-emerald-300 transition-colors flex items-center gap-1.5 whitespace-nowrap"
+                className="hidden sm:flex px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 hover:bg-emerald-100 text-[#138808] border border-emerald-300 transition-colors items-center gap-1.5 whitespace-nowrap"
               >
                 <UserCheck className="w-3.5 h-3.5 text-[#138808]" />
                 <span className="hidden md:inline">Worker Profile</span>
@@ -1975,7 +1979,7 @@ export default function App() {
                   navigateTo('/admin');
                   setAppRoute('admin-overview');
                 }}
-                className="px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all flex items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                className="hidden sm:flex px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-white" />
                 <span>Admin Dashboard</span>
@@ -1998,14 +2002,14 @@ export default function App() {
             {user ? (
               <button
                 onClick={handleLogout}
-                className="px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors whitespace-nowrap"
+                className="px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-semibold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-colors whitespace-nowrap"
               >
                 {t('logout')}
               </button>
             ) : (
               <button
                 onClick={() => setIsLoginOpen(true)}
-                className="px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#0f2942] hover:bg-[#1a3d60] text-white transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+                className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#0f2942] hover:bg-[#1a3d60] text-white transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Phone className="w-3.5 h-3.5" />
                 <span>{t('login')}</span>
@@ -2015,8 +2019,9 @@ export default function App() {
             {/* Mobile menu trigger */}
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100"
+              className="lg:hidden p-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 min-w-[42px] min-h-[42px] flex items-center justify-center cursor-pointer"
               title="Toggle mobile menu"
+              aria-label="Toggle navigation menu"
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
@@ -2126,102 +2131,182 @@ export default function App() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="lg:hidden border-t border-slate-700 bg-[#0f2942] px-4 py-3 space-y-1.5 shadow-lg overflow-hidden text-white"
+              className="lg:hidden border-t border-slate-700 bg-[#0f2942] px-4 py-4 space-y-3 shadow-2xl overflow-hidden text-white"
             >
-              <button
-                onClick={() => {
-                  setActiveTab('home');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'home' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-              >
-                <span>🏛️</span>
-                <span>{t('tabHome')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('workers');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'workers' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-              >
-                <span>👥</span>
-                <span>{t('tabWorkers')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('equipment');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'equipment' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-              >
-                <span>🚜</span>
-                <span>{t('tabEquipment')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('post-job');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'post-job' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-              >
-                <span>📋</span>
-                <span>{t('tabPostJob')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('my-jobs');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'my-jobs' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-              >
-                <div className="flex items-center gap-3">
-                  <span>📊</span>
-                  <span>{t('tabMyJobs')}</span>
+              {/* MOBILE ACCOUNT & IDENTITY CARD */}
+              {user ? (
+                <div className="bg-slate-800/90 rounded-2xl p-3.5 border border-slate-700/80 space-y-2.5">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2.5">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 text-white font-bold flex items-center justify-center text-sm shadow-xs shrink-0">
+                        {user.user_metadata?.full_name ? String(user.user_metadata.full_name).charAt(0).toUpperCase() : (user.email ? user.email.charAt(0).toUpperCase() : 'C')}
+                      </div>
+                      <div className="min-w-0">
+                        <div className="font-bold text-xs sm:text-sm text-white truncate max-w-[170px] sm:max-w-none">
+                          {user.user_metadata?.full_name || user.email || user.phone || 'Citizen Account'}
+                        </div>
+                        <div className="text-[10px] text-emerald-400 font-medium">
+                          {userRole === 'admin'
+                            ? '🛡️ Super Admin'
+                            : userRole === 'employer'
+                            ? '🏢 Employer / नियोक्ता'
+                            : '👷 Worker / कामगार'}
+                        </div>
+                      </div>
+                    </div>
+
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-950 text-emerald-300 border border-emerald-500/40 shrink-0">
+                      Logged In
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 pt-1 border-t border-slate-700/60">
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setIsWorkerProfileOpen(true);
+                      }}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
+                      <span>Profile</span>
+                    </button>
+                    <button
+                      onClick={() => {
+                        setMobileMenuOpen(false);
+                        setActiveTab('my-jobs');
+                      }}
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-[#FF9933]/20 hover:bg-[#FF9933]/30 text-[#FF9933] border border-[#FF9933]/40 transition-colors flex items-center justify-center gap-1.5"
+                    >
+                      <span>📊 Dashboard</span>
+                    </button>
+                  </div>
                 </div>
-                {myPostedJobs.length > 0 && (
-                  <span className="w-5 h-5 rounded-full bg-[#FF9933] text-slate-900 text-[10px] font-black flex items-center justify-center">
-                    {myPostedJobs.length}
-                  </span>
-                )}
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('bank');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'bank' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-              >
-                <span>🏦</span>
-                <span>{t('tabBank')}</span>
-              </button>
-              <button
-                onClick={() => {
-                  setActiveTab('safety');
-                  setMobileMenuOpen(false);
-                }}
-                className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'safety' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
-                  }`}
-              >
-                <span>🛡️</span>
-                <span>{t('tabSafety')}</span>
-              </button>
-              {user && (
+              ) : (
+                <div className="bg-gradient-to-r from-slate-800 to-slate-800/90 rounded-2xl p-3.5 border border-slate-700/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-200">अतिथि नागरिक / Guest Citizen</span>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
+                      Not Signed In
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-400">
+                    Sign in with phone or email to apply for jobs, hire workers, or view direct payments.
+                  </p>
+                  <button
+                    onClick={() => {
+                      setMobileMenuOpen(false);
+                      setIsLoginOpen(true);
+                    }}
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FF9933] to-[#e68a2e] text-slate-900 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                  >
+                    <Phone className="w-3.5 h-3.5 text-slate-900" />
+                    <span>Login / Register Account</span>
+                  </button>
+                </div>
+              )}
+
+              {/* NAVIGATION TABS */}
+              <div className="space-y-1 pt-1">
                 <button
                   onClick={() => {
-                    setIsWorkerProfileOpen(true);
+                    setActiveTab('home');
                     setMobileMenuOpen(false);
                   }}
-                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-950/60 text-emerald-300 border border-emerald-600/50 hover:bg-emerald-900/60 transition-colors"
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'home' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                    }`}
                 >
-                  <UserCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Citizen Profile & Settings</span>
+                  <span>🏛️</span>
+                  <span>{t('tabHome')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('workers');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'workers' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                    }`}
+                >
+                  <span>👥</span>
+                  <span>{t('tabWorkers')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('equipment');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'equipment' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                    }`}
+                >
+                  <span>🚜</span>
+                  <span>{t('tabEquipment')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('post-job');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'post-job' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                    }`}
+                >
+                  <span>📋</span>
+                  <span>{t('tabPostJob')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('my-jobs');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'my-jobs' || activeTab === 'dashboard' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                    }`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span>📊</span>
+                    <span>{t('tabMyJobs')}</span>
+                  </div>
+                  {myPostedJobs.length > 0 && (
+                    <span className="w-5 h-5 rounded-full bg-[#FF9933] text-slate-900 text-[10px] font-black flex items-center justify-center">
+                      {myPostedJobs.length}
+                    </span>
+                  )}
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('bank');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'bank' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                    }`}
+                >
+                  <span>🏦</span>
+                  <span>{t('tabBank')}</span>
+                </button>
+                <button
+                  onClick={() => {
+                    setActiveTab('safety');
+                    setMobileMenuOpen(false);
+                  }}
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'safety' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                    }`}
+                >
+                  <span>🛡️</span>
+                  <span>{t('tabSafety')}</span>
+                </button>
+              </div>
+
+              {/* Admin Portal Shortcut in Mobile Drawer */}
+              {userRole === 'admin' && (
+                <button
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    sessionStorage.removeItem('quickhire_admin_preview_citizen');
+                    navigateTo('/admin');
+                    setAppRoute('admin-overview');
+                  }}
+                  className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-600/50 hover:bg-emerald-800/60 transition-colors"
+                >
+                  <ShieldCheck className="w-4 h-4 text-emerald-400" />
+                  <span>Admin Governance Suite</span>
                 </button>
               )}
 
@@ -2685,6 +2770,80 @@ export default function App() {
         </div>
       </footer>
 
+      {/* MOBILE BOTTOM NAVIGATION BAR (FIXED ON SCREEN BOTTOM FOR EASY 1-THUMB NAVIGATION) */}
+      <nav
+        aria-label="Mobile Navigation"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0f2942]/95 backdrop-blur-md border-t border-[#FF9933]/50 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.25)]"
+      >
+        <div className="grid grid-cols-5 h-16 items-center px-1">
+          {/* 1. Home */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('home')}
+            className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
+              activeTab === 'home' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <span className="text-lg leading-none">🏛️</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">Home</span>
+          </button>
+
+          {/* 2. Workers */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('workers')}
+            className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
+              activeTab === 'workers' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <span className="text-lg leading-none">👥</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">Workers</span>
+          </button>
+
+          {/* 3. Equipment */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('equipment')}
+            className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
+              activeTab === 'equipment' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <span className="text-lg leading-none">🚜</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">Equipment</span>
+          </button>
+
+          {/* 4. Post Job */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('post-job')}
+            className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
+              activeTab === 'post-job' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <span className="text-lg leading-none">📋</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">Post Job</span>
+          </button>
+
+          {/* 5. Dashboard / Account */}
+          <button
+            type="button"
+            onClick={() => setActiveTab('my-jobs')}
+            className={`flex flex-col items-center justify-center h-full py-1 transition-colors relative cursor-pointer ${
+              activeTab === 'my-jobs' || activeTab === 'dashboard'
+                ? 'text-[#FF9933] font-bold'
+                : 'text-slate-300 hover:text-white'
+            }`}
+          >
+            <span className="text-lg leading-none">📊</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">Dashboard</span>
+            {myPostedJobs.length > 0 && (
+              <span className="absolute top-2 right-3 w-4 h-4 rounded-full bg-[#FF9933] text-slate-900 text-[9px] font-black flex items-center justify-center">
+                {myPostedJobs.length}
+              </span>
+            )}
+          </button>
+        </div>
+      </nav>
 
       {/* FLOATING ACCESSIBLE VOICE HELPER */}
       <AccessibleVoiceBar activeTab={activeTab} currentLang={currentLang} />

@@ -61,7 +61,7 @@ export function AccessibleVoiceBar({ activeTab, currentLang }: AccessibleVoiceBa
   return (
     <aside
       aria-label="Audio Accessibility Companion"
-      className="fixed bottom-4 right-4 z-40 max-w-sm"
+      className="fixed bottom-20 md:bottom-4 right-3 sm:right-4 z-30 max-w-[calc(100vw-24px)] sm:max-w-sm"
     >
       <div className="bg-white/95 backdrop-blur-md border border-slate-200/90 shadow-xl rounded-2xl p-2.5 sm:p-3 transition-all duration-200 flex flex-col gap-2">
         {/* TOP BAR / TOGGLE */}

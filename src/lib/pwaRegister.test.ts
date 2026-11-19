@@ -66,5 +66,34 @@ describe('pwaRegister utility', () => {
     expect(result).toBe(true);
     expect(mockUnregister).toHaveBeenCalled();
   });
+
+  it('registers immediately if document.readyState is already complete', async () => {
+    const mockRegister = vi.fn().mockResolvedValue({
+      addEventListener: vi.fn(),
+      waiting: null,
+      installing: null,
+      scope: '/',
+    });
+
+    Object.defineProperty(global.navigator, 'serviceWorker', {
+      value: {
+        register: mockRegister,
+        addEventListener: vi.fn(),
+      },
+      writable: true,
+      configurable: true,
+    });
+
+    // Mock document.readyState as 'complete'
+    Object.defineProperty(document, 'readyState', {
+      value: 'complete',
+      writable: true,
+      configurable: true,
+    });
+
+    const reg = await registerServiceWorker();
+    expect(mockRegister).toHaveBeenCalledWith('/sw.js', { scope: '/' });
+    expect(reg).toBeTruthy();
+  });
 });
 
