@@ -1,15 +1,15 @@
 /**
  * QuickHire Production Service Worker
- * Version: 1.0.0
+ * Version: 1.1.0
  * 
  * Strategy:
  * 1. Network-Only for all Supabase API, authentication, database mutations, and sensitive endpoints.
- * 2. Network-First with Offline Fallback for HTML navigations.
+ * 2. Network-First with SPA Shell Cache Fallback for HTML navigations.
  * 3. Cache-First (with network refresh) for versioned static assets (JS, CSS, icons, fonts).
  * 4. Stale-While-Revalidate for local app shell assets.
  */
 
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.1.0';
 const PRECACHE_NAME = `quickhire-precache-${CACHE_VERSION}`;
 const RUNTIME_CACHE_NAME = `quickhire-runtime-${CACHE_VERSION}`;
 
@@ -19,7 +19,9 @@ const PRECACHE_URLS = [
   '/index.html',
   '/offline.html',
   '/manifest.webmanifest',
+  '/manifest.json',
   '/favicon.svg',
+  '/icons/favicon-32.png',
   '/icons/icon-192.png',
   '/icons/icon-512.png',
   '/icons/icon-maskable-192.png',
@@ -121,28 +123,36 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // C. HTML Navigation Requests: Network-First with Offline Fallback
+  // C. HTML Navigation Requests: Network-First with SPA Shell Fallback
   if (request.mode === 'navigate') {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          // If network returns a valid page, update the precache for '/'
+          // If network returns a valid page, update the precache for index.html & root
           if (response && response.status === 200) {
             const responseClone = response.clone();
             caches.open(PRECACHE_NAME).then((cache) => {
-              cache.put(request, responseClone);
+              cache.put('/index.html', responseClone);
             });
           }
           return response;
         })
         .catch(async () => {
-          // Offline fallback: try to serve cached root or offline.html
+          // SPA offline fallback: Match exact request, then /index.html, then /
           const cache = await caches.open(PRECACHE_NAME);
-          const cachedRoot = await cache.match(request);
-          if (cachedRoot) return cachedRoot;
-          
+          const cachedIndex =
+            (await cache.match(request)) ||
+            (await cache.match('/index.html')) ||
+            (await cache.match('/'));
+
+          if (cachedIndex) {
+            return cachedIndex;
+          }
+
           const offlinePage = await cache.match('/offline.html');
-          if (offlinePage) return offlinePage;
+          if (offlinePage) {
+            return offlinePage;
+          }
 
           return new Response('Offline — Please check your network connection.', {
             status: 503,

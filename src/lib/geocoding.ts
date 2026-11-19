@@ -302,3 +302,78 @@ export function resolveLocalityCoordinates(
   }
   return null;
 }
+
+export interface PreferredLocation {
+  lat: number;
+  lon: number;
+  label: string;
+  radiusKm?: number;
+  updatedAt?: number;
+  isGps?: boolean;
+}
+
+const PREFERRED_LOC_KEY = 'quickhire_employer_preferred_location';
+const RECENT_LOCS_KEY = 'quickhire_recent_search_locations';
+
+export function getSavedPreferredLocation(): PreferredLocation | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(PREFERRED_LOC_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw);
+    if (typeof parsed?.lat === 'number' && typeof parsed?.lon === 'number' && parsed.label) {
+      return parsed;
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
+
+export function savePreferredLocation(loc: PreferredLocation | null): void {
+  if (typeof window === 'undefined') return;
+  try {
+    if (loc === null) {
+      localStorage.removeItem(PREFERRED_LOC_KEY);
+    } else {
+      localStorage.setItem(PREFERRED_LOC_KEY, JSON.stringify({ ...loc, updatedAt: Date.now() }));
+    }
+  } catch {
+    // ignore
+  }
+}
+
+export function getRecentLocations(): PreferredLocation[] {
+  if (typeof window === 'undefined') return [];
+  try {
+    const raw = localStorage.getItem(RECENT_LOCS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) {
+        return parsed.slice(0, 5);
+      }
+    }
+  } catch {
+    // ignore
+  }
+  // Default rural hubs if no recent searches yet
+  return [
+    { lat: 18.5204, lon: 73.8567, label: 'Pune, Maharashtra' },
+    { lat: 21.1458, lon: 79.0882, label: 'Nagpur, Maharashtra' },
+    { lat: 18.1517, lon: 74.5772, label: 'Baramati, Pune' },
+    { lat: 19.9975, lon: 73.7898, label: 'Nashik, Maharashtra' },
+  ];
+}
+
+export function saveRecentLocation(loc: PreferredLocation): void {
+  if (typeof window === 'undefined') return;
+  try {
+    const recents = getRecentLocations().filter(
+      (r) => Math.abs(r.lat - loc.lat) > 0.005 || Math.abs(r.lon - loc.lon) > 0.005
+    );
+    recents.unshift(loc);
+    localStorage.setItem(RECENT_LOCS_KEY, JSON.stringify(recents.slice(0, 5)));
+  } catch {
+    // ignore
+  }
+}

@@ -44,6 +44,7 @@ vi.mock('../lib/supabase', () => {
         getSession: vi.fn().mockResolvedValue({ data: { session: null }, error: null }),
       },
       from: vi.fn(),
+      rpc: vi.fn(),
     },
   };
 });
@@ -231,5 +232,98 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
     });
 
     consoleWarnSpy.mockRestore();
+  });
+
+  it('invokes get_worker_contact_phone RPC and sanitizes authorization error upon calling worker', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValue({
+      data: { session: { user: mockUser } as unknown as Session },
+      error: null,
+    });
+
+    const mockWorkers = [
+      {
+        id: 'worker-101',
+        category: 'Agriculture',
+        skills: ['Tractor Driving'],
+        experience_years: 5,
+        daily_wage: 600,
+        experience_description: 'Skilled in tractor repair and harvesting',
+        preferred_work_location: 'Nashik',
+        is_available: true,
+        average_rating: 4.8,
+        latitude: 19.9975,
+        longitude: 73.7898,
+        full_name: 'Pandurang Jadhav',
+        is_assisted_profile: false,
+        location: 'Nashik, Maharashtra',
+        village: 'Ozar',
+        city: 'Nashik',
+        district: 'Nashik',
+        state: 'Maharashtra',
+      },
+    ];
+
+    vi.mocked(supabase.from).mockImplementation(((table: string) => {
+      if (table === 'public_worker_directory') {
+        return {
+          select: vi.fn().mockReturnValue({
+            then: vi.fn((resolve: (val: unknown) => void) => resolve({ data: mockWorkers, error: null })),
+          }),
+        };
+      }
+      return { select: vi.fn() };
+    }) as unknown as typeof supabase.from);
+
+    vi.mocked(supabase.rpc).mockResolvedValueOnce({
+      data: null,
+      error: {
+        code: '42501',
+        message: 'Only authorized employers, admins, or the worker can access this contact.',
+        details: '',
+        hint: '',
+        name: 'PostgrestError',
+      },
+      count: null,
+      status: 403,
+      statusText: 'Forbidden',
+    } as unknown as Awaited<ReturnType<typeof supabase.rpc>>);
+
+    render(
+      <WorkerDiscoveryModal
+        isOpen={true}
+        onClose={vi.fn()}
+        initialCategory="All"
+        initialSkillSearch=""
+        user={mockUser}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Pandurang Jadhav')).toBeInTheDocument();
+    });
+
+    // Select worker card to view details
+    fireEvent.click(screen.getByText('Pandurang Jadhav'));
+
+    // Verify "Call Worker" button is shown (not raw phone)
+    const callBtn = await screen.findByRole('button', { name: /Call/i });
+    expect(callBtn).toBeInTheDocument();
+
+    // Click Call Worker
+    fireEvent.click(callBtn);
+
+    await waitFor(() => {
+      expect(supabase.rpc).toHaveBeenCalledWith('get_worker_contact_phone', {
+        p_worker_id: 'worker-101',
+      });
+      // Friendly Option 3 authorization message is displayed
+      expect(
+        screen.getByText('You need an existing job connection with this worker to access their contact number.')
+      ).toBeInTheDocument();
+    });
+
+    // Ensure raw error message and DB error code are NOT leaked
+    expect(screen.queryByText(/Only authorized employers/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/42501/)).not.toBeInTheDocument();
   });
 });

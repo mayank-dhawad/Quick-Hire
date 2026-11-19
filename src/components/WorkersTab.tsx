@@ -9,7 +9,6 @@ import {
   Star,
   CheckCircle2,
   Award,
-  PhoneCall,
   Phone,
   Landmark,
   Sparkles,
@@ -24,14 +23,20 @@ import {
   Crosshair,
   AlertCircle,
   RefreshCw,
-  Lock
+  Lock,
+  History,
 } from 'lucide-react';
 import { WorkerItem } from './WorkerDiscoveryModal';
 import { WorkersMapView } from './WorkersMapView';
 import {
   geocodeAddress,
   calculateHaversineDistanceKm,
-  resolveLocalityCoordinates
+  resolveLocalityCoordinates,
+  getSavedPreferredLocation,
+  savePreferredLocation,
+  getRecentLocations,
+  saveRecentLocation,
+  PreferredLocation,
 } from '../lib/geocoding';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
@@ -85,6 +90,32 @@ export function WorkersTab({
   const [showMapView, setShowMapView] = React.useState<boolean>(false);
   const [selectedWorkerId, setSelectedWorkerId] = React.useState<string | null>(null);
 
+  // Preferred Location & Recent History State
+  const [recentLocations, setRecentLocations] = React.useState<PreferredLocation[]>(() => {
+    try {
+      return getRecentLocations();
+    } catch {
+      return [];
+    }
+  });
+  const [customRadiusInput, setCustomRadiusInput] = React.useState<string>('');
+  const [isCustomRadius, setIsCustomRadius] = React.useState<boolean>(false);
+
+  // Restore saved preferred location on initial load if available
+  React.useEffect(() => {
+    try {
+      const saved = getSavedPreferredLocation();
+      if (saved && saved.lat && saved.lon) {
+        setSearchCoords({ lat: saved.lat, lon: saved.lon, label: saved.label });
+        setJobLocationInput(saved.label);
+        setSelectedRadiusKm(saved.radiusKm || 25);
+        setSortByNearest(true);
+      }
+    } catch (e) {
+      console.warn('[QuickHire] Could not load saved preferred location:', e);
+    }
+  }, []);
+
   // Secure Worker Contact State
   const [workerPhones, setWorkerPhones] = React.useState<Record<string, string>>({});
   const [callingWorkerId, setCallingWorkerId] = React.useState<string | null>(null);
@@ -94,8 +125,11 @@ export function WorkersTab({
   const [postCallWorker, setPostCallWorker] = React.useState<DirectHireWorkerInfo | null>(null);
   const [isPostCallOpen, setIsPostCallOpen] = React.useState<boolean>(false);
 
-  const handleCallWorker = async (workerId: string, initialPhone?: string | null) => {
-    const existing = initialPhone || workerPhones[workerId];
+  const handleCallWorker = async (workerId: string) => {
+    if (callingWorkerId) return;
+
+    // Check if worker contact was already authorized and retrieved in this session
+    const existing = workerPhones[workerId];
     if (existing) {
       const target = filteredWorkers.find((w) => w.id === workerId);
       if (target && user) {
@@ -114,10 +148,12 @@ export function WorkersTab({
       window.location.href = `tel:${existing}`;
       return;
     }
+
     if (!user) {
       onRequireLogin();
       return;
     }
+
     setCallingWorkerId(workerId);
     setCallError(null);
     try {
@@ -125,10 +161,23 @@ export function WorkersTab({
         p_worker_id: workerId,
       });
       if (error) {
-        setCallError({
-          workerId,
-          message: error.message || 'Unable to retrieve worker contact number.',
-        });
+        if (error.code === 'P0001' || (error.message && error.message.toLowerCase().includes('limit'))) {
+          setCallError({
+            workerId,
+            message: 'Daily contact limit reached (15 calls per 24 hours). Please try again tomorrow.',
+          });
+        } else if (error.code === 'P0002' || (error.message && error.message.toLowerCase().includes('not available'))) {
+          setCallError({
+            workerId,
+            message: 'Worker contact number is currently not available.',
+          });
+        } else {
+          // Clean Option 3 authorization message (never leak raw error.message or DB internals)
+          setCallError({
+            workerId,
+            message: 'You need an existing job connection with this worker to access their contact number.',
+          });
+        }
         return;
       }
       const contactData = data as { phone_number?: string } | null;
@@ -150,11 +199,16 @@ export function WorkersTab({
           setIsPostCallOpen(true);
         }
         window.location.href = `tel:${retrievedPhone}`;
+      } else {
+        setCallError({
+          workerId,
+          message: 'Worker contact number is currently not available.',
+        });
       }
-    } catch (err: unknown) {
+    } catch {
       setCallError({
         workerId,
-        message: err instanceof Error ? err.message : 'Network error retrieving contact details.',
+        message: 'You need an existing job connection with this worker to access their contact number.',
       });
     } finally {
       setCallingWorkerId(null);
@@ -173,15 +227,24 @@ export function WorkersTab({
       (position) => {
         const lat = Number(position.coords.latitude.toFixed(4));
         const lon = Number(position.coords.longitude.toFixed(4));
+        const activeRadius = selectedRadiusKm || 50;
+        const targetLoc: PreferredLocation = {
+          lat,
+          lon,
+          label: 'Your Current Location',
+          radiusKm: activeRadius,
+          isGps: true,
+        };
         setSearchCoords({
           lat,
           lon,
           label: 'Your Current Location',
         });
-        setSelectedRadiusKm((prev) => prev || 50);
+        setSelectedRadiusKm(activeRadius);
         setSortByNearest(true);
         setShowMapView(true);
         setIsLocatingGps(false);
+        savePreferredLocation(targetLoc);
       },
       (err) => {
         setIsLocatingGps(false);
@@ -201,40 +264,58 @@ export function WorkersTab({
     if (e) e.preventDefault();
     const clean = jobLocationInput.trim();
     if (!clean) {
-      setSearchCoords(null);
-      setSelectedRadiusKm(null);
-      setSortByNearest(false);
+      handleClearLocation();
       return;
     }
 
     setIsLocating(true);
     setGpsError(null);
     try {
+      const activeRadius = selectedRadiusKm || 50;
+
       // 1. Check instant offline locality centroid cache first (0ms latency)
       const offlineCentroid = resolveLocalityCoordinates(clean);
       if (offlineCentroid) {
-        setSearchCoords({
+        const targetLoc: PreferredLocation = {
           lat: offlineCentroid.latitude,
           lon: offlineCentroid.longitude,
           label: offlineCentroid.displayName.split(',')[0] || clean,
+          radiusKm: activeRadius,
+        };
+        setSearchCoords({
+          lat: targetLoc.lat,
+          lon: targetLoc.lon,
+          label: targetLoc.label,
         });
-        setSelectedRadiusKm((prev) => prev || 50);
+        setSelectedRadiusKm(activeRadius);
         setSortByNearest(true);
         setShowMapView(true);
+        savePreferredLocation(targetLoc);
+        saveRecentLocation(targetLoc);
+        setRecentLocations(getRecentLocations());
         return;
       }
 
       // 2. Throttled Nominatim geocoding
       const res = await geocodeAddress(clean);
       if (res) {
-        setSearchCoords({
+        const targetLoc: PreferredLocation = {
           lat: res.latitude,
           lon: res.longitude,
           label: res.displayName.split(',')[0] || clean,
+          radiusKm: activeRadius,
+        };
+        setSearchCoords({
+          lat: targetLoc.lat,
+          lon: targetLoc.lon,
+          label: targetLoc.label,
         });
-        setSelectedRadiusKm((prev) => prev || 50);
+        setSelectedRadiusKm(activeRadius);
         setSortByNearest(true);
         setShowMapView(true);
+        savePreferredLocation(targetLoc);
+        saveRecentLocation(targetLoc);
+        setRecentLocations(getRecentLocations());
       } else {
         alert('Could not find geographic coordinates for: "' + clean + '". Please check spelling (e.g. Village, District).');
       }
@@ -249,15 +330,89 @@ export function WorkersTab({
     setJobLocationInput('');
     setSearchCoords(null);
     setSelectedRadiusKm(null);
+    setIsCustomRadius(false);
+    setCustomRadiusInput('');
     setSortByNearest(false);
     setGpsError(null);
+    savePreferredLocation(null);
   };
 
+  // 1. Synchronize search query with map location when a city/locality is searched
+  React.useEffect(() => {
+    const q = searchQuery.trim();
+    if (!q) return;
+
+    const activeRadius = selectedRadiusKm || 25;
+
+    // Instant offline dictionary check for cities / rural centres (e.g. "Nagpur", "Nagpur, Maharashtra", "Pune")
+    const centroid = resolveLocalityCoordinates(q);
+    if (centroid) {
+      const targetLoc: PreferredLocation = {
+        lat: centroid.latitude,
+        lon: centroid.longitude,
+        label: centroid.displayName,
+        radiusKm: activeRadius,
+      };
+      setSearchCoords((prev) => {
+        if (
+          prev &&
+          Math.abs(prev.lat - centroid.latitude) < 0.001 &&
+          Math.abs(prev.lon - centroid.longitude) < 0.001
+        ) {
+          return prev;
+        }
+        return {
+          lat: centroid.latitude,
+          lon: centroid.longitude,
+          label: centroid.displayName,
+        };
+      });
+      setSelectedRadiusKm(activeRadius);
+      setSortByNearest(true);
+      setShowMapView(true);
+      savePreferredLocation(targetLoc);
+      saveRecentLocation(targetLoc);
+      setRecentLocations(getRecentLocations());
+      return;
+    }
+
+    // Debounced fallback for address/locality names via geocodeAddress
+    const timer = setTimeout(async () => {
+      if (q.includes(',') || /\b(district|dist|taluka|village|city|state|road|camp)\b/i.test(q)) {
+        const res = await geocodeAddress(q);
+        if (res) {
+          const targetLoc: PreferredLocation = {
+            lat: res.latitude,
+            lon: res.longitude,
+            label: res.displayName.split(',')[0] || q,
+            radiusKm: activeRadius,
+          };
+          setSearchCoords({
+            lat: res.latitude,
+            lon: res.longitude,
+            label: targetLoc.label,
+          });
+          setSelectedRadiusKm(activeRadius);
+          setSortByNearest(true);
+          setShowMapView(true);
+          savePreferredLocation(targetLoc);
+          saveRecentLocation(targetLoc);
+          setRecentLocations(getRecentLocations());
+        }
+      }
+    }, 700);
+
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery]);
+
   // Compute processed worker list with distances, radius filtering, and sorting
+  // STRICT CONSTRAINT: Only valid, verified numeric coordinates generate map markers.
+  // Never invent coordinates using city names, PIN-code assumptions, or locality-centroid guessing.
   const processedWorkers = React.useMemo(() => {
     return filteredWorkers
       .map((w) => {
-        // Resolve worker coordinates from worker record, profile, or known rural locality
+        // Resolve worker coordinates strictly from verified database fields
         const lat =
           w.latitude !== null && w.latitude !== undefined && !isNaN(Number(w.latitude)) && Number(w.latitude) !== 0
             ? Number(w.latitude)
@@ -273,7 +428,6 @@ export function WorkersTab({
             : null;
 
         // Genuine coordinates only — no guessed or invented centroid coordinates
-
         let distanceKm: number | null = null;
         if (searchCoords && lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon)) {
           distanceKm = calculateHaversineDistanceKm(searchCoords.lat, searchCoords.lon, lat, lon);
@@ -288,6 +442,7 @@ export function WorkersTab({
       })
       .filter((w) => {
         // If radius is active and search coords are set, filter by distance
+        // Workers without verified coordinates MUST NOT appear in radius results
         if (searchCoords && selectedRadiusKm !== null) {
           if (w.distance_km === null) return false;
           return w.distance_km <= selectedRadiusKm;
@@ -407,7 +562,14 @@ export function WorkersTab({
             />
             {searchQuery && (
               <button
-                onClick={() => onSearchQueryChange('')}
+                onClick={() => {
+                  onSearchQueryChange('');
+                  if (!jobLocationInput.trim()) {
+                    setSearchCoords(null);
+                    setSelectedRadiusKm(null);
+                    setSortByNearest(false);
+                  }
+                }}
                 className="text-xs text-slate-400 hover:text-slate-600 font-bold px-1.5 cursor-pointer"
               >
                 Clear
@@ -540,6 +702,58 @@ export function WorkersTab({
             </div>
           )}
 
+          {/* RECENT SEARCH LOCATIONS */}
+          {recentLocations.length > 0 && (
+            <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs no-scrollbar">
+              <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 shrink-0">
+                <History className="w-3 h-3 text-slate-400" />
+                <span>Recent:</span>
+              </span>
+              {recentLocations.slice(0, 6).map((loc, idx) => (
+                <button
+                  key={`${loc.label}-${idx}`}
+                  type="button"
+                  onClick={() => {
+                    const activeRadius = loc.radiusKm || selectedRadiusKm || 25;
+                    setSearchCoords({ lat: loc.lat, lon: loc.lon, label: loc.label });
+                    setJobLocationInput(loc.label);
+                    setSelectedRadiusKm(activeRadius);
+                    setSortByNearest(true);
+                    setShowMapView(true);
+                    savePreferredLocation({ ...loc, radiusKm: activeRadius });
+                  }}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 hover:border-brand-400 hover:text-brand-700 text-[11px] font-semibold text-slate-600 transition-colors whitespace-nowrap cursor-pointer shadow-2xs"
+                >
+                  {loc.label}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* ACTIVE PREFERRED LOCATION INDICATOR */}
+          {searchCoords && (
+            <div className="flex items-center justify-between gap-2 px-3.5 py-2 rounded-xl bg-brand-50/80 border border-brand-200 text-xs">
+              <div className="flex items-center gap-1.5 text-brand-900 font-semibold truncate">
+                <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" />
+                <span className="truncate">
+                  Active Location: <strong className="font-bold">{searchCoords.label}</strong> ({searchCoords.lat.toFixed(4)}, {searchCoords.lon.toFixed(4)})
+                </span>
+                {selectedRadiusKm && (
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-200/70 text-brand-800 shrink-0">
+                    {selectedRadiusKm} km radius
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                onClick={handleClearLocation}
+                className="text-xs font-bold text-brand-700 hover:text-brand-900 underline cursor-pointer shrink-0 ml-2"
+              >
+                Clear
+              </button>
+            </div>
+          )}
+
           {/* RADIUS SELECTION & MAP TOGGLE */}
           <div className="flex flex-wrap items-center justify-between gap-3 pt-2 text-xs">
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -547,17 +761,26 @@ export function WorkersTab({
                 <SlidersHorizontal className="w-3 h-3 text-slate-400" />
                 <span>{t('searchRadiusLabel')}</span>
               </span>
-              {[2, 5, 10, 25, 50].map((radius) => {
-                const isActive = selectedRadiusKm === radius;
+              {[1, 5, 10, 15, 25, 50].map((radius) => {
+                const isActive = selectedRadiusKm === radius && !isCustomRadius;
                 return (
                   <button
                     key={radius}
                     type="button"
                     onClick={() => {
+                      setIsCustomRadius(false);
                       if (!searchCoords && jobLocationInput.trim()) {
                         handleLocationSearch();
                       }
-                      setSelectedRadiusKm(isActive ? null : radius);
+                      setSelectedRadiusKm(radius);
+                      if (searchCoords) {
+                        savePreferredLocation({
+                          lat: searchCoords.lat,
+                          lon: searchCoords.lon,
+                          label: searchCoords.label,
+                          radiusKm: radius,
+                        });
+                      }
                     }}
                     className={`px-2.5 py-1 rounded-lg border font-bold transition-colors cursor-pointer ${
                       isActive
@@ -569,10 +792,68 @@ export function WorkersTab({
                   </button>
                 );
               })}
+
+              {/* Custom Radius Button & Inline Input */}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsCustomRadius((prev) => !prev);
+                }}
+                className={`px-2.5 py-1 rounded-lg border font-bold transition-colors cursor-pointer ${
+                  isCustomRadius
+                    ? 'bg-brand-500 text-white border-brand-500 shadow-2xs'
+                    : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                }`}
+              >
+                Custom
+              </button>
+
+              {isCustomRadius && (
+                <div className="flex items-center gap-1 bg-white border border-brand-300 rounded-lg px-2 py-0.5">
+                  <input
+                    type="number"
+                    min={1}
+                    max={200}
+                    value={customRadiusInput}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setCustomRadiusInput(val);
+                      const num = parseInt(val, 10);
+                      if (!isNaN(num) && num > 0) {
+                        setSelectedRadiusKm(num);
+                        if (searchCoords) {
+                          savePreferredLocation({
+                            lat: searchCoords.lat,
+                            lon: searchCoords.lon,
+                            label: searchCoords.label,
+                            radiusKm: num,
+                          });
+                        }
+                      }
+                    }}
+                    placeholder="km"
+                    className="w-12 text-xs font-bold text-slate-800 outline-none text-center"
+                  />
+                  <span className="text-[11px] text-slate-500 font-semibold">km</span>
+                </div>
+              )}
+
               {selectedRadiusKm !== null && (
                 <button
                   type="button"
-                  onClick={() => setSelectedRadiusKm(null)}
+                  onClick={() => {
+                    setSelectedRadiusKm(null);
+                    setIsCustomRadius(false);
+                    setCustomRadiusInput('');
+                    if (searchCoords) {
+                      savePreferredLocation({
+                        lat: searchCoords.lat,
+                        lon: searchCoords.lon,
+                        label: searchCoords.label,
+                        radiusKm: 25,
+                      });
+                    }
+                  }}
                   className="text-[11px] font-bold text-slate-400 hover:text-slate-600 ml-1 underline cursor-pointer"
                 >
                   {t('allDistances')}
@@ -628,19 +909,56 @@ export function WorkersTab({
             selectedWorkerId={selectedWorkerId}
             onSelectWorker={(worker) => {
               setSelectedWorkerId(worker.id);
-              handleCallWorker(worker.id, worker.profiles?.phone_number);
+              handleCallWorker(worker.id);
             }}
             onCallWorker={(workerId) => handleCallWorker(workerId)}
             onSelectLocation={(lat, lon, label) => {
+              const activeRadius = selectedRadiusKm || 25;
+              const targetLoc: PreferredLocation = { lat, lon, label, radiusKm: activeRadius };
               setSearchCoords({ lat, lon, label });
-              setSelectedRadiusKm((prev) => prev || 50);
+              setJobLocationInput(label);
+              setSelectedRadiusKm(activeRadius);
               setSortByNearest(true);
+              savePreferredLocation(targetLoc);
+              saveRecentLocation(targetLoc);
+              setRecentLocations(getRecentLocations());
             }}
             onRefreshAvailability={onRefreshWorkers}
             onClose={() => setShowMapView(false)}
           />
         )}
       </div>
+
+      {/* DIRECTORY SEARCH RESULTS SUMMARY */}
+      {!workersLoading && processedWorkers.length > 0 && (
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 px-1 text-xs sm:text-sm text-slate-600 font-medium">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-bold text-slate-900">
+              {processedWorkers.length} {processedWorkers.length === 1 ? 'worker found' : 'workers found'}
+            </span>
+            {searchCoords && (
+              <span className="text-slate-500">
+                near <strong className="text-slate-800">{searchCoords.label}</strong>
+              </span>
+            )}
+            {selectedRadiusKm && (
+              <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 border border-slate-200">
+                within {selectedRadiusKm} km
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-0.5 rounded-full border border-emerald-200">
+              {workersWithCoordsCount} plotted on map
+            </span>
+            {processedWorkers.length - workersWithCoordsCount > 0 && (
+              <span className="text-xs font-semibold text-amber-700 bg-amber-50 px-2.5 py-0.5 rounded-full border border-amber-200">
+                +{processedWorkers.length - workersWithCoordsCount} unmapped
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* WORKERS GRID */}
       {workersLoading ? (
@@ -672,7 +990,6 @@ export function WorkersTab({
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
           {processedWorkers.map((worker) => {
             const name = worker.profiles?.full_name || 'Verified Rural Worker';
-            const phone = worker.profiles?.phone_number;
             const isAssisted = worker.profiles?.is_assisted_profile;
             const wage = worker.daily_wage || 500;
             const expYears = worker.experience_years || 1;
@@ -804,33 +1121,23 @@ export function WorkersTab({
                     </div>
                   )}
 
-                  {workerPhones[worker.id] || phone ? (
-                    <a
-                      href={`tel:${workerPhones[worker.id] || phone}`}
-                      className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-all hover:scale-[1.01]"
-                    >
-                      <PhoneCall className="w-4 h-4" />
-                      <span>{t('callNow')}: {workerPhones[worker.id] || phone}</span>
-                    </a>
-                  ) : (
-                    <button
-                      onClick={() => handleCallWorker(worker.id, phone)}
-                      disabled={callingWorkerId === worker.id}
-                      className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-all hover:scale-[1.01] disabled:opacity-60 cursor-pointer"
-                    >
-                      {callingWorkerId === worker.id ? (
-                        <>
-                          <Loader2 className="w-4 h-4 animate-spin" />
-                          <span>Connecting...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Phone className="w-4 h-4" />
-                          <span>{user ? t('callNow') : t('loginDirectNumber')}</span>
-                        </>
-                      )}
-                    </button>
-                  )}
+                  <button
+                    onClick={() => handleCallWorker(worker.id)}
+                    disabled={callingWorkerId === worker.id}
+                    className="w-full py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-xs transition-all hover:scale-[1.01] disabled:opacity-60 cursor-pointer"
+                  >
+                    {callingWorkerId === worker.id ? (
+                      <>
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                        <span>Connecting...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Phone className="w-4 h-4" />
+                        <span>{user ? (t('callWorker') || t('callNow')) : t('loginDirectNumber')}</span>
+                      </>
+                    )}
+                  </button>
 
                   <div className="flex items-center gap-2">
                     {/* View on Map Button if worker has coordinates */}
@@ -859,7 +1166,7 @@ export function WorkersTab({
                         onOpenDirectPayment(
                           worker.profiles?.id || worker.id,
                           name,
-                          workerPhones[worker.id] || phone
+                          workerPhones[worker.id] || null
                         );
                       }}
                       className="flex-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 border border-emerald-200 cursor-pointer"

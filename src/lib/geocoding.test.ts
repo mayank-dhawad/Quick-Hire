@@ -1,5 +1,13 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { calculateHaversineDistanceKm, buildAddressQuery, geocodeAddress } from './geocoding';
+import {
+  calculateHaversineDistanceKm,
+  buildAddressQuery,
+  geocodeAddress,
+  getSavedPreferredLocation,
+  savePreferredLocation,
+  getRecentLocations,
+  saveRecentLocation,
+} from './geocoding';
 
 describe('Geocoding & Geographic Distance Logic', () => {
   beforeEach(() => {
@@ -77,6 +85,37 @@ describe('Geocoding & Geographic Distance Logic', () => {
       global.fetch = vi.fn().mockRejectedValue(new Error('Network error'));
       const res = await geocodeAddress('Unresolvable Test Address 999XYZ');
       expect(res).toBeNull();
+    });
+  });
+
+  describe('Preferred and Recent Locations Management', () => {
+    it('saves and retrieves employer preferred location', () => {
+      const loc = { lat: 21.1458, lon: 79.0882, label: 'Nagpur, Maharashtra', radiusKm: 25 };
+      savePreferredLocation(loc);
+
+      const retrieved = getSavedPreferredLocation();
+      expect(retrieved).not.toBeNull();
+      expect(retrieved?.lat).toBe(21.1458);
+      expect(retrieved?.lon).toBe(79.0882);
+      expect(retrieved?.label).toBe('Nagpur, Maharashtra');
+      expect(retrieved?.radiusKm).toBe(25);
+
+      // Clearing preferred location
+      savePreferredLocation(null);
+      expect(getSavedPreferredLocation()).toBeNull();
+    });
+
+    it('manages recent search locations history without duplicates', () => {
+      const loc1 = { lat: 18.5204, lon: 73.8567, label: 'Pune' };
+      const loc2 = { lat: 21.1458, lon: 79.0882, label: 'Nagpur' };
+
+      saveRecentLocation(loc1);
+      saveRecentLocation(loc2);
+
+      const recents = getRecentLocations();
+      expect(recents.length).toBeGreaterThanOrEqual(2);
+      expect(recents[0].label).toBe('Nagpur');
+      expect(recents[1].label).toBe('Pune');
     });
   });
 });

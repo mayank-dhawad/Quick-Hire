@@ -888,16 +888,16 @@ export function DashboardTab({
         </div>
 
         {user && (
-          <div className="flex items-center gap-2.5">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
             {/* View Mode Toggle Pill */}
-            <div className="flex p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold shadow-2xs">
+            <div className="flex flex-1 sm:flex-initial p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold shadow-2xs">
               <button
                 type="button"
                 onClick={() => {
                   setViewMode('worker');
                   speakText('Switched to worker dashboard', currentLang);
                 }}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'worker'
+                className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-lg transition-all text-center cursor-pointer ${viewMode === 'worker'
                     ? 'bg-white text-emerald-800 shadow-2xs'
                     : 'text-slate-500 hover:text-slate-800'
                   }`}
@@ -910,7 +910,7 @@ export function DashboardTab({
                   setViewMode('employer');
                   speakText('Switched to employer dashboard', currentLang);
                 }}
-                className={`px-3 py-1.5 rounded-lg transition-all cursor-pointer ${viewMode === 'employer'
+                className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-lg transition-all text-center cursor-pointer ${viewMode === 'employer'
                     ? 'bg-white text-amber-800 shadow-2xs'
                     : 'text-slate-500 hover:text-slate-800'
                   }`}
@@ -922,7 +922,7 @@ export function DashboardTab({
             {viewMode === 'employer' ? (
               <button
                 onClick={() => onNavigateTab('post-job')}
-                className="px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center gap-2"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2"
               >
                 <PlusCircle className="w-4 h-4" />
                 <span>{t('postAnotherJob')}</span>
@@ -930,7 +930,7 @@ export function DashboardTab({
             ) : (
               <button
                 onClick={onOpenWorkerProfile}
-                className="px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
                 <span>Edit Profile</span>
@@ -970,10 +970,10 @@ export function DashboardTab({
             </div>
           )}
           {/* Worker Hero Profile Summary */}
-          <div className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 rounded-3xl border border-emerald-200 p-6 sm:p-8 shadow-xs relative overflow-hidden">
+          <div className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 rounded-3xl border border-emerald-200 p-4 sm:p-6 md:p-8 shadow-xs relative overflow-hidden">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-5">
               <div className="flex items-center gap-4">
-                <div className="w-16 h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-heading font-black text-2xl shadow-sm shrink-0">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-2xl bg-emerald-600 text-white flex items-center justify-center font-heading font-black text-xl sm:text-2xl shadow-sm shrink-0">
                   {workerProfile?.full_name ? workerProfile.full_name.charAt(0).toUpperCase() : 'W'}
                 </div>
                 <div>
@@ -1005,10 +1005,10 @@ export function DashboardTab({
                 </div>
               </div>
 
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 w-full sm:w-auto">
                 <button
                   onClick={onOpenWorkerProfile}
-                  className="px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center gap-2 cursor-pointer"
+                  className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Edit3 className="w-4 h-4" />
                   <span>Edit Profile</span>
@@ -1016,7 +1016,7 @@ export function DashboardTab({
                 <button
                   onClick={fetchWorkerHistory}
                   disabled={loadingWorkerData}
-                  className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 transition-colors shadow-2xs cursor-pointer"
+                  className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 transition-colors shadow-2xs cursor-pointer shrink-0"
                   title="Refresh activity history"
                 >
                   <RefreshCw className={`w-4 h-4 ${loadingWorkerData ? 'animate-spin text-brand-600' : ''}`} />
@@ -1044,41 +1044,41 @@ export function DashboardTab({
           </div>
 
           {/* Metric Stats Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 sm:gap-4">
+            <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                 Applied Jobs
               </span>
-              <span className="font-heading font-black text-2xl sm:text-3xl text-slate-900">
+              <span className="font-heading font-black text-xl sm:text-3xl text-slate-900">
                 {appliedJobs.length}
               </span>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                 Completed Work
               </span>
-              <span className="font-heading font-black text-2xl sm:text-3xl text-emerald-600">
+              <span className="font-heading font-black text-xl sm:text-3xl text-emerald-600">
                 {completedJobsCount}
               </span>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                 Wages Received
               </span>
-              <span className="font-heading font-black text-2xl sm:text-3xl text-amber-600 flex items-center gap-0.5">
-                <IndianRupee className="w-5 h-5 sm:w-6 sm:h-6" />
+              <span className="font-heading font-black text-xl sm:text-3xl text-amber-600 flex items-center gap-0.5">
+                <IndianRupee className="w-4 h-4 sm:w-6 sm:h-6" />
                 {totalWagesSum.toLocaleString()}
               </span>
             </div>
 
-            <div className="bg-white p-5 rounded-2xl border border-slate-200 shadow-2xs">
-              <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
+            <div className="bg-white p-3.5 sm:p-5 rounded-2xl border border-slate-200 shadow-2xs">
+              <span className="text-[10px] sm:text-[11px] font-bold text-slate-400 uppercase tracking-wider block mb-1">
                 Reviews & Ratings
               </span>
-              <span className="font-heading font-black text-2xl sm:text-3xl text-yellow-600 flex items-center gap-1">
-                <Star className="w-5 h-5 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
+              <span className="font-heading font-black text-xl sm:text-3xl text-yellow-600 flex items-center gap-1">
+                <Star className="w-4 h-4 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
                 {reviews.length > 0
                   ? (reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.length).toFixed(1)
                   : '5.0'}
@@ -1087,7 +1087,7 @@ export function DashboardTab({
           </div>
 
           {/* WORKER PAYMENT DETAILS & UPI SECTION */}
-          <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 text-white rounded-3xl p-6 sm:p-7 shadow-xl border border-emerald-800/40 space-y-4">
+          <div className="bg-gradient-to-br from-emerald-950 via-slate-900 to-teal-950 text-white rounded-3xl p-4 sm:p-6 md:p-7 shadow-xl border border-emerald-800/40 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
               <div className="space-y-1">
                 <div className="flex items-center gap-2">
@@ -1107,14 +1107,14 @@ export function DashboardTab({
               <button
                 type="button"
                 onClick={() => onNavigateTab('bank')}
-                className="self-start sm:self-center px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer"
+                className="w-full sm:w-auto justify-center px-4 py-2.5 bg-emerald-500 hover:bg-emerald-600 text-slate-950 font-bold text-xs sm:text-sm rounded-xl shadow-md transition-all flex items-center gap-2 shrink-0 cursor-pointer"
               >
                 <Landmark className="w-4 h-4" />
                 <span>{workerProfile?.upi_id ? 'Edit UPI & Bank' : 'Add UPI Details'}</span>
               </button>
             </div>
 
-            <div className="pt-3 border-t border-emerald-900/60 grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="pt-3 border-t border-emerald-900/60 grid grid-cols-1 sm:grid-cols-3 gap-2.5 sm:gap-3">
               <div className="bg-white/5 rounded-2xl p-3.5 border border-white/10">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-slate-400 block mb-1">
                   Saved UPI ID
@@ -1241,14 +1241,14 @@ export function DashboardTab({
 
                       {/* WORKER LIFECYCLE CONTROLS */}
                       {rec.status === 'hired' && (
-                        <div className="pt-2 flex items-center justify-between gap-2 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
+                        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
                           <span className="text-[11px] font-extrabold text-emerald-900">
                             Assignment Confirmed!
                           </span>
                           <button
                             type="button"
                             onClick={() => handleWorkerOnTheWay(rec.id, 30)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                            className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Navigation className="w-3 h-3" />
                             <span>Mark On the Way (30m)</span>
@@ -1257,7 +1257,7 @@ export function DashboardTab({
                       )}
 
                       {rec.status === 'on_the_way' && (
-                        <div className="pt-2 flex items-center justify-between gap-2 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
+                        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50/70 p-2.5 rounded-xl border border-emerald-200">
                           <span className="text-[11px] font-extrabold text-emerald-900 flex items-center gap-1.5">
                             <Clock className="w-3.5 h-3.5 text-emerald-700" />
                             <span>On the way (ETA: {rec.eta_minutes || 30}m)</span>
@@ -1265,7 +1265,7 @@ export function DashboardTab({
                           <button
                             type="button"
                             onClick={() => handleWorkerArrived(rec.id, true)}
-                            className="px-3 py-1.5 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                            className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                             <span>Mark Arrived</span>
@@ -1302,7 +1302,7 @@ export function DashboardTab({
                       )}
 
                       {rec.status === 'completed' && (
-                        <div className="pt-2 flex items-center justify-between gap-2 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
+                        <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
                           <div>
                             <span className="text-[10px] font-extrabold uppercase text-emerald-800 block">Work Completed</span>
                             <span className="text-xs font-bold text-slate-800">
@@ -1313,7 +1313,7 @@ export function DashboardTab({
                           <button
                             type="button"
                             onClick={() => handleOpenReceipt(job, rec)}
-                            className="px-3 py-1.5 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
+                            className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Receipt className="w-3.5 h-3.5" />
                             <span>View Receipt</span>
@@ -1384,7 +1384,7 @@ export function DashboardTab({
                               </span>
                             )}
                           </div>
-                          <span className="text-[11px] text-slate-400 block mt-0.5 font-mono">
+                          <span className="text-[11px] text-slate-400 block mt-0.5 font-mono break-all">
                             {pay.payment_reference ? `Ref: ${pay.payment_reference}` : ''}
                             {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ''} • {new Date(pay.created_at).toLocaleDateString()}
                           </span>

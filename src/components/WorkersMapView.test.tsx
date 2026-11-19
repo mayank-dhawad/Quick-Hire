@@ -99,9 +99,80 @@ describe('WorkersMapView Component — Advanced Discovery Map', () => {
       />
     );
 
-    // 2 workers have coordinates, 1 is unmapped
-    expect(screen.getByText(/Workers Nearby Map \(2 plotted\)/i)).toBeInTheDocument();
-    expect(screen.getByText(/25 km/i)).toBeInTheDocument();
+    // 3 total workers found in directory, 2 plotted on map, 1 unmapped
+    expect(screen.getByText(/Workers Nearby Map \(3 workers found\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 plotted on map/i)).toBeInTheDocument();
+    expect(screen.getByText(/\+1 unmapped/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/25 km/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('correctly distinguishes directory count and plotted count when 1 worker is found and 0 are plotted', () => {
+    const unmappedOnly: WorkerItem[] = [mockWorkers[2]]; // latitude: null, longitude: null
+
+    render(
+      <WorkersMapView
+        workers={unmappedOnly}
+        centerLat={21.1458}
+        centerLon={79.0882}
+        centerLabel="Nagpur, Maharashtra"
+        currentLang="English"
+      />
+    );
+
+    // Directory found 1 worker, map plots 0
+    expect(screen.getByText(/Workers Nearby Map \(1 worker found\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 plotted on map/i)).toBeInTheDocument();
+    expect(screen.getByText(/\+1 unmapped/i)).toBeInTheDocument();
+  });
+
+  it('keeps map centered on searched location (Nagpur) even when single worker has Pune coordinates', () => {
+    const singlePuneWorker: WorkerItem[] = [mockWorkers[0]]; // Worker is in Pune (18.5204, 73.8567)
+
+    render(
+      <WorkersMapView
+        workers={singlePuneWorker}
+        centerLat={21.1458}
+        centerLon={79.0882}
+        centerLabel="Nagpur, Maharashtra"
+        radiusKm={50}
+        currentLang="English"
+      />
+    );
+
+    // Header reflects 1 worker found and 1 plotted without overriding the searched center
+    expect(screen.getByText(/Workers Nearby Map \(1 worker found\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 plotted on map/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/50 km/i).length).toBeGreaterThanOrEqual(1);
+  });
+
+  it('handles search location transition smoothly when changing from Nagpur to Pune', () => {
+    const { rerender } = render(
+      <WorkersMapView
+        workers={mockWorkers}
+        centerLat={21.1458}
+        centerLon={79.0882}
+        centerLabel="Nagpur, Maharashtra"
+        radiusKm={25}
+        currentLang="English"
+      />
+    );
+
+    expect(screen.getByText(/Workers Nearby Map \(3 workers found\)/i)).toBeInTheDocument();
+
+    // Change location to Pune
+    rerender(
+      <WorkersMapView
+        workers={mockWorkers}
+        centerLat={18.5204}
+        centerLon={73.8567}
+        centerLabel="Pune, Maharashtra"
+        radiusKm={25}
+        currentLang="English"
+      />
+    );
+
+    expect(screen.getByText(/Workers Nearby Map \(3 workers found\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/2 plotted on map/i)).toBeInTheDocument();
   });
 
   it('displays notice for unmapped workers without omitting or crashing', () => {
@@ -146,14 +217,54 @@ describe('WorkersMapView Component — Advanced Discovery Map', () => {
     );
 
     const expandBtn = screen.getByTitle(/Expand Map/i);
-    expect(container.firstChild).toHaveClass('h-80');
+    expect(container.firstChild).toHaveClass('h-[400px]');
 
     fireEvent.click(expandBtn);
-    expect(container.firstChild).toHaveClass('h-[520px]');
+    expect(container.firstChild).toHaveClass('h-[580px]');
 
     const shrinkBtn = screen.getByTitle(/Shrink Map/i);
     fireEvent.click(shrinkBtn);
-    expect(container.firstChild).toHaveClass('h-80');
+    expect(container.firstChild).toHaveClass('h-[400px]');
+  });
+
+  it('renders interactive nearby workers sidebar and toggles it', () => {
+    render(
+      <WorkersMapView
+        workers={mockWorkers}
+        centerLat={18.5204}
+        centerLon={73.8567}
+        centerLabel="Pune Center"
+        radiusKm={25}
+        currentLang="English"
+      />
+    );
+
+    // Sidebar should display mapped workers
+    expect(screen.getByText('Nearby Workers')).toBeInTheDocument();
+    expect(screen.getByText('Baburao Shinde')).toBeInTheDocument();
+    expect(screen.getByText('Anand Gaikwad')).toBeInTheDocument();
+
+    // Toggle sidebar off
+    const sidebarToggleBtn = screen.getByTitle(/Toggle nearby workers list sidebar/i);
+    fireEvent.click(sidebarToggleBtn);
+
+    expect(screen.queryByText('Nearby Workers')).not.toBeInTheDocument();
+  });
+
+  it('renders quick floating map controls: Recenter, Fit to Workers, and Reset', () => {
+    render(
+      <WorkersMapView
+        workers={mockWorkers}
+        centerLat={18.5204}
+        centerLon={73.8567}
+        centerLabel="Pune Center"
+        currentLang="English"
+      />
+    );
+
+    expect(screen.getByTitle(/Recenter to selected preferred location/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/Fit view to all matching workers/i)).toBeInTheDocument();
+    expect(screen.getByTitle(/Reset map view/i)).toBeInTheDocument();
   });
 
   it('calls onRefreshAvailability when refresh button is tapped', () => {

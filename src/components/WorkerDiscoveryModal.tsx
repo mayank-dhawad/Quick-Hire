@@ -2,7 +2,7 @@ import React, { useEffect, useState, useCallback } from 'react';
 import { User } from '@supabase/supabase-js';
 import { supabase } from '../lib/supabase';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Phone, Star, Search, UserCheck, MapPin, IndianRupee, Lock, Users } from 'lucide-react';
+import { Phone, Star, Search, UserCheck, MapPin, IndianRupee, Lock, Users, Loader2 } from 'lucide-react';
 import { speakText, getVoiceGuidance, getWorkerSpeechText } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
@@ -67,6 +67,8 @@ export function WorkerDiscoveryModal({
   const [categoryFilter, setCategoryFilter] = useState(initialCategory || 'All');
   const [skillQuery, setSkillQuery] = useState(initialSkillSearch || '');
   const [selectedWorker, setSelectedWorker] = useState<WorkerItem | null>(null);
+  const [callingWorkerId, setCallingWorkerId] = useState<string | null>(null);
+  const [callError, setCallError] = useState<{ workerId: string; message: string } | null>(null);
 
   const t = useCallback((key: string): string => {
     return getTranslation(currentLang, key);
@@ -76,6 +78,56 @@ export function WorkerDiscoveryModal({
     setCategoryFilter(initialCategory || 'All');
     setSkillQuery(initialSkillSearch || '');
   }, [initialCategory, initialSkillSearch]);
+
+  const handleCallWorker = async (workerId: string) => {
+    if (callingWorkerId) return;
+    if (!user) {
+      onRequireLogin?.();
+      return;
+    }
+    setCallingWorkerId(workerId);
+    setCallError(null);
+    try {
+      const { data, error } = await supabase.rpc('get_worker_contact_phone', {
+        p_worker_id: workerId,
+      });
+      if (error) {
+        if (error.code === 'P0001' || (error.message && error.message.toLowerCase().includes('limit'))) {
+          setCallError({
+            workerId,
+            message: 'Daily contact limit reached (15 calls per 24 hours). Please try again tomorrow.',
+          });
+        } else if (error.code === 'P0002' || (error.message && error.message.toLowerCase().includes('not available'))) {
+          setCallError({
+            workerId,
+            message: 'Worker contact number is currently not available.',
+          });
+        } else {
+          setCallError({
+            workerId,
+            message: 'You need an existing job connection with this worker to access their contact number.',
+          });
+        }
+        return;
+      }
+      const contactData = data as { phone_number?: string } | null;
+      if (contactData?.phone_number) {
+        window.location.href = `tel:${contactData.phone_number}`;
+      } else {
+        setCallError({
+          workerId,
+          message: 'Worker contact number is currently not available.',
+        });
+      }
+    } catch {
+      setCallError({
+        workerId,
+        message: 'You need an existing job connection with this worker to access their contact number.',
+      });
+    } finally {
+      setCallingWorkerId(null);
+    }
+  };
 
   const fetchWorkers = useCallback(async () => {
     // Session Guard: only logged-in users may browse workers
@@ -137,11 +189,12 @@ export function WorkerDiscoveryModal({
       }
 
       // 2. Resilient fallback for older schemas or view absence
+      // NOTE: phone_number is never fetched here to preserve worker privacy; contact numbers are retrieved via get_worker_contact_phone RPC
       let query = supabase
         .from('workers')
         .select(`
           id, category, skills, experience_years, average_rating, is_available, location,
-          profiles ( id, full_name, phone_number, is_assisted_profile, location, village, city, district, state, daily_wage )
+          profiles ( id, full_name, is_assisted_profile, location, village, city, district, state, daily_wage )
         `)
         .eq('is_available', true);
 
@@ -158,7 +211,7 @@ export function WorkerDiscoveryModal({
           .from('workers')
           .select(`
             id, category, skills, experience_years, average_rating, is_available, location,
-            profiles ( id, full_name, phone_number, is_assisted_profile, location, village, district, state )
+            profiles ( id, full_name, is_assisted_profile, location, village, district, state )
           `)
           .eq('is_available', true);
 
@@ -213,7 +266,7 @@ export function WorkerDiscoveryModal({
             profiles: {
               id: prof.id || row.id,
               full_name: prof.full_name || null,
-              phone_number: prof.phone_number || null,
+              phone_number: null, // Protected: retrieved exclusively via authorized get_worker_contact_phone RPC
               is_assisted_profile: prof.is_assisted_profile ?? false,
               location: compositeLoc,
               village: prof.village || null,
@@ -622,18 +675,30 @@ export function WorkerDiscoveryModal({
                   </div>
                 )}
 
-                {selectedWorker.profiles?.phone_number ? (
-                  <a
-                    href={`tel:${selectedWorker.profiles.phone_number}`}
-                    className="w-full py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all"
-                  >
-                    <Phone className="w-4 h-4" /> {t('callWorker')}: {selectedWorker.profiles.phone_number}
-                  </a>
-                ) : (
-                  <div className="text-center py-3 bg-slate-100 rounded-xl text-xs text-ink-muted">
-                    {t('phoneAvailableToRegistered')}
+                {callError?.workerId === selectedWorker.id && (
+                  <div className="mb-3 text-[11px] font-semibold text-rose-600 bg-rose-50 p-2.5 rounded-xl border border-rose-200">
+                    {callError.message}
                   </div>
                 )}
+
+                <button
+                  type="button"
+                  onClick={() => handleCallWorker(selectedWorker.id)}
+                  disabled={callingWorkerId === selectedWorker.id}
+                  className="w-full py-3.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-sm transition-all disabled:opacity-60 cursor-pointer"
+                >
+                  {callingWorkerId === selectedWorker.id ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      <span>Connecting...</span>
+                    </>
+                  ) : (
+                    <>
+                      <Phone className="w-4 h-4" />
+                      <span>{user ? (t('callWorker') || t('callNow')) : t('phoneAvailableToRegistered')}</span>
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           )}
