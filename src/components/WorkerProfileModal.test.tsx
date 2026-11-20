@@ -20,6 +20,10 @@ vi.mock('../lib/translations', () => ({
     if (key === 'saveWorkerProfileBtn') return 'Save Worker Profile';
     if (key === 'workerNamePlaceholder') return 'Full name';
     if (key === 'phonePlaceholder') return '10-digit mobile number';
+    if (key === 'searchLocationPlaceholder') return 'Search village, town, city, or 6-digit PIN code...';
+    if (key === 'wherePreferToWork') return 'Where would you prefer to work?';
+    if (key === 'preferredWorkRadius') return 'Preferred Work Radius';
+    if (key === 'approximatePincodeNotice') return 'Approximate area centroid (PIN code)';
     return key;
   }),
   normalizeLanguage: vi.fn((l: string) => l),
@@ -45,6 +49,39 @@ vi.mock('../lib/geocoding', () => ({
     displayName: 'Mock Locality, India',
   }),
   buildAddressQuery: vi.fn(() => 'Mock Locality, India'),
+  searchLocationSuggestions: vi.fn().mockResolvedValue([
+    {
+      displayName: 'Shirur, Pune, Maharashtra (PIN 412210)',
+      latitude: 18.8256,
+      longitude: 74.3789,
+      city: 'Shirur',
+      district: 'Pune',
+      state: 'Maharashtra',
+      pincode: '412210',
+      isApproximatePincode: true,
+    },
+  ]),
+  geocodePreferredLocation: vi.fn().mockImplementation(async (query: string) => {
+    if (query.includes('412210') || query.toLowerCase().includes('shirur')) {
+      return {
+        latitude: 18.8256,
+        longitude: 74.3789,
+        displayName: 'Shirur, Pune, Maharashtra (PIN 412210)',
+        city: 'Shirur',
+        district: 'Pune',
+        state: 'Maharashtra',
+        pincode: '412210',
+        isApproximatePincode: true,
+      };
+    }
+    return {
+      latitude: 28.6139,
+      longitude: 77.2090,
+      displayName: 'Mock Locality, India',
+      isApproximatePincode: false,
+    };
+  }),
+  resolveLocalityCoordinates: vi.fn(() => null),
 }));
 
 describe('WorkerProfileModal Component - Schema Resiliency & Profile Management', () => {
@@ -728,5 +765,167 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
 
     // Verify profile_private_details upsert was SKIPPED to protect existing remote data
     expect(upsertPrivateCalls.length).toBe(0);
+  });
+
+  it('allows worker to search preferred work location and selects autocomplete suggestion with automatic coordinates mapping', async () => {
+    const upsertProfilesCalls: Record<string, unknown>[] = [];
+    const upsertWorkersCalls: Record<string, unknown>[] = [];
+
+    const mockFrom = vi.fn().mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+            upsertProfilesCalls.push(payload);
+            return Promise.resolve({ data: payload, error: null });
+          }),
+        };
+      }
+      if (table === 'workers') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+          upsert: vi.fn().mockImplementation((payload: Record<string, unknown>) => {
+            upsertWorkersCalls.push(payload);
+            return Promise.resolve({ data: payload, error: null });
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
+    });
+
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
+
+    const mockSaved = vi.fn();
+    render(
+      <WorkerProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={mockSaved}
+        currentLang="English"
+        user={mockUser}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText('Full name')).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText('Full name'), {
+      target: { value: 'Kisan Patil' },
+    });
+    fireEvent.change(screen.getByPlaceholderText('10-digit mobile number'), {
+      target: { value: '+919876543210' },
+    });
+
+    // Enter preferred location search
+    const locInput = screen.getByPlaceholderText(/search village, town, city, or 6-digit PIN code/i);
+    fireEvent.change(locInput, { target: { value: 'Shirur' } });
+
+    // Suggestion dropdown appears
+    const suggestionBtn = await screen.findByText(/Shirur, Pune, Maharashtra \(PIN 412210\)/i);
+    expect(suggestionBtn).toBeInTheDocument();
+
+    // Select suggestion
+    fireEvent.mouseDown(suggestionBtn);
+
+    // Confirmation badge appears
+    await waitFor(() => {
+      expect(screen.getByText(/18.8256° N, 74.3789° E/i)).toBeInTheDocument();
+      expect(screen.getByText(/Approximate area centroid \(PIN code\)/i)).toBeInTheDocument();
+    });
+
+    // Select 15 km radius chip
+    const radiusChip = screen.getByRole('button', { name: '15 km' });
+    fireEvent.click(radiusChip);
+
+    // Save profile
+    const saveButton = screen.getByRole('button', { name: /save worker profile/i });
+    fireEvent.click(saveButton);
+
+    await waitFor(() => {
+      expect(mockSaved).toHaveBeenCalled();
+    });
+
+    // Verify coordinates and preferred location persisted
+    expect(upsertProfilesCalls.length).toBeGreaterThan(0);
+    expect(upsertProfilesCalls[0].latitude).toBe(18.8256);
+    expect(upsertProfilesCalls[0].longitude).toBe(74.3789);
+
+    expect(upsertWorkersCalls.length).toBeGreaterThan(0);
+    expect(upsertWorkersCalls[0].latitude).toBe(18.8256);
+    expect(upsertWorkersCalls[0].longitude).toBe(74.3789);
+    expect(upsertWorkersCalls[0].preferred_work_location).toContain('15 km');
+  });
+
+  it('displays coordinates and preferred working location in read-only profile view', async () => {
+    const existingProfile = {
+      id: 'worker-uuid-123',
+      full_name: 'Baburao Apte',
+      phone_number: '+919876543210',
+      category: 'Agriculture',
+      role: 'worker',
+      latitude: 18.8256,
+      longitude: 74.3789,
+      preferred_work_location: 'Shirur, Pune (Radius: 25 km)',
+    };
+
+    const mockFrom = vi.fn().mockImplementation((table: string) => {
+      if (table === 'profiles') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({ data: existingProfile, error: null }),
+        };
+      }
+      if (table === 'workers') {
+        return {
+          select: vi.fn().mockReturnThis(),
+          eq: vi.fn().mockReturnThis(),
+          maybeSingle: vi.fn().mockResolvedValue({
+            data: {
+              id: 'worker-uuid-123',
+              latitude: 18.8256,
+              longitude: 74.3789,
+              preferred_work_location: 'Shirur, Pune (Radius: 25 km)',
+            },
+            error: null,
+          }),
+        };
+      }
+      return {
+        select: vi.fn().mockReturnThis(),
+        eq: vi.fn().mockReturnThis(),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ error: null }),
+      };
+    });
+
+    vi.mocked(supabase.from).mockImplementation(mockFrom as unknown as (relation: string) => ReturnType<typeof supabase.from>);
+
+    render(
+      <WorkerProfileModal
+        isOpen={true}
+        onClose={vi.fn()}
+        onSaved={vi.fn()}
+        currentLang="English"
+        user={mockUser}
+      />
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('Baburao Apte')).toBeInTheDocument();
+      expect(screen.getByText(/18.8256° N, 74.3789° E/i)).toBeInTheDocument();
+      expect(screen.getAllByText(/Shirur, Pune/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/25 km radius/i)).toBeInTheDocument();
+    });
   });
 });

@@ -7,6 +7,10 @@ import {
   savePreferredLocation,
   getRecentLocations,
   saveRecentLocation,
+  KNOWN_INDIAN_PINCODES,
+  resolveLocalityCoordinates,
+  searchLocationSuggestions,
+  geocodePreferredLocation,
 } from './geocoding';
 
 describe('Geocoding & Geographic Distance Logic', () => {
@@ -116,6 +120,77 @@ describe('Geocoding & Geographic Distance Logic', () => {
       expect(recents.length).toBeGreaterThanOrEqual(2);
       expect(recents[0].label).toBe('Nagpur');
       expect(recents[1].label).toBe('Pune');
+    });
+  });
+
+  describe('Indian PIN codes and Offline Centroid Resolution', () => {
+    it('resolves key Indian PIN codes to valid approximate centroids', () => {
+      expect(KNOWN_INDIAN_PINCODES['411001']).toBeDefined();
+      expect(KNOWN_INDIAN_PINCODES['411001'].city).toBe('Pune');
+      expect(KNOWN_INDIAN_PINCODES['411001'].isApproximatePincode).toBe(true);
+      expect(KNOWN_INDIAN_PINCODES['412210'].city).toBe('Shirur');
+      expect(KNOWN_INDIAN_PINCODES['221001'].city).toBe('Varanasi');
+      expect(KNOWN_INDIAN_PINCODES['560001'].city).toBe('Bengaluru');
+    });
+
+    it('resolveLocalityCoordinates matches 6-digit PIN code anywhere in query string', () => {
+      const res = resolveLocalityCoordinates('Near Gram Panchayat, 412210, Maharashtra');
+      expect(res).not.toBeNull();
+      expect(res?.city).toBe('Shirur');
+      expect(res?.isApproximatePincode).toBe(true);
+    });
+
+    it('resolveLocalityCoordinates matches prominent rural localities offline', () => {
+      const res = resolveLocalityCoordinates('Ranjangaon');
+      expect(res).not.toBeNull();
+      expect(res?.city).toBe('Shirur');
+      expect(res?.latitude).toBeCloseTo(18.7561, 2);
+    });
+  });
+
+  describe('searchLocationSuggestions autocomplete', () => {
+    it('returns empty array for blank or short queries', async () => {
+      const emptyRes = await searchLocationSuggestions('');
+      expect(emptyRes).toEqual([]);
+      const shortRes = await searchLocationSuggestions('a');
+      expect(shortRes).toEqual([]);
+    });
+
+    it('returns PIN code suggestion with isApproximatePincode flag when query matches 6-digit PIN', async () => {
+      const suggestions = await searchLocationSuggestions('412210');
+      expect(suggestions.length).toBeGreaterThan(0);
+      expect(suggestions[0].pincode).toBe('412210');
+      expect(suggestions[0].isApproximatePincode).toBe(true);
+      expect(suggestions[0].displayName).toContain('Shirur');
+    });
+
+    it('returns instant offline locality matches for known towns', async () => {
+      const suggestions = await searchLocationSuggestions('Baramati');
+      expect(suggestions.length).toBeGreaterThan(0);
+      expect(suggestions[0].city).toBe('Baramati');
+      expect(suggestions[0].latitude).toBeCloseTo(18.1517, 2);
+    });
+  });
+
+  describe('geocodePreferredLocation automatic geocoding', () => {
+    it('resolves 6-digit PIN code with approximate coordinates', async () => {
+      const res = await geocodePreferredLocation('411001');
+      expect(res).not.toBeNull();
+      expect(res?.isApproximatePincode).toBe(true);
+      expect(res?.city).toBe('Pune');
+      expect(res?.latitude).toBeCloseTo(18.5204, 2);
+    });
+
+    it('resolves offline locality without requiring network call', async () => {
+      const res = await geocodePreferredLocation('Shirur');
+      expect(res).not.toBeNull();
+      expect(res?.city).toBe('Shirur');
+      expect(res?.latitude).toBeCloseTo(18.8256, 2);
+    });
+
+    it('returns null gracefully for completely empty query', async () => {
+      const res = await geocodePreferredLocation('');
+      expect(res).toBeNull();
     });
   });
 });

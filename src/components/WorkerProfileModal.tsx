@@ -14,17 +14,23 @@ import {
 
 
   IndianRupee,
-
   Edit3,
   ArrowLeft,
   Sparkles,
-  Phone
+  Phone,
+  Search,
+  Compass
 } from 'lucide-react';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation, normalizeLanguage } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
-import { geocodeAddress } from '../lib/geocoding';
+import {
+  geocodeAddress,
+  searchLocationSuggestions,
+  geocodePreferredLocation,
+  type LocationSuggestion
+} from '../lib/geocoding';
 
 type WorkerCategory = 'Agriculture' | 'Construction' | 'Daily work' | 'Skilled self-employed';
 type GenderOption = 'Male' | 'Female' | 'Other' | 'Prefer not to say' | '';
@@ -152,6 +158,21 @@ export function WorkerProfileModal({
   const [experienceDescription, setExperienceDescription] = useState('');
   const [preferredWorkLocation, setPreferredWorkLocation] = useState('');
 
+  // Preferred Location & Geocoding State
+  const [preferredRadiusKm, setPreferredRadiusKm] = useState<number>(25);
+  const [locationQuery, setLocationQuery] = useState('');
+  const [locationSuggestions, setLocationSuggestions] = useState<LocationSuggestion[]>([]);
+  const [showLocationSuggestions, setShowLocationSuggestions] = useState(false);
+  const [isGeocoding, setIsGeocoding] = useState(false);
+  const [geocodedCoord, setGeocodedCoord] = useState<{
+    latitude: number;
+    longitude: number;
+    displayName: string;
+    isApproximate?: boolean;
+  } | null>(null);
+  const [geocodingError, setGeocodingError] = useState<string | null>(null);
+  const [showResidentialAccordion, setShowResidentialAccordion] = useState(true);
+
   // Profile management & states
   const [hasExistingProfile, setHasExistingProfile] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
@@ -196,6 +217,7 @@ export function WorkerProfileModal({
       const profileSelectFields = `
         id, full_name, phone_number, email, gender,
         village, city, district, state, pincode, location,
+        latitude, longitude, geocoded_address,
         category, skills, experience_years, daily_wage,
         account_status, role
       `;
@@ -302,7 +324,52 @@ export function WorkerProfileModal({
         if (worker.experience_years) setExperienceYears(String(worker.experience_years));
         if (worker.daily_wage) setDailyWage(String(worker.daily_wage));
         if (worker.experience_description) setExperienceDescription(worker.experience_description);
-        if (worker.preferred_work_location) setPreferredWorkLocation(worker.preferred_work_location);
+        if (worker.preferred_work_location) {
+          const rawLoc = worker.preferred_work_location;
+          setPreferredWorkLocation(rawLoc);
+          const radiusMatch = rawLoc.match(/\(Radius:\s*(\d+)\s*km\)/i) || rawLoc.match(/\((\d+)\s*km\s*radius\)/i);
+          if (radiusMatch) {
+            setPreferredRadiusKm(Number(radiusMatch[1]));
+            setLocationQuery(rawLoc.replace(/\s*\(Radius:\s*\d+\s*km\)/i, '').replace(/\s*\(\d+\s*km\s*radius\)/i, '').trim());
+          } else {
+            setLocationQuery(rawLoc);
+          }
+        } else if (profile?.location) {
+          setLocationQuery(profile.location);
+          setPreferredWorkLocation(profile.location);
+        }
+
+        const validWorkerLat = typeof worker.latitude === 'number' && !isNaN(worker.latitude) && worker.latitude !== 0 ? worker.latitude : null;
+        const validWorkerLon = typeof worker.longitude === 'number' && !isNaN(worker.longitude) && worker.longitude !== 0 ? worker.longitude : null;
+        const validProfLat = typeof profile?.latitude === 'number' && !isNaN(Number(profile?.latitude)) && Number(profile?.latitude) !== 0 ? Number(profile?.latitude) : null;
+        const validProfLon = typeof profile?.longitude === 'number' && !isNaN(Number(profile?.longitude)) && Number(profile?.longitude) !== 0 ? Number(profile?.longitude) : null;
+
+        const resolvedLat = validWorkerLat ?? validProfLat;
+        const resolvedLon = validWorkerLon ?? validProfLon;
+
+        if (resolvedLat !== null && resolvedLon !== null) {
+          setGeocodedCoord({
+            latitude: resolvedLat,
+            longitude: resolvedLon,
+            displayName: worker.geocoded_address || profile?.geocoded_address || worker.preferred_work_location || profile?.location || '',
+            isApproximate: Boolean((worker.geocoded_address || profile?.geocoded_address)?.toLowerCase().includes('pin')),
+          });
+        }
+      } else if (profile) {
+        if (profile.location) {
+          setLocationQuery(profile.location);
+          setPreferredWorkLocation(profile.location);
+        }
+        const validProfLat = typeof profile.latitude === 'number' && !isNaN(Number(profile.latitude)) && Number(profile.latitude) !== 0 ? Number(profile.latitude) : null;
+        const validProfLon = typeof profile.longitude === 'number' && !isNaN(Number(profile.longitude)) && Number(profile.longitude) !== 0 ? Number(profile.longitude) : null;
+        if (validProfLat !== null && validProfLon !== null) {
+          setGeocodedCoord({
+            latitude: validProfLat,
+            longitude: validProfLon,
+            displayName: profile.geocoded_address || profile.location || '',
+            isApproximate: Boolean(profile.geocoded_address?.toLowerCase().includes('pin')),
+          });
+        }
       }
     } catch (err) {
       console.warn('Profile load notice:', err);
@@ -340,9 +407,85 @@ export function WorkerProfileModal({
       setDailyWage('500');
       setExperienceDescription('');
       setPreferredWorkLocation('');
+      setPreferredRadiusKm(25);
+      setLocationQuery('');
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+      setIsGeocoding(false);
+      setGeocodedCoord(null);
+      setGeocodingError(null);
+      setShowResidentialAccordion(true);
       setAssistedWorkerId(initialAssistedWorkerId || null);
     }
   }, [user, isOpen, isAssisted, loadExistingProfile, initialAssistedWorkerId]);
+
+  const handleLocationQueryChange = (val: string) => {
+    setLocationQuery(val);
+    setPreferredWorkLocation(val);
+    setGeocodingError(null);
+    if (!val.trim() || val.trim().length < 2) {
+      setLocationSuggestions([]);
+      setShowLocationSuggestions(false);
+      return;
+    }
+    searchLocationSuggestions(val)
+      .then((suggestions) => {
+        setLocationSuggestions(suggestions);
+        setShowLocationSuggestions(suggestions.length > 0);
+      })
+      .catch((err) => {
+        console.warn('Location suggestion lookup error:', err);
+      });
+  };
+
+  const handleSelectSuggestion = (s: LocationSuggestion) => {
+    setLocationQuery(s.displayName);
+    setPreferredWorkLocation(s.displayName);
+    setGeocodedCoord({
+      latitude: s.latitude,
+      longitude: s.longitude,
+      displayName: s.displayName,
+      isApproximate: s.isApproximatePincode,
+    });
+    if (s.locality || s.city) setVillage(s.locality || s.city || '');
+    if (s.city) setCity(s.city);
+    if (s.district) setDistrict(s.district);
+    if (s.state) setStateName(s.state);
+    if (s.pincode) setPincode(s.pincode);
+    setShowLocationSuggestions(false);
+    setGeocodingError(null);
+  };
+
+  const handleTriggerGeocoding = async () => {
+    const q = locationQuery.trim();
+    if (!q) return;
+    setIsGeocoding(true);
+    setGeocodingError(null);
+    try {
+      const res = await geocodePreferredLocation(q);
+      if (res) {
+        setGeocodedCoord({
+          latitude: res.latitude,
+          longitude: res.longitude,
+          displayName: res.displayName,
+          isApproximate: res.isApproximatePincode,
+        });
+        setPreferredWorkLocation(res.displayName);
+        if (res.city && !city) setCity(res.city);
+        if (res.district && !district) setDistrict(res.district);
+        if (res.state && !stateName) setStateName(res.state);
+        if (res.pincode && !pincode) setPincode(res.pincode);
+        setShowLocationSuggestions(false);
+      } else {
+        setGeocodingError(t('geocodingFailedNotice') || 'Could not automatically determine exact coordinates. Please select from suggestions or enter city/district.');
+      }
+    } catch (err) {
+      console.warn('Geocoding error:', err);
+      setGeocodingError(t('geocodingFailedNotice') || 'Could not automatically determine exact coordinates. Please select from suggestions or enter city/district.');
+    } finally {
+      setIsGeocoding(false);
+    }
+  };
 
   if (!isOpen) return null;
 
@@ -375,7 +518,10 @@ export function WorkerProfileModal({
       const cleanEmail = email.trim() || existingProfileData?.email || null;
       const cleanGender = gender || existingProfileData?.gender || null;
       const cleanExpDesc = experienceDescription.trim().normalize('NFC') || existingWorkerData?.experience_description || null;
-      const cleanPreferredLoc = preferredWorkLocation.trim().normalize('NFC') || existingWorkerData?.preferred_work_location || null;
+      const cleanPreferredBase = locationQuery.trim().normalize('NFC') || preferredWorkLocation.trim().normalize('NFC') || existingWorkerData?.preferred_work_location || '';
+      const cleanPreferredLoc = cleanPreferredBase
+        ? (cleanPreferredBase.includes('km') ? cleanPreferredBase : `${cleanPreferredBase} (Radius: ${preferredRadiusKm} km)`)
+        : null;
       const cleanWage = Number(dailyWage) || existingProfileData?.daily_wage || 500;
       const cleanYears = Number(experienceYears) || existingProfileData?.experience_years || 1;
 
@@ -383,7 +529,7 @@ export function WorkerProfileModal({
       const locationParts = [cleanVillage, cleanDistrict, cleanState].filter(Boolean);
       const computedLocation = locationParts.length > 0
         ? locationParts.join(', ')
-        : (location.trim().normalize('NFC') || existingProfileData?.location || null);
+        : (cleanPreferredBase || location.trim().normalize('NFC') || existingProfileData?.location || null);
 
       const parsedSkills = skillsInput
         .split(/[,،、]/)
@@ -395,27 +541,40 @@ export function WorkerProfileModal({
       const targetId = isSelf ? (existingProfileData?.id || user.id) : (assistedWorkerId || crypto.randomUUID());
 
       // Asynchronous geocoding for locality coordinates
-      let geoLat: number | null = existingWorkerData?.latitude ?? existingProfileData?.latitude ?? null;
-      let geoLon: number | null = existingWorkerData?.longitude ?? existingProfileData?.longitude ?? null;
-      let geoAddress: string | null = existingWorkerData?.geocoded_address ?? existingProfileData?.geocoded_address ?? null;
+      let geoLat: number | null = geocodedCoord?.latitude ?? existingWorkerData?.latitude ?? existingProfileData?.latitude ?? null;
+      let geoLon: number | null = geocodedCoord?.longitude ?? existingWorkerData?.longitude ?? existingProfileData?.longitude ?? null;
+      let geoAddress: string | null = geocodedCoord?.displayName ?? existingWorkerData?.geocoded_address ?? existingProfileData?.geocoded_address ?? null;
 
-      try {
-        const geoRes = await geocodeAddress({
-          village: cleanVillage,
-          city: cleanCity,
-          district: cleanDistrict,
-          state: cleanState,
-          pincode: cleanPincode,
-          freeform: computedLocation,
-        });
+      if (!geoLat || !geoLon) {
+        try {
+          const prefTarget = cleanPreferredBase || computedLocation;
+          if (prefTarget) {
+            const prefRes = await geocodePreferredLocation(prefTarget);
+            if (prefRes) {
+              geoLat = prefRes.latitude;
+              geoLon = prefRes.longitude;
+              geoAddress = prefRes.displayName;
+            }
+          }
+          if (!geoLat || !geoLon) {
+            const geoRes = await geocodeAddress({
+              village: cleanVillage,
+              city: cleanCity,
+              district: cleanDistrict,
+              state: cleanState,
+              pincode: cleanPincode,
+              freeform: computedLocation,
+            });
 
-        if (geoRes) {
-          geoLat = geoRes.latitude;
-          geoLon = geoRes.longitude;
-          geoAddress = geoRes.displayName;
+            if (geoRes) {
+              geoLat = geoRes.latitude;
+              geoLon = geoRes.longitude;
+              geoAddress = geoRes.displayName;
+            }
+          }
+        } catch (geoErr) {
+          console.warn('Notice: Background geocoding bypassed without blocking profile save:', geoErr);
         }
-      } catch (geoErr) {
-        console.warn('Notice: Background geocoding bypassed without blocking profile save:', geoErr);
       }
 
       // Explicit coordinate range validation: Latitude [-90..90], Longitude [-180..180]
@@ -800,10 +959,33 @@ export function WorkerProfileModal({
 
               {/* Location Card */}
               <div className="bg-slate-50 border border-slate-200 rounded-2xl p-4 space-y-2">
-                <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-brand-600" />
-                  Address & Residential Details
-                </span>
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-700 flex items-center gap-1.5">
+                    <MapPin className="w-4 h-4 text-brand-600" />
+                    Address & Work Location
+                  </span>
+                  {geocodedCoord && (
+                    <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                      <Compass className="w-3 h-3 text-emerald-600" />
+                      {geocodedCoord.latitude.toFixed(4)}° N, {geocodedCoord.longitude.toFixed(4)}° E
+                    </span>
+                  )}
+                </div>
+
+                {(preferredWorkLocation || locationQuery || geocodedCoord) && (
+                  <div className="bg-white/80 p-2.5 rounded-xl border border-slate-200/90 text-xs">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider block">Preferred Work Area & Radius</span>
+                    <div className="flex items-center justify-between gap-2 mt-0.5">
+                      <span className="font-bold text-slate-800 text-xs sm:text-sm">
+                        {preferredWorkLocation || locationQuery || geocodedCoord?.displayName}
+                      </span>
+                      <span className="px-2 py-0.5 bg-brand-50 text-brand-700 border border-brand-200 rounded-md text-[11px] font-bold shrink-0">
+                        {preferredRadiusKm} km radius
+                      </span>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs pt-1">
                   <div>
                     <span className="text-slate-400 block text-[11px]">Village / Town</span>
@@ -1006,99 +1188,257 @@ export function WorkerProfileModal({
               </div>
             </div>
 
-            {/* SECTION 2: STRUCTURED RESIDENTIAL ADDRESS */}
+            {/* SECTION 2: PREFERRED WORK LOCATION & AUTOMATIC GEOCODING */}
             <div className="space-y-3 pt-2 border-t border-slate-100">
-              <span className="text-xs font-bold uppercase tracking-wider text-brand-700 block">
-                📍 2. Rural Address & Location Details
-              </span>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-bold uppercase tracking-wider text-brand-700 flex items-center gap-1.5">
+                  <MapPin className="w-4 h-4 text-brand-600" />
+                  📍 2. {t('wherePreferToWork') || 'Where would you prefer to work?'} *
+                </span>
+                <VoiceSpeakerButton
+                  text={t('wherePreferToWork') || 'Where would you prefer to work?'}
+                  lang={currentLang}
+                  label="Listen to preferred location instruction"
+                />
+              </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Village / Gram Panchayat */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">
-                    Village / Gram Panchayat
-                  </label>
+              {/* Search input with autocomplete dropdown */}
+              <div className="relative">
+                <div className="flex items-center border border-slate-300 rounded-xl px-3 bg-white focus-within:border-brand-500 shadow-2xs">
+                  <Search className="w-4 h-4 text-slate-400 mr-2 shrink-0" />
                   <input
                     type="text"
-                    value={village}
-                    onChange={(e) => setVillage(e.target.value)}
-                    placeholder="e.g. Rampur"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
+                    value={locationQuery}
+                    onChange={(e) => handleLocationQueryChange(e.target.value)}
+                    onFocus={() => {
+                      if (locationSuggestions.length > 0) setShowLocationSuggestions(true);
+                    }}
+                    onBlur={() => {
+                      // Slight delay to allow clicking suggestion item
+                      setTimeout(() => setShowLocationSuggestions(false), 250);
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        e.preventDefault();
+                        handleTriggerGeocoding();
+                      }
+                    }}
+                    placeholder={t('searchLocationPlaceholder') || 'Search village, town, city, or 6-digit PIN code...'}
+                    className="w-full py-2.5 text-xs sm:text-sm font-medium outline-none bg-transparent"
                   />
+                  {isGeocoding ? (
+                    <span className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin shrink-0" />
+                  ) : locationQuery ? (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setLocationQuery('');
+                        setPreferredWorkLocation('');
+                        setGeocodedCoord(null);
+                        setLocationSuggestions([]);
+                        setShowLocationSuggestions(false);
+                      }}
+                      className="text-slate-400 hover:text-slate-600 p-1 text-xs cursor-pointer"
+                      title="Clear location"
+                    >
+                      ✕
+                    </button>
+                  ) : null}
                 </div>
 
-                {/* City / Block / Tehsil */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">
-                    City / Block / Tehsil
-                  </label>
-                  <input
-                    type="text"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="e.g. Block B / Haveli"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
-                  />
-                </div>
+                {/* Autocomplete Dropdown */}
+                {showLocationSuggestions && locationSuggestions.length > 0 && (
+                  <div className="absolute z-30 left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-lg max-h-60 overflow-y-auto divide-y divide-slate-100">
+                    {locationSuggestions.map((s, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onMouseDown={(e) => {
+                          e.preventDefault(); // Prevent blur before click
+                          handleSelectSuggestion(s);
+                        }}
+                        className="w-full text-left px-3.5 py-2.5 hover:bg-emerald-50/80 transition-colors flex items-start gap-2.5 group cursor-pointer"
+                      >
+                        <MapPin className="w-4 h-4 text-brand-600 mt-0.5 shrink-0 group-hover:scale-110 transition-transform" />
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-2 flex-wrap">
+                            <span className="text-xs font-bold text-slate-800">{s.displayName}</span>
+                            {s.isApproximatePincode && (
+                              <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                                PIN {s.pincode} • Approximate Area
+                              </span>
+                            )}
+                          </div>
+                          <div className="text-[11px] text-slate-400 mt-0.5 flex items-center gap-2">
+                            <span>{s.latitude.toFixed(4)}° N, {s.longitude.toFixed(4)}° E</span>
+                            {s.state && <span>• {s.state}</span>}
+                          </div>
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
 
-                {/* District */}
-                <div className="space-y-1">
+              {/* Geocoding Error Notice */}
+              {geocodingError && (
+                <div className="p-2.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 text-xs flex items-center gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                  <span>{geocodingError}</span>
+                </div>
+              )}
+
+              {/* Geocoded Confirmation Card */}
+              {geocodedCoord && (
+                <div className="bg-emerald-50/90 border border-emerald-300 rounded-xl p-3 flex items-start justify-between gap-3 shadow-2xs">
+                  <div className="flex items-start gap-2.5">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 mt-0.5 shrink-0" />
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span className="text-xs font-bold text-emerald-950">
+                          {geocodedCoord.displayName}
+                        </span>
+                        {geocodedCoord.isApproximate && (
+                          <span className="text-[10px] font-semibold bg-amber-100 text-amber-800 px-2 py-0.5 rounded-full border border-amber-200">
+                            {t('approximatePincodeNotice') || 'Approximate area centroid (PIN code)'}
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-emerald-700 flex items-center gap-1.5">
+                        <Compass className="w-3.5 h-3.5 text-emerald-600" />
+                        <span>{t('coordinatesLabel') || 'Coordinates'}: <strong>{geocodedCoord.latitude.toFixed(4)}° N, {geocodedCoord.longitude.toFixed(4)}° E</strong></span>
+                      </p>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setGeocodedCoord(null);
+                      setShowLocationSuggestions(true);
+                    }}
+                    className="text-[11px] font-bold text-emerald-800 hover:text-emerald-900 bg-white px-2.5 py-1 rounded-lg border border-emerald-200 hover:bg-emerald-100 transition-colors shrink-0 cursor-pointer"
+                  >
+                    {t('changeLocation') || 'Change'}
+                  </button>
+                </div>
+              )}
+
+              {/* Preferred Working Radius */}
+              <div className="space-y-1.5 pt-1">
+                <div className="flex items-center justify-between">
                   <label className="text-xs font-bold text-slate-700">
-                    District
+                    {t('preferredWorkRadius') || 'Preferred Work Radius'}
                   </label>
-                  <input
-                    type="text"
-                    value={district}
-                    onChange={(e) => setDistrict(e.target.value)}
-                    placeholder="e.g. Pune / Varanasi"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
-                  />
+                  <span className="text-xs font-extrabold text-brand-700">{preferredRadiusKm} km</span>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  {[5, 10, 15, 25, 50].map((radius) => (
+                    <button
+                      key={radius}
+                      type="button"
+                      onClick={() => setPreferredRadiusKm(radius)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border cursor-pointer ${
+                        preferredRadiusKm === radius
+                          ? 'bg-brand-500 text-white border-brand-600 shadow-2xs'
+                          : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200'
+                      }`}
+                    >
+                      {radius} km
+                    </button>
+                  ))}
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* State */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">
-                    State
-                  </label>
-                  <input
-                    type="text"
-                    value={stateName}
-                    onChange={(e) => setStateName(e.target.value)}
-                    placeholder="e.g. Maharashtra, UP"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
-                  />
-                </div>
+              {/* Optional Collapsible Residential Address Details */}
+              <div className="border border-slate-200 rounded-xl overflow-hidden mt-2 bg-slate-50/50">
+                <button
+                  type="button"
+                  onClick={() => setShowResidentialAccordion(!showResidentialAccordion)}
+                  className="w-full px-3.5 py-2.5 text-left flex items-center justify-between hover:bg-slate-100/70 transition-colors cursor-pointer"
+                >
+                  <div>
+                    <span className="text-xs font-bold text-slate-700 block">
+                      {t('optionalResidentialDetails') || 'Optional: Additional Residential Address Details'}
+                    </span>
+                    <span className="text-[11px] text-slate-500 block">
+                      {t('optionalResidentialSub') || 'Complete street address is optional. Employers only need your general work area.'}
+                    </span>
+                  </div>
+                  <span className="text-slate-400 text-sm ml-2">
+                    {showResidentialAccordion ? '▲' : '▼'}
+                  </span>
+                </button>
 
-                {/* PIN Code */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">
-                    PIN Code (6 Digits)
-                  </label>
-                  <input
-                    type="text"
-                    maxLength={6}
-                    value={pincode}
-                    onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
-                    placeholder="e.g. 411001"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
-                  />
-                </div>
+                {showResidentialAccordion && (
+                  <div className="p-3.5 pt-1 space-y-3 border-t border-slate-200 bg-white">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">Village / Gram Panchayat</label>
+                        <input
+                          type="text"
+                          value={village}
+                          onChange={(e) => setVillage(e.target.value)}
+                          placeholder="e.g. Rampur"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none text-xs font-medium focus:border-brand-500 shadow-2xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">City / Block / Tehsil</label>
+                        <input
+                          type="text"
+                          value={city}
+                          onChange={(e) => setCity(e.target.value)}
+                          placeholder="e.g. Block B / Haveli"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none text-xs font-medium focus:border-brand-500 shadow-2xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">District</label>
+                        <input
+                          type="text"
+                          value={district}
+                          onChange={(e) => setDistrict(e.target.value)}
+                          placeholder="e.g. Pune / Varanasi"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none text-xs font-medium focus:border-brand-500 shadow-2xs"
+                        />
+                      </div>
+                    </div>
 
-                {/* Street / House Address Line */}
-                <div className="space-y-1">
-                  <label className="text-xs font-bold text-slate-700">
-                    Street / House / Landmark
-                  </label>
-                  <input
-                    type="text"
-                    value={addressLine}
-                    onChange={(e) => setAddressLine(e.target.value)}
-                    placeholder="Near Old Gram Panchayat"
-                    className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
-                  />
-                </div>
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">State</label>
+                        <input
+                          type="text"
+                          value={stateName}
+                          onChange={(e) => setStateName(e.target.value)}
+                          placeholder="e.g. Maharashtra, UP"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none text-xs font-medium focus:border-brand-500 shadow-2xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">PIN Code (6 Digits)</label>
+                        <input
+                          type="text"
+                          maxLength={6}
+                          value={pincode}
+                          onChange={(e) => setPincode(e.target.value.replace(/\D/g, ''))}
+                          placeholder="e.g. 411001"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none text-xs font-medium focus:border-brand-500 shadow-2xs"
+                        />
+                      </div>
+                      <div className="space-y-1">
+                        <label className="text-[11px] font-bold text-slate-600">Street / House / Landmark</label>
+                        <input
+                          type="text"
+                          value={addressLine}
+                          onChange={(e) => setAddressLine(e.target.value)}
+                          placeholder="Near Old Gram Panchayat"
+                          className="w-full px-3 py-2 border border-slate-300 rounded-xl outline-none text-xs font-medium focus:border-brand-500 shadow-2xs"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -1237,20 +1577,6 @@ export function WorkerProfileModal({
                   onChange={(e) => setExperienceDescription(e.target.value)}
                   placeholder="e.g. 5 years operating Mahindra and Swaraj tractors, wheat harvesting and mango orchard care."
                   className="w-full px-3.5 py-2 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs resize-none"
-                />
-              </div>
-
-              {/* PREFERRED WORK LOCATION */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-700">
-                  Preferred Work Locations / Nearby Blocks
-                </label>
-                <input
-                  type="text"
-                  value={preferredWorkLocation}
-                  onChange={(e) => setPreferredWorkLocation(e.target.value)}
-                  placeholder="e.g. Within 15km of Rampur, Block 4 and adjoining villages"
-                  className="w-full px-3.5 py-2.5 border border-slate-300 rounded-xl outline-none text-xs sm:text-sm font-medium focus:border-brand-500 shadow-2xs"
                 />
               </div>
             </div>
