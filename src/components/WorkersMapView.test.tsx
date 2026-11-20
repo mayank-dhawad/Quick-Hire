@@ -302,4 +302,168 @@ describe('WorkersMapView Component — Advanced Discovery Map', () => {
 
     expect(mockClose).toHaveBeenCalledTimes(1);
   });
+
+  it('strictly separates search center (Nagpur) from worker marker and does NOT plot unmapped Rohit Garad at search center', () => {
+    const unmappedRohit: WorkerItem[] = [
+      {
+        id: 'e2290510-4590-44ac-9d0d-ba6ce9654715',
+        category: 'Agriculture',
+        skills: ['Driving', 'Harvesting'],
+        experience_years: 1,
+        daily_wage: 500,
+        average_rating: 4.8,
+        is_available: true,
+        latitude: null,
+        longitude: null,
+        profiles: {
+          id: 'e2290510-4590-44ac-9d0d-ba6ce9654715',
+          full_name: 'Rohit Garad',
+          phone_number: '918983538343',
+          is_assisted_profile: true,
+          location: '',
+          village: null,
+          city: null,
+          district: null,
+          state: null,
+          latitude: null,
+          longitude: null,
+        },
+      },
+    ];
+
+    render(
+      <WorkersMapView
+        workers={unmappedRohit}
+        centerLat={21.1458}
+        centerLon={79.0882}
+        centerLabel="Nagpur, Maharashtra"
+        radiusKm={25}
+        currentLang="English"
+      />
+    );
+
+    // Rohit is found in directory but unmapped: plotted is 0, unmapped is 1
+    expect(screen.getByText(/Workers Nearby Map \(1 worker found\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/0 plotted on map/i)).toBeInTheDocument();
+    expect(screen.getByText(/\+1 unmapped/i)).toBeInTheDocument();
+    expect(screen.getByText(/Locality Coordinates Pending/i)).toBeInTheDocument();
+  });
+
+  it('plots Rohit Garad at his own coordinates when coordinates exist with category-based Emerald color', () => {
+    const mappedRohit: WorkerItem[] = [
+      {
+        id: 'e2290510-4590-44ac-9d0d-ba6ce9654715',
+        category: 'Agriculture',
+        skills: ['Driving', 'Harvesting'],
+        experience_years: 1,
+        daily_wage: 500,
+        average_rating: 4.8,
+        is_available: true,
+        latitude: 21.1458,
+        longitude: 79.0882,
+        profiles: {
+          id: 'e2290510-4590-44ac-9d0d-ba6ce9654715',
+          full_name: 'Rohit Garad',
+          phone_number: '918983538343',
+          is_assisted_profile: true,
+          location: 'Nagpur, Maharashtra',
+          village: 'Nagpur',
+          city: 'Nagpur',
+          district: 'Nagpur',
+          state: 'Maharashtra',
+          latitude: 21.1458,
+          longitude: 79.0882,
+        },
+      },
+    ];
+
+    render(
+      <WorkersMapView
+        workers={mappedRohit}
+        centerLat={21.1458}
+        centerLon={79.0882}
+        centerLabel="Nagpur, Maharashtra"
+        radiusKm={25}
+        currentLang="English"
+      />
+    );
+
+    expect(screen.getByText(/Workers Nearby Map \(1 worker found\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 plotted on map/i)).toBeInTheDocument();
+    expect(screen.queryByText(/unmapped/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/Locality Coordinates Pending/i)).not.toBeInTheDocument();
+  });
+
+  it('prioritizes worker coordinates over profile coordinates when both are present', () => {
+    const workerWithDualCoords: WorkerItem[] = [
+      {
+        id: 'dual-worker-1',
+        category: 'Construction',
+        skills: ['Masonry'],
+        experience_years: 4,
+        daily_wage: 650,
+        average_rating: 5.0,
+        is_available: true,
+        latitude: 21.1500, // Worker operating coordinate
+        longitude: 79.0900,
+        profiles: {
+          id: 'dual-worker-1',
+          full_name: 'Vikas Jadhav',
+          phone_number: '9876543210',
+          is_assisted_profile: false,
+          latitude: 18.5204, // Profile residential coordinate
+          longitude: 73.8567,
+        },
+      },
+    ];
+
+    render(
+      <WorkersMapView
+        workers={workerWithDualCoords}
+        centerLat={21.1458}
+        centerLon={79.0882}
+        currentLang="English"
+      />
+    );
+
+    expect(screen.getByText(/1 plotted on map/i)).toBeInTheDocument();
+    expect(screen.getByText('Vikas Jadhav')).toBeInTheDocument();
+  });
+
+  it('filters out invalid or Null Island (0,0) coordinates and increments unmapped count', () => {
+    const invalidCoordsWorker: WorkerItem[] = [
+      {
+        id: 'null-island-worker',
+        category: 'Daily work',
+        skills: ['Helper'],
+        experience_years: 1,
+        daily_wage: 400,
+        average_rating: 4.0,
+        is_available: true,
+        latitude: 0, // Invalid Null Island coordinate
+        longitude: 0,
+        profiles: {
+          id: 'null-island-worker',
+          full_name: 'Invalid Coord Worker',
+          phone_number: '9876543200',
+          is_assisted_profile: false,
+          latitude: 0,
+          longitude: 0,
+        },
+      },
+    ];
+
+    render(
+      <WorkersMapView
+        workers={invalidCoordsWorker}
+        centerLat={21.1458}
+        centerLon={79.0882}
+        currentLang="English"
+      />
+    );
+
+    expect(screen.getByText(/0 plotted on map/i)).toBeInTheDocument();
+    expect(screen.getByText(/\+1 unmapped/i)).toBeInTheDocument();
+    expect(screen.getByText(/Locality Coordinates Pending/i)).toBeInTheDocument();
+  });
 });

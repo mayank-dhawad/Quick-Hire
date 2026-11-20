@@ -29,6 +29,7 @@ import {
   geocodeAddress,
   searchLocationSuggestions,
   geocodePreferredLocation,
+  resolveLocalityCoordinates,
   type LocationSuggestion
 } from '../lib/geocoding';
 
@@ -354,6 +355,20 @@ export function WorkerProfileModal({
             displayName: worker.geocoded_address || profile?.geocoded_address || worker.preferred_work_location || profile?.location || '',
             isApproximate: Boolean((worker.geocoded_address || profile?.geocoded_address)?.toLowerCase().includes('pin')),
           });
+        } else {
+          // Check if existing location text can be resolved via offline locality dictionary
+          const locTarget = worker.preferred_work_location || profile?.location || profile?.city || profile?.district;
+          if (locTarget && locTarget.trim()) {
+            const centroid = resolveLocalityCoordinates(locTarget);
+            if (centroid) {
+              setGeocodedCoord({
+                latitude: centroid.latitude,
+                longitude: centroid.longitude,
+                displayName: centroid.displayName,
+                isApproximate: Boolean(centroid.displayName.toLowerCase().includes('pin')),
+              });
+            }
+          }
         }
       } else if (profile) {
         if (profile.location) {
@@ -369,6 +384,19 @@ export function WorkerProfileModal({
             displayName: profile.geocoded_address || profile.location || '',
             isApproximate: Boolean(profile.geocoded_address?.toLowerCase().includes('pin')),
           });
+        } else {
+          const locTarget = profile.location || profile.city || profile.district;
+          if (locTarget && locTarget.trim()) {
+            const centroid = resolveLocalityCoordinates(locTarget);
+            if (centroid) {
+              setGeocodedCoord({
+                latitude: centroid.latitude,
+                longitude: centroid.longitude,
+                displayName: centroid.displayName,
+                isApproximate: Boolean(centroid.displayName.toLowerCase().includes('pin')),
+              });
+            }
+          }
         }
       }
     } catch (err) {
@@ -682,13 +710,12 @@ export function WorkerProfileModal({
         }
       }
 
-      // 2. Prepare workers payload
-      const fullWorkerPayload = {
+      // 2. Prepare workers payload (daily_wage belongs exclusively to profiles table)
+      const fullWorkerPayload: Record<string, unknown> = {
         id: targetId,
         category,
         skills: parsedSkills.length > 0 ? parsedSkills : (existingWorkerData?.skills || []),
         experience_years: cleanYears,
-        daily_wage: cleanWage,
         experience_description: cleanExpDesc,
         preferred_work_location: cleanPreferredLoc,
         availability_status: 'available',
@@ -704,15 +731,20 @@ export function WorkerProfileModal({
       workerErr = resWorker.error;
 
       if (workerErr && (workerErr.code === '42703' || String(workerErr.message).includes('column'))) {
-        console.warn('Expanded worker columns not on database yet, saving core verified worker fields:', workerErr.message);
+        console.warn('Optional worker columns not on database yet, saving core verified worker fields:', workerErr.message);
         // Core columns confirmed in remote DB: id, category, skills, experience_years, is_available
-        const coreWorkerPayload = {
+        const coreWorkerPayload: Record<string, unknown> = {
           id: targetId,
           category,
           skills: parsedSkills.length > 0 ? parsedSkills : (existingWorkerData?.skills || []),
           experience_years: cleanYears,
           is_available: true,
         };
+        // If coordinate columns exist and error was not about latitude, retain coordinates
+        if (geoLat !== null && geoLon !== null && !String(workerErr.message).includes('latitude')) {
+          coreWorkerPayload.latitude = geoLat;
+          coreWorkerPayload.longitude = geoLon;
+        }
         const retryWorker = await supabase.from('workers').upsert(coreWorkerPayload);
         workerErr = retryWorker.error;
       }

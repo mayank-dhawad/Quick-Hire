@@ -412,7 +412,7 @@ export function WorkersTab({
   const processedWorkers = React.useMemo(() => {
     return filteredWorkers
       .map((w) => {
-        // Resolve worker coordinates strictly from verified database fields
+        // Resolve worker coordinates strictly from verified database fields (worker -> profile)
         const lat =
           w.latitude !== null && w.latitude !== undefined && !isNaN(Number(w.latitude)) && Number(w.latitude) !== 0
             ? Number(w.latitude)
@@ -427,7 +427,7 @@ export function WorkersTab({
             ? Number(w.profiles.longitude)
             : null;
 
-        // Genuine coordinates only — no guessed or invented centroid coordinates
+        // Genuine coordinates only — distance calculated strictly from verified worker coordinates
         let distanceKm: number | null = null;
         if (searchCoords && lat !== null && lon !== null && !isNaN(lat) && !isNaN(lon)) {
           distanceKm = calculateHaversineDistanceKm(searchCoords.lat, searchCoords.lon, lat, lon);
