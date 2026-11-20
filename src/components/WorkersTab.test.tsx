@@ -34,8 +34,8 @@ vi.mock('../lib/geocoding', () => ({
     return null;
   }),
   calculateHaversineDistanceKm: vi.fn((...args: number[]) => {
-    const lat2 = args[2];
-    // If worker is in Pune (same coords), 0 km; if in Shirur, ~60 km; if Mumbai, ~120 km
+    const [lat1, lon1, lat2, lon2] = args;
+    if (Math.abs(lat1 - lat2) < 0.001 && Math.abs(lon1 - lon2) < 0.001) return 0.0;
     if (lat2 === 18.5204) return 0.0;
     if (lat2 === 18.8256) return 60.5;
     return 120.0;
@@ -504,6 +504,62 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
       expect(screen.getByText('0 plotted on map')).toBeInTheDocument();
       expect(screen.getByText('+1 unmapped')).toBeInTheDocument();
       expect(screen.getByText('Map location not set')).toBeInTheDocument();
+    });
+
+    it('plots Rohit Garad on map with accurate distance when coordinates are resolved or saved in Supabase', async () => {
+      const mappedRohit: WorkerItem[] = [
+        {
+          id: 'e2290510-4590-44ac-9d0d-ba6ce9654715',
+          category: 'Agriculture',
+          skills: ['Driving', 'Harvesting'],
+          experience_years: 1,
+          daily_wage: 500,
+          average_rating: 4.8,
+          is_available: true,
+          latitude: 21.1458,
+          longitude: 79.0882,
+          profiles: {
+            id: 'e2290510-4590-44ac-9d0d-ba6ce9654715',
+            full_name: 'Rohit Garad',
+            phone_number: '918983538343',
+            is_assisted_profile: true,
+            location: 'Nagpur, Maharashtra',
+            village: 'Nagpur',
+            city: 'Nagpur',
+            district: 'Nagpur',
+            state: 'Maharashtra',
+            latitude: 21.1458,
+            longitude: 79.0882,
+          },
+        },
+      ];
+
+      render(
+        <WorkersTab
+          workersLoading={false}
+          selectedCategory="All"
+          onSelectCategory={vi.fn()}
+          searchQuery=""
+          onSearchQueryChange={vi.fn()}
+          filteredWorkers={mappedRohit}
+          user={mockUser}
+          onRequireLogin={vi.fn()}
+          onRegisterSkillProfile={vi.fn()}
+          onOpenDirectPayment={vi.fn()}
+          onOpenWorkerDiscovery={vi.fn()}
+        />
+      );
+
+      const locInput = screen.getByPlaceholderText(/Enter village, town, or district/i);
+      fireEvent.change(locInput, { target: { value: 'Nagpur' } });
+      fireEvent.click(screen.getByText('Find Nearby'));
+
+      await waitFor(() => {
+        expect(screen.getByText('1 worker found')).toBeInTheDocument();
+        expect(screen.getByText('1 plotted on map')).toBeInTheDocument();
+        expect(screen.queryByText(/unmapped/i)).not.toBeInTheDocument();
+        expect(screen.getByText(/Rohit Garad/i)).toBeInTheDocument();
+      });
     });
 
     it('renders recent search location chips and selects preferred location on click', async () => {

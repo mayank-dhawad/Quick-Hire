@@ -28,6 +28,7 @@ import { speakText, getVoiceGuidance } from './lib/speech';
 import { VoiceSpeakerButton } from './components/VoiceSpeakerButton';
 import { AccessibleVoiceBar } from './components/AccessibleVoiceBar';
 import { extractErrorMessage } from './lib/errorHandler';
+import { resolveLocalityCoordinates } from './lib/geocoding';
 
 // Lazy-loaded modals for code splitting and ultra-fast initial load
 const Auth = lazy(() => import('./components/Auth').then(m => ({ default: m.Auth })));
@@ -359,12 +360,26 @@ export default function App() {
       }
 
       const { data: viewData, error: viewError } = await viewQuery;
-      // Robust check: view must succeed, return an array, and have at least 1 record.
-      // If the view is missing (42P01), returns an error, or is empty (zero rows), proceed to resilient table fallback.
-      if (!viewError && Array.isArray(viewData)) {
+      // Robust check: view must succeed, return an array, and have at least 1 record containing coordinates.
+      // If the view is missing (42P01), returns an error, is empty, or lacks 'latitude' column (unmigrated view),
+      // proceed to the resilient table fallback which directly reads coordinates from workers and profiles.
+      if (!viewError && Array.isArray(viewData) && viewData.length > 0 && 'latitude' in (viewData[0] || {})) {
         const mapped = (viewData as Record<string, unknown>[]).map((row: Record<string, unknown>) => {
-          const lat = row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0 ? Number(row.latitude) : null;
-          const lon = row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0 ? Number(row.longitude) : null;
+          let lat = row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0 ? Number(row.latitude) : null;
+          let lon = row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0 ? Number(row.longitude) : null;
+
+          // If numeric coordinates are absent on the row, check if the declared locality resolves via offline centroid
+          if (lat === null || lon === null) {
+            const locText = (row.preferred_work_location as string) || (row.location as string) || (row.city as string) || (row.district as string);
+            if (locText && locText.trim()) {
+              const centroid = resolveLocalityCoordinates(locText);
+              if (centroid) {
+                lat = centroid.latitude;
+                lon = centroid.longitude;
+              }
+            }
+          }
+
           return {
             id: row.id,
             category: row.category,
@@ -402,13 +417,13 @@ export default function App() {
       }
 
       // 2. Resilient fallback for unmigrated, empty, or view-missing database environments
-      // Queries verified columns: workers (id, category, skills, experience_years, average_rating, is_available, location, latitude, longitude)
+      // Queries verified columns: workers (id, category, skills, experience_years, average_rating, is_available, location, latitude, longitude, preferred_work_location)
       // and profiles (id, full_name, is_assisted_profile, location, village, city, district, state, daily_wage, latitude, longitude)
       // NOTE: phone_number is never fetched here to preserve worker privacy; contact numbers are retrieved via get_worker_contact_phone RPC
       let query = supabase
         .from('workers')
         .select(`
-          id, category, skills, experience_years, average_rating, is_available, location, latitude, longitude, geocoded_address,
+          id, category, skills, experience_years, average_rating, is_available, location, latitude, longitude, geocoded_address, preferred_work_location,
           profiles ( id, full_name, is_assisted_profile, location, village, city, district, state, daily_wage, latitude, longitude, geocoded_address )
         `)
         .eq('is_available', true);
@@ -452,19 +467,31 @@ export default function App() {
             [prof.village, prof.city, prof.district, prof.state].filter(Boolean).join(', ') ||
             null;
 
-          const lat =
+          let lat =
             row.latitude !== null && row.latitude !== undefined && !isNaN(Number(row.latitude)) && Number(row.latitude) !== 0
               ? Number(row.latitude)
               : prof.latitude !== null && prof.latitude !== undefined && !isNaN(Number(prof.latitude)) && Number(prof.latitude) !== 0
                 ? Number(prof.latitude)
                 : null;
 
-          const lon =
+          let lon =
             row.longitude !== null && row.longitude !== undefined && !isNaN(Number(row.longitude)) && Number(row.longitude) !== 0
               ? Number(row.longitude)
               : prof.longitude !== null && prof.longitude !== undefined && !isNaN(Number(prof.longitude)) && Number(prof.longitude) !== 0
                 ? Number(prof.longitude)
                 : null;
+
+          // Priority: worker coords -> profile coords -> offline locality centroid if text locality is present
+          if (lat === null || lon === null) {
+            const locText = (row.preferred_work_location as string) || (compositeLoc as string);
+            if (locText && locText.trim()) {
+              const centroid = resolveLocalityCoordinates(locText);
+              if (centroid) {
+                lat = centroid.latitude;
+                lon = centroid.longitude;
+              }
+            }
+          }
 
           return {
             id: row.id,
