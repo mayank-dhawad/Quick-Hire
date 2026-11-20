@@ -25,3 +25,6 @@ dist-ssr
 .env.*
 !.env.example
 *.tsbuildinfo
+
+# Database dumps and sensitive backups
+docs/backups/
