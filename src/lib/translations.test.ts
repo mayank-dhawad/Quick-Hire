@@ -275,4 +275,16 @@ describe('Multilingual Translation Dictionary', () => {
       expect(val).toBe('Cash Payment');
     });
   });
+  describe('SOS localization coverage', () => {
+    const keys = ["sos24x7","sosMedical","sosWomenSafety","sosKisanLabel","shramikTitle","shramikCall","personalSosTitle","personalSosSubtitle","changeContact","configuredTrustedContact","trustedPersonalContact","callContact","locatingGps","broadcastSos","updateEmergencyContact","registerTrustedContact","contactNameRelationship","emergencyPhone","saveEmergencyContact","saving","clearContact","cancel","pleaseLoginSaveEmergency","emergencyContactSaved","emergencyContactCleared","sosSmsMessage"];
+    for (const lang of SUPPORTED_LANGUAGES) {
+      for (const key of keys) {
+        it(`has a localized ${key} value in ${lang}`, () => {
+          const value = getTranslation(lang, key);
+          expect(value.trim().length).toBeGreaterThan(0);
+          expect(value).not.toBe(key);
+        });
+      }
+    }
+  });
 });
