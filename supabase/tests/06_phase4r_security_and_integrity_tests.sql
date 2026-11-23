@@ -1025,14 +1025,18 @@ BEGIN
             '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Financial Worker"}'::jsonb, now(), now()
         );
 
-        -- Insert profile & worker with both legacy and private banking fields
-        INSERT INTO public.profiles (
-            id, full_name, role, phone_number, is_assisted_profile, account_status,
-            bank_name, bank_account_no, bank_ifsc, upi_id
-        ) VALUES (
-            v_fin_user_id, 'Financial Worker', 'worker', '+919876543299', false, 'active',
-            'HDFC Bank', '123456789012', 'HDFC0001234', 'fin@upi'
-        );
+        -- Auth signup already created the profile; populate its financial test data.
+        UPDATE public.profiles
+        SET full_name = 'Financial Worker',
+            role = 'worker',
+            phone_number = '+919876543299',
+            is_assisted_profile = false,
+            account_status = 'active',
+            bank_name = 'HDFC Bank',
+            bank_account_no = '123456789012',
+            bank_ifsc = 'HDFC0001234',
+            upi_id = 'fin@upi'
+        WHERE id = v_fin_user_id;
         INSERT INTO public.workers (id, category, skills, is_available, availability_status)
         VALUES (v_fin_user_id, 'Agriculture', ARRAY['Harvesting'], true, 'available');
 
@@ -1095,8 +1099,11 @@ BEGIN
         INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
         VALUES (v_app_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'app.user@quickhire.in', 'pw', now(), now(), now());
 
-        INSERT INTO public.profiles (id, full_name, role, phone_number, is_assisted_profile, account_status)
-        VALUES (v_app_user_id, 'Application User', 'worker', '+919876543288', false, 'active');
+        -- Auth signup trigger creates the profile; update it for this test fixture.
+        UPDATE public.profiles
+        SET full_name = 'Application User', role = 'worker',
+            phone_number = '+919876543288', is_assisted_profile = false, account_status = 'active'
+        WHERE id = v_app_user_id;
 
         INSERT INTO public.workers (id, category, skills) VALUES (v_app_user_id, 'Construction', ARRAY['Masonry']);
 
@@ -1125,8 +1132,11 @@ BEGIN
         INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
         VALUES (v_rev_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'rev.user@quickhire.in', 'pw', now(), now(), now());
 
-        INSERT INTO public.profiles (id, full_name, role, phone_number, is_assisted_profile, account_status)
-        VALUES (v_rev_user_id, 'Reviewer User', 'employer', '+919876543277', false, 'active');
+        -- Auth signup trigger creates the profile; update it for this test fixture.
+        UPDATE public.profiles
+        SET full_name = 'Reviewer User', role = 'employer',
+            phone_number = '+919876543277', is_assisted_profile = false, account_status = 'active'
+        WHERE id = v_rev_user_id;
 
         INSERT INTO public.reviews (id, reviewer_profile_id, reviewed_profile_id, rating, comment)
         VALUES (v_review_id, v_rev_user_id, v_worker_primary_id, 4.5, 'Good work done on time.');
@@ -1153,8 +1163,11 @@ BEGIN
         INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
         VALUES (v_emp_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'emp.user@quickhire.in', 'pw', now(), now(), now());
 
-        INSERT INTO public.profiles (id, full_name, role, phone_number, is_assisted_profile, account_status)
-        VALUES (v_emp_user_id, 'Employer User', 'employer', '+919876543266', false, 'active');
+        -- Auth signup trigger creates the profile; update it for this test fixture.
+        UPDATE public.profiles
+        SET full_name = 'Employer User', role = 'employer',
+            phone_number = '+919876543266', is_assisted_profile = false, account_status = 'active'
+        WHERE id = v_emp_user_id;
 
         INSERT INTO public.jobs (id, employer_id, title, category, status)
         VALUES (v_open_job_id, v_emp_user_id, 'Unfilled Field Work', 'Agriculture', 'open');
