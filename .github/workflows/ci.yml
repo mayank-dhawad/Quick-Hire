@@ -12,7 +12,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: quickhire-ci-${{ github.ref }}
+  group: quickhire-ci-v2-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
