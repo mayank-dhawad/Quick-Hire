@@ -489,7 +489,7 @@ describe('WorkersMapView Component — Advanced Discovery Map', () => {
     expect(onSelectWorker).toHaveBeenCalledWith(expect.objectContaining({ id: 'worker-1' }));
     expect(onCallWorker).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole('button', { name: 'Unavailable', exact: true }));
+    fireEvent.click(screen.getByRole('button', { name: 'Unavailable' }));
     expect(screen.queryByText('Baburao Shinde')).not.toBeInTheDocument();
     expect(screen.queryByText('Unmapped Worker')).not.toBeInTheDocument();
   });
