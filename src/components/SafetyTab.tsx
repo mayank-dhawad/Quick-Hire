@@ -203,8 +203,9 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
     setSosBroadcastAlert(null);
 
     const sendSosWithCoords = (lat?: number, lng?: number) => {
-      const cleanPhone = emergencyContactPhone.replace(/\D/g, '');
-      const locationPart = lat && lng ? ` My current GPS location: https://maps.google.com/?q=${lat},${lng}` : '';
+      const phoneDigits = emergencyContactPhone.replace(/\D/g, '');
+      const cleanPhone = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+      const locationPart = Number.isFinite(lat) && Number.isFinite(lng) ? ` My current GPS location: https://maps.google.com/?q=${lat},${lng}` : '';
       const message = `${t('sosSmsMessage')}${locationPart}`;
 
       // Open SMS dialer with prefilled message
@@ -392,6 +393,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                 <p className="text-xs text-slate-500">
                   {t('personalSosSubtitle')}
                 </p>
+                <p className="text-[11px] text-slate-500 mt-1">{t('sosSendNote')}</p>
               </div>
             </div>
 
