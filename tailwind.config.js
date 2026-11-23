@@ -18,6 +18,8 @@ export default {
           800: '#0b5240',
         },
         surface: '#fbfcf8',
+        government: { navy: '#102a43', 'navy-soft': '#183b56', saffron: '#f28c28', 'india-green': '#138808' },
+        emergency: { DEFAULT: '#b42318', soft: '#fff1f0' },
         borderLight: '#e4e7ec',
         ink: {
           primary: '#18201b',
