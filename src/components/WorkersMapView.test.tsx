@@ -239,16 +239,17 @@ describe('WorkersMapView Component — Advanced Discovery Map', () => {
       />
     );
 
-    // Sidebar should display mapped workers
-    expect(screen.getByText('Nearby Workers')).toBeInTheDocument();
+    // Sidebar includes mapped and unmapped directory workers
+    expect(screen.getByText('Find a worker')).toBeInTheDocument();
     expect(screen.getByText('Baburao Shinde')).toBeInTheDocument();
     expect(screen.getByText('Anand Gaikwad')).toBeInTheDocument();
+    expect(screen.getByText('Unmapped Worker')).toBeInTheDocument();
 
     // Toggle sidebar off
     const sidebarToggleBtn = screen.getByTitle(/Toggle nearby workers list sidebar/i);
     fireEvent.click(sidebarToggleBtn);
 
-    expect(screen.queryByText('Nearby Workers')).not.toBeInTheDocument();
+    expect(screen.queryByText('Find a worker')).not.toBeInTheDocument();
   });
 
   it('renders quick floating map controls: Recenter, Fit to Workers, and Reset', () => {
@@ -465,5 +466,49 @@ describe('WorkersMapView Component — Advanced Discovery Map', () => {
     expect(screen.getByText(/0 plotted on map/i)).toBeInTheDocument();
     expect(screen.getByText(/\+1 unmapped/i)).toBeInTheDocument();
     expect(screen.getByText(/Locality Coordinates Pending/i)).toBeInTheDocument();
+  });
+
+  it('keeps available and unmapped workers in the list without implying live-online presence', () => {
+    const onSelectWorker = vi.fn();
+    const onCallWorker = vi.fn();
+    render(
+      <WorkersMapView
+        workers={mockWorkers}
+        centerLat={18.5204}
+        centerLon={73.8567}
+        onSelectWorker={onSelectWorker}
+        onCallWorker={onCallWorker}
+      />
+    );
+
+    expect(screen.getByText('Unmapped Worker')).toBeInTheDocument();
+    expect(screen.getAllByText('Available for work').length).toBeGreaterThan(0);
+    expect(screen.queryByText('Available Now')).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByText('Baburao Shinde'));
+    expect(onSelectWorker).toHaveBeenCalledWith(expect.objectContaining({ id: 'worker-1' }));
+    expect(onCallWorker).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Unavailable', exact: true }));
+    expect(screen.queryByText('Baburao Shinde')).not.toBeInTheDocument();
+    expect(screen.queryByText('Unmapped Worker')).not.toBeInTheDocument();
+  });
+
+  it('accepts zero as a valid coordinate when the pair is not Null Island', () => {
+    const equatorWorker: WorkerItem[] = [{
+      id: 'equator-worker',
+      category: 'Daily work',
+      skills: ['Helper'],
+      experience_years: 1,
+      average_rating: null,
+      is_available: true,
+      latitude: 0,
+      longitude: 73.5,
+      profiles: { id: 'equator-worker', full_name: 'Equator Worker', phone_number: null, is_assisted_profile: false },
+    }];
+
+    render(<WorkersMapView workers={equatorWorker} currentLang="English" />);
+    expect(screen.getByText(/1 plotted on map/i)).toBeInTheDocument();
+    expect(screen.getByText('Equator Worker')).toBeInTheDocument();
   });
 });
