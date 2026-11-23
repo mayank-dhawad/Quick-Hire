@@ -48,6 +48,11 @@
 
 BEGIN;
 
+-- This suite creates its own profiles after auth.users fixtures. Keep the new
+-- signup-profile trigger disabled here; it is tested independently in test 07.
+-- Transaction rollback restores the trigger automatically.
+ALTER TABLE auth.users DISABLE TRIGGER on_auth_user_created;
+
 -- Verify pgcrypto extension is available in extensions schema
 DO $$
 BEGIN
