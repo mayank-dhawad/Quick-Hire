@@ -127,7 +127,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) {
-        alert('${t('pleaseLoginSaveEmergency')}');
+        alert(t('pleaseLoginSaveEmergency'));
         return;
       }
       // Upsert directly to profile_private_details — zero legacy fallback
