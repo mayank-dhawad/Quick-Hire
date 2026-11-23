@@ -277,7 +277,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
           const name = escapeHtml(worker.profiles?.full_name || 'Verified Rural Worker');
           const category = escapeHtml(worker.category || 'General Work');
           const catColor = getCategoryColor(worker.category);
-          const distanceText = worker.distance_km
+          const distanceText = worker.distance_km != null
             ? `~${worker.distance_km} km (approx. straight-line)`
             : '';
           const locality = escapeHtml(
@@ -286,8 +286,8 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
               : worker.profiles?.district || worker.profiles?.location || 'Rural Region'
           );
           const wage = worker.daily_wage ? `₹${worker.daily_wage}/day` : '';
-          const rating = worker.average_rating ? Number(worker.average_rating).toFixed(1) : '5.0';
-          const isAvailable = worker.is_available !== false;
+          const rating = worker.average_rating != null ? Number(worker.average_rating).toFixed(1) : 'New';
+          const isAvailable = worker.is_available === true;
           const callBtnId = `map-btn-call-${worker.id}`;
           const profileBtnId = `map-btn-profile-${worker.id}`;
           const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${worker.latitude},${worker.longitude}`;
@@ -509,7 +509,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
   useEffect(() => {
     const targetId = activeWorkerId || selectedWorkerId;
     if (!targetId || !mapInstanceRef.current) return;
-    const target = workersWithCoords.find((w) => w.id === targetId);
+    const target = visibleWorkersWithCoords.find((w) => w.id === targetId);
     if (target) {
       mapInstanceRef.current.setView([target.latitude, target.longitude], 14, { animate: true });
       const marker = markerMapRef.current.get(target.id);
@@ -519,7 +519,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
         }, 150);
       }
     }
-  }, [selectedWorkerId, activeWorkerId, workersWithCoords]);
+  }, [selectedWorkerId, activeWorkerId, visibleWorkersWithCoords]);
 
   // Invalidate map size on expand/collapse or sidebar toggle
   useEffect(() => {
@@ -550,9 +550,9 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
 
   const handleFitBounds = () => {
     const map = mapInstanceRef.current;
-    if (!map || workersWithCoords.length === 0) return;
+    if (!map || visibleWorkersWithCoords.length === 0) return;
     const bounds = L.latLngBounds([]);
-    workersWithCoords.forEach((w) => bounds.extend([w.latitude, w.longitude]));
+    visibleWorkersWithCoords.forEach((w) => bounds.extend([w.latitude, w.longitude]));
     if (centerLat && centerLon && (centerLat !== 20.5937 || centerLon !== 78.9629)) {
       bounds.extend([centerLat, centerLon]);
     }
