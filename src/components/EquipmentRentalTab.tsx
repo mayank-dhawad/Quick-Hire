@@ -296,13 +296,10 @@ export function EquipmentRentalTab({
                       <span>{t('callOwner')}: {ownerPhone}</span>
                     </a>
                   ) : (
-                    <button
-                      onClick={onRequireLogin}
-                      className="w-full py-3 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs flex items-center justify-center gap-2 transition-all"
-                    >
-                      <Phone className="w-3.5 h-3.5 text-slate-500" />
-                      <span>{t('loginDirectNumber')}</span>
-                    </button>
+                    <div className="w-full py-3 px-3 rounded-xl bg-slate-50 text-slate-600 text-xs flex items-center justify-center gap-2 border border-slate-200 text-center">
+                      <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
+                      <span>Owner phone numbers are private and are not shown in public listings.</span>
+                    </div>
                   )}
 
                   <button
