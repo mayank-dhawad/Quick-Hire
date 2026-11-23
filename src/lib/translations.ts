@@ -1055,7 +1055,7 @@ export const translations: Record<string, Record<string, string>> = {
     "updatingEquipmentBtn": "अपडेट हो रहा है...",
     "equipUpdatedSuccess": "डेटाबेस में उपकरण लिस्टिंग सफलतापूर्वक अपडेट की गई!",
     "editProfile": "प्रोफ़ाइल संपादित करें",
-    "createProfile": "प्रोफ़ाइल बनाएं"
+    "createProfile": "प्रोफ़ाइल बनाएं",
     "sos24x7": "24×7 आपातकालीन सेवा",
     "sosMedical": "चिकित्सा और एम्बुलेंस",
     "sosWomenSafety": "महिला सुरक्षा",
@@ -1595,7 +1595,7 @@ export const translations: Record<string, Record<string, string>> = {
     "updatingEquipmentBtn": "अद्ययावत होत आहे...",
     "equipUpdatedSuccess": "डेटाबेसमध्ये यंत्राची नोंदणी यशस्वीरित्या अद्ययावत केली!",
     "editProfile": "प्रोफाइल संपादित करा",
-    "createProfile": "नवीन प्रोफाइल तयार करा"
+    "createProfile": "नवीन प्रोफाइल तयार करा",
     "sos24x7": "२४×७ आपत्कालीन सेवा",
     "sosMedical": "वैद्यकीय सेवा आणि रुग्णवाहिका",
     "sosWomenSafety": "महिला सुरक्षा",
@@ -2135,7 +2135,7 @@ export const translations: Record<string, Record<string, string>> = {
     "updatingEquipmentBtn": "আপডেট হচ্ছে...",
     "equipUpdatedSuccess": "ডাটাবেসে যন্ত্রের তালিকা সফলভাবে আপডেট হয়েছে!",
     "editProfile": "প্রোফাইল সম্পাদনা করুন",
-    "createProfile": "নতুন প্রোফাইল তৈরি করুন"
+    "createProfile": "নতুন প্রোফাইল তৈরি করুন",
     "sos24x7": "২৪×৭ জরুরি পরিষেবা",
     "sosMedical": "চিকিৎসা ও অ্যাম্বুলেন্স",
     "sosWomenSafety": "নারী সুরক্ষা",
@@ -2675,7 +2675,7 @@ export const translations: Record<string, Record<string, string>> = {
     "updatingEquipmentBtn": "అప్‌డేట్ అవుతోంది...",
     "equipUpdatedSuccess": "డేటాబేస్‌లో పరికరాల జాబితా విజయవంతంగా అప్‌డేట్ చేయబడింది!",
     "editProfile": "ప్రొఫైల్‌ను సవరించండి",
-    "createProfile": "ప్రొఫైల్ సృష్టించండి"
+    "createProfile": "ప్రొఫైల్ సృష్టించండి",
     "sos24x7": "24×7 అత్యవసర సేవ",
     "sosMedical": "వైద్య మరియు అంబులెన్స్ సేవ",
     "sosWomenSafety": "మహిళల భద్రత",
