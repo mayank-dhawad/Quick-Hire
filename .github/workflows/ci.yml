@@ -50,8 +50,8 @@ jobs:
         with:
           version: latest
 
-      - name: Start only local Postgres for SQL regression tests
-        run: supabase db start
+      - name: Start local Supabase test stack
+        run: supabase start
 
       - name: Rebuild database from every committed migration
         run: supabase db reset
