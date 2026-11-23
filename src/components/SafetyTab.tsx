@@ -429,7 +429,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   {t('configuredTrustedContact')}
                 </span>
                 <h4 className="font-heading font-bold text-sm text-slate-900">
-                  {emergencyContactName || '{t('trustedPersonalContact')}'}
+                  {emergencyContactName || t('trustedPersonalContact')}
                 </h4>
                 <p className="text-xs font-mono text-slate-600 flex items-center gap-1">
                   <PhoneCall className="w-3 h-3 text-slate-400" />
@@ -469,7 +469,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           ) : (
             <form onSubmit={handleSaveEmergencyContact} className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
               <span className="text-xs font-bold text-slate-700 block">
-                {emergencyContactPhone ? '{t('updateEmergencyContact')}' : '{t('registerTrustedContact')}'}
+                {emergencyContactPhone ? t('updateEmergencyContact') : t('registerTrustedContact')}
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
@@ -508,7 +508,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>{isSavingContact ? '{t('saving')}' : '{t('saveEmergencyContact')}'}</span>
+                  <span>{isSavingContact ? t('saving') : t('saveEmergencyContact')}</span>
                 </button>
                 {(emergencyContactPhone || emergencyContactName) && (
                   <button
