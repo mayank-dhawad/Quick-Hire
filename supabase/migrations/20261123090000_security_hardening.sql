@@ -58,6 +58,7 @@ DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Users can update their own profile" ON public.profiles;
 DROP POLICY IF EXISTS "Profiles update policy" ON public.profiles;
 
+DROP POLICY IF EXISTS "profiles_select_owner_assisted_admin" ON public.profiles;
 CREATE POLICY "profiles_select_owner_assisted_admin"
   ON public.profiles FOR SELECT TO authenticated
   USING (
@@ -66,6 +67,7 @@ CREATE POLICY "profiles_select_owner_assisted_admin"
     OR public.is_admin((SELECT auth.uid()))
   );
 
+DROP POLICY IF EXISTS "profiles_insert_owner_assisted_admin" ON public.profiles;
 CREATE POLICY "profiles_insert_owner_assisted_admin"
   ON public.profiles FOR INSERT TO authenticated
   WITH CHECK (
@@ -74,6 +76,7 @@ CREATE POLICY "profiles_insert_owner_assisted_admin"
     OR public.is_admin((SELECT auth.uid()))
   );
 
+DROP POLICY IF EXISTS "profiles_update_owner_assisted_admin" ON public.profiles;
 CREATE POLICY "profiles_update_owner_assisted_admin"
   ON public.profiles FOR UPDATE TO authenticated
   USING (
@@ -129,6 +132,7 @@ DROP POLICY IF EXISTS "Employers can update applicant status" ON public.job_reco
 
 ALTER TABLE public.job_records ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "job_records_select_participants_admin" ON public.job_records;
 CREATE POLICY "job_records_select_participants_admin"
   ON public.job_records FOR SELECT TO authenticated
   USING (
@@ -140,6 +144,7 @@ CREATE POLICY "job_records_select_participants_admin"
     OR public.is_admin((SELECT auth.uid()))
   );
 
+DROP POLICY IF EXISTS "job_records_insert_worker_application_or_employer_hire" ON public.job_records;
 CREATE POLICY "job_records_insert_worker_application_or_employer_hire"
   ON public.job_records FOR INSERT TO authenticated
   WITH CHECK (
@@ -178,6 +183,7 @@ CREATE POLICY "job_records_insert_worker_application_or_employer_hire"
     )
   );
 
+DROP POLICY IF EXISTS "job_records_update_employer_admin" ON public.job_records;
 CREATE POLICY "job_records_update_employer_admin"
   ON public.job_records FOR UPDATE TO authenticated
   USING (
@@ -205,6 +211,7 @@ DROP POLICY IF EXISTS "Employers can insert jobs" ON public.jobs;
 DROP POLICY IF EXISTS "Employers can update their own jobs" ON public.jobs;
 DROP POLICY IF EXISTS "Employers can delete their own jobs" ON public.jobs;
 
+DROP POLICY IF EXISTS "jobs_insert_active_employer" ON public.jobs;
 CREATE POLICY "jobs_insert_active_employer"
   ON public.jobs FOR INSERT TO authenticated
   WITH CHECK (
@@ -217,11 +224,13 @@ CREATE POLICY "jobs_insert_active_employer"
     )
   );
 
+DROP POLICY IF EXISTS "jobs_update_owner_or_admin" ON public.jobs;
 CREATE POLICY "jobs_update_owner_or_admin"
   ON public.jobs FOR UPDATE TO authenticated
   USING (employer_id = (SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())))
   WITH CHECK (employer_id = (SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())));
 
+DROP POLICY IF EXISTS "jobs_delete_owner_or_admin" ON public.jobs;
 CREATE POLICY "jobs_delete_owner_or_admin"
   ON public.jobs FOR DELETE TO authenticated
   USING (employer_id = (SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())));
@@ -232,6 +241,7 @@ DROP POLICY IF EXISTS "Users can insert rental inquiries" ON public.rental_recor
 
 ALTER TABLE public.rental_records ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "rental_records_select_participants_admin" ON public.rental_records;
 CREATE POLICY "rental_records_select_participants_admin"
   ON public.rental_records FOR SELECT TO authenticated
   USING (
@@ -243,6 +253,7 @@ CREATE POLICY "rental_records_select_participants_admin"
     OR public.is_admin((SELECT auth.uid()))
   );
 
+DROP POLICY IF EXISTS "rental_records_insert_borrower" ON public.rental_records;
 CREATE POLICY "rental_records_insert_borrower"
   ON public.rental_records FOR INSERT TO authenticated
   WITH CHECK (
@@ -270,6 +281,7 @@ DROP POLICY IF EXISTS "reviews_update_reviewer" ON public.reviews;
 
 ALTER TABLE public.reviews ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "reviews_select_participants" ON public.reviews;
 CREATE POLICY "reviews_select_participants"
   ON public.reviews FOR SELECT TO authenticated
   USING (
@@ -278,6 +290,7 @@ CREATE POLICY "reviews_select_participants"
     OR public.is_admin((SELECT auth.uid()))
   );
 
+DROP POLICY IF EXISTS "reviews_insert_job_participant" ON public.reviews;
 CREATE POLICY "reviews_insert_job_participant"
   ON public.reviews FOR INSERT TO authenticated
   WITH CHECK (
@@ -295,6 +308,7 @@ CREATE POLICY "reviews_insert_job_participant"
     )
   );
 
+DROP POLICY IF EXISTS "reviews_update_reviewer" ON public.reviews;
 CREATE POLICY "reviews_update_reviewer"
   ON public.reviews FOR UPDATE TO authenticated
   USING (
@@ -317,10 +331,12 @@ DROP POLICY IF EXISTS "notifications_update_owner" ON public.notifications;
 
 ALTER TABLE public.notifications ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "notifications_select_owner" ON public.notifications;
 CREATE POLICY "notifications_select_owner"
   ON public.notifications FOR SELECT TO authenticated
   USING (profile_id = (SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())));
 
+DROP POLICY IF EXISTS "notifications_update_owner" ON public.notifications;
 CREATE POLICY "notifications_update_owner"
   ON public.notifications FOR UPDATE TO authenticated
   USING (profile_id = (SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())))
