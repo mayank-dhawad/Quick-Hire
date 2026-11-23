@@ -28,12 +28,12 @@ import { verifyAdminStatus, ensureAdminSession } from '../lib/adminAuth';
 import { navigateTo } from '../lib/adminRouter';
 
 const COUNTRY_CODES = [
-  { code: '+91', country: 'India', flag: '🇮🇳' },
-  { code: '+1', country: 'US / Canada', flag: '🇺🇸' },
-  { code: '+44', country: 'UK', flag: '🇬🇧' },
-  { code: '+971', country: 'UAE', flag: '🇦🇪' },
-  { code: '+977', country: 'Nepal', flag: '🇳🇵' },
-  { code: '+880', country: 'Bangladesh', flag: '🇧🇩' },
+  { code: '+91', country: 'India', flag: 'IN' },
+  { code: '+1', country: 'US / Canada', flag: 'US' },
+  { code: '+44', country: 'UK', flag: 'UK' },
+  { code: '+971', country: 'UAE', flag: 'AE' },
+  { code: '+977', country: 'Nepal', flag: 'NP' },
+  { code: '+880', country: 'Bangladesh', flag: 'BD' },
 ];
 
 interface AuthProps {
@@ -692,7 +692,7 @@ export function Auth({
                   <Users className="w-4 h-4" />
                 </span>
                 <span className="font-heading font-extrabold text-xs sm:text-sm text-slate-900">
-                  👷 {t('roleWorker')}
+                  {t('roleWorker')}
                 </span>
               </div>
               {selectedRole === 'worker' && (
@@ -720,7 +720,7 @@ export function Auth({
                   <Building2 className="w-4 h-4" />
                 </span>
                 <span className="font-heading font-extrabold text-xs sm:text-sm text-slate-900">
-                  🏢 {t('roleEmployer')}
+                  {t('roleEmployer')}
                 </span>
               </div>
               {selectedRole === 'employer' && (
@@ -1142,7 +1142,7 @@ export function Auth({
             <div className="flex items-center gap-3 text-[11px] shrink-0">
               <span className="hidden md:inline-flex items-center gap-1.5 bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-semibold">
                 <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>🔊 {t('voiceGuidanceActive')}</span>
+                <span>{t('voiceGuidanceActive')}</span>
               </span>
               <a
                 href="tel:18001801551"
@@ -1295,7 +1295,7 @@ export function Auth({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-300">
               <div>
                 <span className="font-bold text-white uppercase tracking-wider block mb-2">
-                  🏛️ Digital Public Infrastructure (DPI)
+                  Digital Public Infrastructure (DPI)
                 </span>
                 <p className="text-slate-400 leading-relaxed">
                   QuickHire connects rural workers, farmers, and machine owners directly without intermediaries or commission fees.
@@ -1304,19 +1304,19 @@ export function Auth({
 
               <div>
                 <span className="font-bold text-white uppercase tracking-wider block mb-2">
-                  📞 Emergency & Labor Helplines
+                  Emergency & Labor Helplines
                 </span>
                 <div className="space-y-1 text-slate-400">
-                  <p>🚨 Emergency All-in-One: <strong className="text-white">112</strong></p>
-                  <p>🚑 Medical Ambulance: <strong className="text-white">108</strong></p>
-                  <p>🌾 Kisan Call Center: <strong className="text-white">1800-180-1551</strong></p>
-                  <p>👷 National Labor Helpline: <strong className="text-white">14434</strong></p>
+                  <p>Emergency All-in-One: <strong className="text-white">112</strong></p>
+                  <p>Medical Ambulance: <strong className="text-white">108</strong></p>
+                  <p>Kisan Call Center: <strong className="text-white">1800-180-1551</strong></p>
+                  <p>National Labor Helpline: <strong className="text-white">14434</strong></p>
                 </div>
               </div>
 
               <div>
                 <span className="font-bold text-white uppercase tracking-wider block mb-2">
-                  🌐 Multilingual Citizen Inclusion
+                  Multilingual Citizen Inclusion
                 </span>
                 <p className="text-slate-400 leading-relaxed">
                   Supported in English, हिंदी, मराठी, বাংলা, and తెలుగు with real-time text-to-speech audio guidance.
