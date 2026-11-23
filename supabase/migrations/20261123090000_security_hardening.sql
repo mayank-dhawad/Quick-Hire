@@ -178,7 +178,7 @@ CREATE POLICY "job_records_update_employer_admin"
   );
 
 REVOKE ALL ON TABLE public.job_records FROM PUBLIC, anon;
-REVOKE UPDATE ON TABLE public.job_records FROM authenticated;
+REVOKE UPDATE, DELETE ON TABLE public.job_records FROM authenticated;
 GRANT SELECT, INSERT ON TABLE public.job_records TO authenticated;
 GRANT UPDATE (status) ON TABLE public.job_records TO authenticated;
 
@@ -210,6 +210,7 @@ CREATE POLICY "rental_records_insert_borrower"
   );
 
 REVOKE ALL ON TABLE public.rental_records FROM PUBLIC, anon;
+REVOKE UPDATE, DELETE ON TABLE public.rental_records FROM authenticated;
 GRANT SELECT, INSERT ON TABLE public.rental_records TO authenticated;
 
 -- 5. OTP table is deprecated and has no active frontend usage. Keep it inaccessible.
@@ -262,7 +263,9 @@ CREATE POLICY "reviews_update_reviewer"
   );
 
 REVOKE ALL ON TABLE public.reviews FROM PUBLIC, anon;
-GRANT SELECT, INSERT, UPDATE ON TABLE public.reviews TO authenticated;
+REVOKE UPDATE ON TABLE public.reviews FROM authenticated;
+GRANT SELECT, INSERT ON TABLE public.reviews TO authenticated;
+GRANT UPDATE (rating, comment) ON TABLE public.reviews TO authenticated;
 
 -- 7. User notifications are private to their recipient.
 DROP POLICY IF EXISTS "notifications_select_owner" ON public.notifications;
@@ -293,7 +296,7 @@ CREATE POLICY "payments_admin_update"
   USING (public.is_admin((SELECT auth.uid())))
   WITH CHECK (public.is_admin((SELECT auth.uid())));
 
-REVOKE INSERT ON TABLE public.payments FROM PUBLIC, anon, authenticated;
+REVOKE INSERT, DELETE ON TABLE public.payments FROM PUBLIC, anon, authenticated;
 REVOKE ALL ON TABLE public.payments FROM PUBLIC, anon;
 GRANT SELECT, UPDATE ON TABLE public.payments TO authenticated;
 
