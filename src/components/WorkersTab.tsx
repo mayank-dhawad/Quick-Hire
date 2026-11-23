@@ -42,6 +42,7 @@ import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { getTranslation, getSuggestedSkillTags } from '../lib/translations';
 import { PostCallDirectHireModal, DirectHireWorkerInfo } from './PostCallDirectHireModal';
+import { getIndianTelUri } from '../lib/phone';
 
 interface WorkersTabProps {
   currentLang?: string;
@@ -145,7 +146,12 @@ export function WorkersTab({
         });
         setIsPostCallOpen(true);
       }
-      window.location.href = `tel:${existing}`;
+      const telUri = getIndianTelUri(existing);
+      if (!telUri) {
+        setCallError({ workerId, message: 'This worker has an invalid Indian mobile number. Please ask them to update their contact details.' });
+        return;
+      }
+      window.location.href = telUri;
       return;
     }
 
@@ -198,7 +204,12 @@ export function WorkersTab({
           });
           setIsPostCallOpen(true);
         }
-        window.location.href = `tel:${retrievedPhone}`;
+        const telUri = getIndianTelUri(retrievedPhone);
+        if (!telUri) {
+          setCallError({ workerId, message: 'This worker has an invalid Indian mobile number. Please ask them to update their contact details.' });
+          return;
+        }
+        window.location.href = telUri;
       } else {
         setCallError({
           workerId,
