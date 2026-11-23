@@ -60,10 +60,12 @@ export function registerServiceWorker(options: PwaRegistrationOptions = {}): Pro
           });
         });
 
-        // Periodic background update check every 60 minutes
-        setInterval(() => {
+        // Check once when the app starts and periodically while it remains open.
+        registration.update().catch(() => {});
+        const updateCheck = window.setInterval(() => {
           registration.update().catch(() => {});
         }, 60 * 60 * 1000);
+        window.addEventListener('pagehide', () => window.clearInterval(updateCheck), { once: true });
 
         resolve(registration);
       } catch (err) {
