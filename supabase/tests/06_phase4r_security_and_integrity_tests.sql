@@ -1030,7 +1030,17 @@ BEGIN
         ) VALUES (
             v_fin_user_id, 'Financial Worker', 'worker', '+919876543299', false, 'active',
             'HDFC Bank', '123456789012', 'HDFC0001234', 'fin@upi'
-        );
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            role = EXCLUDED.role,
+            phone_number = EXCLUDED.phone_number,
+            is_assisted_profile = EXCLUDED.is_assisted_profile,
+            account_status = EXCLUDED.account_status,
+            bank_name = EXCLUDED.bank_name,
+            bank_account_no = EXCLUDED.bank_account_no,
+            bank_ifsc = EXCLUDED.bank_ifsc,
+            upi_id = EXCLUDED.upi_id;
         INSERT INTO public.workers (id, category, skills, is_available, availability_status)
         VALUES (v_fin_user_id, 'Agriculture', ARRAY['Harvesting'], true, 'available');
 
