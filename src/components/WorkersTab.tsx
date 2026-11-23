@@ -1027,9 +1027,14 @@ export function WorkersTab({
                         </h3>
                         <CheckCircle2 className="w-4 h-4 text-brand-600 fill-brand-50 shrink-0" />
                       </div>
-                      <span className="text-xs font-semibold text-brand-600 block mt-0.5">
-                        {worker.category || 'General Work'}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                        <span className="text-xs font-semibold text-brand-600">
+                          {worker.category || 'General Work'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${worker.is_available === true ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : worker.is_available === false ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                          {worker.is_available === true ? 'Available for work' : worker.is_available === false ? 'Unavailable' : 'Availability not set'}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg shrink-0">
