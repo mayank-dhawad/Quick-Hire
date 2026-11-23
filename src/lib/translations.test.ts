@@ -276,7 +276,7 @@ describe('Multilingual Translation Dictionary', () => {
     });
   });
   describe('SOS localization coverage', () => {
-    const keys = ["sos24x7","sosMedical","sosWomenSafety","sosKisanLabel","shramikTitle","shramikCall","personalSosTitle","personalSosSubtitle","changeContact","configuredTrustedContact","trustedPersonalContact","callContact","locatingGps","broadcastSos","updateEmergencyContact","registerTrustedContact","contactNameRelationship","emergencyPhone","saveEmergencyContact","saving","clearContact","cancel","pleaseLoginSaveEmergency","emergencyContactSaved","emergencyContactCleared","sosSmsMessage"];
+    const keys = ["sos24x7","sosMedical","sosWomenSafety","sosKisanLabel","shramikTitle","shramikCall","personalSosTitle","personalSosSubtitle","changeContact","configuredTrustedContact","trustedPersonalContact","callContact","locatingGps","broadcastSos","updateEmergencyContact","registerTrustedContact","contactNameRelationship","emergencyPhone","saveEmergencyContact","saving","clearContact","cancel","pleaseLoginSaveEmergency","emergencyContactSaved","emergencyContactCleared","sosSmsMessage","sosSendNote"];
     for (const lang of SUPPORTED_LANGUAGES) {
       for (const key of keys) {
         it(`has a localized ${key} value in ${lang}`, () => {
