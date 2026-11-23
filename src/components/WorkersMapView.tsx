@@ -15,7 +15,6 @@ import {
   ListFilter,
   Phone,
   Star,
-  ChevronRight,
   Search,
   CheckCircle2
 } from 'lucide-react';
@@ -289,8 +288,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
           );
           const wage = worker.daily_wage ? `₹${worker.daily_wage}/day` : '';
           const rating = worker.average_rating != null ? Number(worker.average_rating).toFixed(1) : 'New';
-          const isAvailable = worker.is_available === true;
-          const callBtnId = `map-btn-call-${worker.id}`;
+            const callBtnId = `map-btn-call-${worker.id}`;
           const profileBtnId = `map-btn-profile-${worker.id}`;
           const directionsUrl = `https://www.google.com/maps/dir/?api=1&destination=${worker.latitude},${worker.longitude}`;
 
