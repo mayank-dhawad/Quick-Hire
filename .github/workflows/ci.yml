@@ -76,6 +76,9 @@ jobs:
       - name: Verify Auth signup creates a valid profile
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/07_auth_profile_trigger_regression.sql
 
+      - name: Verify private profile fields and owner-only access
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/08_private_profile_fields_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: |
