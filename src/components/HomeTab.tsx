@@ -218,7 +218,7 @@ export function HomeTab({
           >
             <div>
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 group-hover:bg-brand-500 group-hover:text-white text-emerald-700 flex items-center justify-center text-xl transition-colors mb-4">
-                
+                <EmojiIcon name="sprout" className="h-6 w-6" />
               </div>
               <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-brand-600 transition-colors">
                 {t('catAgri')}
@@ -243,7 +243,7 @@ export function HomeTab({
           >
             <div>
               <div className="w-12 h-12 rounded-2xl bg-amber-50 group-hover:bg-amber-500 group-hover:text-white text-amber-700 flex items-center justify-center text-xl transition-colors mb-4">
-                
+                <EmojiIcon name="hardHat" className="h-6 w-6" />
               </div>
               <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-amber-600 transition-colors">
                 {t('catConst')}
@@ -268,7 +268,7 @@ export function HomeTab({
           >
             <div>
               <div className="w-12 h-12 rounded-2xl bg-blue-50 group-hover:bg-blue-500 group-hover:text-white text-blue-700 flex items-center justify-center text-xl transition-colors mb-4">
-                
+                <EmojiIcon name="package" className="h-6 w-6" />
               </div>
               <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-blue-600 transition-colors">
                 {t('catDaily')}
@@ -293,7 +293,7 @@ export function HomeTab({
           >
             <div>
               <div className="w-12 h-12 rounded-2xl bg-purple-50 group-hover:bg-purple-500 group-hover:text-white text-purple-700 flex items-center justify-center text-xl transition-colors mb-4">
-                
+                <EmojiIcon name="wrench" className="h-6 w-6" />
               </div>
               <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-purple-600 transition-colors">
                 {t('catSkilled')}
