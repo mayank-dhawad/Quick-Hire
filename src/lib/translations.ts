@@ -540,6 +540,7 @@ export const translations: Record<string, Record<string, string>> = {
     "emergencyContactSaved": "Emergency contact saved.",
     "emergencyContactCleared": "Emergency contact cleared.",
     "sosSmsMessage": "EMERGENCY SOS! I need immediate help. Please call me or send help immediately.",
+    "sosSendNote": "Your messaging app opens with a prepared SOS. Review it and tap Send; QuickHire does not send SMS automatically.",
   },
   "हिंदी (Hindi)": {
     "tabCash": "नकद भुगतान",
@@ -1079,6 +1080,7 @@ export const translations: Record<string, Record<string, string>> = {
     "emergencyContactSaved": "आपातकालीन संपर्क सहेजा गया।",
     "emergencyContactCleared": "आपातकालीन संपर्क हटा दिया गया।",
     "sosSmsMessage": "आपातकालीन SOS! मुझे तुरंत सहायता चाहिए। कृपया मुझे कॉल करें या तुरंत मदद भेजें।",
+    "sosSendNote": "आपका मैसेजिंग ऐप तैयार SOS संदेश के साथ खुलेगा। संदेश जाँचकर भेजें दबाएँ; QuickHire अपने आप SMS नहीं भेजता।",
   },
   "मराठी (Marathi)": {
     "tabCash": "रोख पेमेंट",
@@ -1618,6 +1620,7 @@ export const translations: Record<string, Record<string, string>> = {
     "emergencyContactSaved": "आपत्कालीन संपर्क जतन केला.",
     "emergencyContactCleared": "आपत्कालीन संपर्क काढला.",
     "sosSmsMessage": "आपत्कालीन SOS! मला तातडीने मदतीची गरज आहे. कृपया मला कॉल करा किंवा त्वरित मदत पाठवा.",
+    "sosSendNote": "तुमचे मेसेजिंग अॅप तयार SOS संदेशासह उघडेल. संदेश तपासून पाठवा दाबा; QuickHire आपोआप SMS पाठवत नाही.",
   },
   "বাংলা (Bengali)": {
     "tabCash": "নগদ পেমেন্ট",
@@ -2157,6 +2160,7 @@ export const translations: Record<string, Record<string, string>> = {
     "emergencyContactSaved": "জরুরি যোগাযোগ সংরক্ষিত হয়েছে।",
     "emergencyContactCleared": "জরুরি যোগাযোগ মুছে ফেলা হয়েছে।",
     "sosSmsMessage": "জরুরি SOS! আমার অবিলম্বে সাহায্য প্রয়োজন। দয়া করে আমাকে কল করুন বা দ্রুত সাহায্য পাঠান।",
+    "sosSendNote": "আপনার মেসেজিং অ্যাপ প্রস্তুত SOS বার্তা নিয়ে খুলবে। বার্তাটি দেখে Send চাপুন; QuickHire স্বয়ংক্রিয়ভাবে SMS পাঠায় না।",
   },
   "తెలుగు (Telugu)": {
     "tabCash": "నగదు చెల్లింపు",
@@ -2868,6 +2872,7 @@ export const LOCALIZED_COMMON_SKILLS: Record<string, Record<WorkerCategory, stri
     Construction: ['మేస్త్రీ పని', 'ప్లాస్టరింగ్', 'కాంక్రీట్ మిక్సింగ్', 'టైల్స్ వేయడం', 'రాడ్ బెండింగ్', 'సహాయకుడు'],
     'Daily work': ['లోడింగ్ / అన్‌లోడింగ్', 'మార్కెట్ కూలీ', 'హెల్పర్', 'గోదాము సహాయకుడు', 'పొలం శుభ్రత'],
     'Skilled self-employed': ['ఎలక్ట్రీషియన్', 'ప్లంబింగ్', 'వడ్రంగి పని', 'వెల్డర్', 'బోర్‌వెల్ మెకానిక్', 'పెయింటర్']
+    "sosSendNote": "మీ మెసేజింగ్ యాప్ సిద్ధంగా ఉన్న SOS సందేశంతో తెరుచుకుంటుంది. సందేశాన్ని పరిశీలించి Send నొక్కండి; QuickHire స్వయంచాలకంగా SMS పంపదు.",
   }
 };
 
