@@ -8,6 +8,9 @@
 
 BEGIN;
 
+-- Remove unnecessary ability for client roles to create objects in the exposed schema.
+REVOKE CREATE ON SCHEMA public FROM PUBLIC, anon, authenticated;
+
 -- 1. Fix the profile-role trigger.
 -- SECURITY DEFINER changes current_user to the function owner, so current_user
 -- must never be used to decide whether an API caller is trusted.
@@ -109,6 +112,7 @@ GRANT SELECT ON public.public_profile_directory TO authenticated;
 
 -- The existing public_worker_directory view is the supported public worker
 -- discovery surface. It deliberately omits contact and financial information.
+REVOKE ALL ON public.public_worker_directory FROM PUBLIC, anon;
 GRANT SELECT ON public.public_worker_directory TO authenticated;
 
 -- 3. Job applications: worker may apply as themselves; only the job owner/admin
