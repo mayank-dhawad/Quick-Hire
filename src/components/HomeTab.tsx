@@ -1,4 +1,5 @@
 import React from 'react';
+import { EmojiIcon } from './EmojiIcon';
 import { User } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import {
@@ -69,7 +70,7 @@ export function HomeTab({
       {/* OFFICIAL MARQUEE / CITIZEN ADVISORY NOTICE BAR */}
       <div className="bg-amber-50 border border-amber-200 text-amber-950 text-xs sm:text-sm py-2.5 px-4 rounded-2xl flex items-center justify-between gap-3 shadow-2xs">
         <div className="flex items-center gap-2.5">
-          <span className="text-base shrink-0">📢</span>
+          <EmojiIcon name="megaphone" className="h-4 w-4 shrink-0" />
           <span className="font-semibold leading-relaxed">
             <strong className="text-amber-900">Official Advisory:</strong> QuickHire is a 100% Free Direct Employment & Equipment Portal. Never pay middlemen or commission fees. Verify bank details in the Bank & Payouts tab for direct wage transfer.
           </span>
@@ -217,7 +218,7 @@ export function HomeTab({
           >
             <div>
               <div className="w-12 h-12 rounded-2xl bg-emerald-50 group-hover:bg-brand-500 group-hover:text-white text-emerald-700 flex items-center justify-center text-xl transition-colors mb-4">
-                🌾
+                
               </div>
               <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-brand-600 transition-colors">
                 {t('catAgri')}
@@ -242,7 +243,7 @@ export function HomeTab({
           >
             <div>
               <div className="w-12 h-12 rounded-2xl bg-amber-50 group-hover:bg-amber-500 group-hover:text-white text-amber-700 flex items-center justify-center text-xl transition-colors mb-4">
-                🏗️
+                
               </div>
               <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-amber-600 transition-colors">
                 {t('catConst')}
@@ -267,7 +268,7 @@ export function HomeTab({
           >
             <div>
               <div className="w-12 h-12 rounded-2xl bg-blue-50 group-hover:bg-blue-500 group-hover:text-white text-blue-700 flex items-center justify-center text-xl transition-colors mb-4">
-                📦
+                
               </div>
               <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-blue-600 transition-colors">
                 {t('catDaily')}
@@ -292,7 +293,7 @@ export function HomeTab({
           >
             <div>
               <div className="w-12 h-12 rounded-2xl bg-purple-50 group-hover:bg-purple-500 group-hover:text-white text-purple-700 flex items-center justify-center text-xl transition-colors mb-4">
-                🔧
+                
               </div>
               <h3 className="font-heading font-extrabold text-lg text-slate-900 group-hover:text-purple-600 transition-colors">
                 {t('catSkilled')}
