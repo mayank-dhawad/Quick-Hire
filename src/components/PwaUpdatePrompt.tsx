@@ -8,6 +8,12 @@ export function PwaUpdatePrompt() {
   useEffect(() => {
     const show = () => setAvailable(true);
     window.addEventListener('quickhire:pwa-update-ready', show);
+    // Cover the case where registration found a waiting worker before React effects mounted.
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.getRegistration('/').then((registration) => {
+        if (registration?.waiting) show();
+      }).catch(() => {});
+    }
     return () => window.removeEventListener('quickhire:pwa-update-ready', show);
   }, []);
 
