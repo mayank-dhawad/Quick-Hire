@@ -644,7 +644,7 @@ export function DirectPaymentModal({
               <div className="text-base font-bold text-slate-900 flex items-center gap-2">
                 <span>{recipientName}</span>
                 <span className="text-xs px-2 py-0.5 rounded-md bg-brand-50 text-brand-700 font-semibold border border-brand-200/60">
-                  {paymentForType === 'worker_wage' ? '👷 Worker' : '🚜 Machine Owner'}
+                  {paymentForType === 'worker_wage' ? 'Worker' : 'Machine Owner'}
                 </span>
               </div>
               {referenceId && (
