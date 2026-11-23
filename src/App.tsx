@@ -2077,7 +2077,7 @@ export default function App() {
       <div className="bg-[#0f2942] text-white sticky top-0 z-40 border-b-2 border-b-[#FF9933] shadow-md w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <nav className="flex items-center overflow-x-auto no-scrollbar py-0.5 gap-1 sm:gap-1.5 w-full">
-            {/* Tab 1: 🏛️ Home / Portal Overview */}
+            {/* Tab 1: Home / Portal Overview */}
             <button
               onClick={() => setActiveTab('home')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'home'
@@ -2089,7 +2089,7 @@ export default function App() {
               <span>{t('tabHome')}</span>
             </button>
 
-            {/* Tab 2: 👥 Workers Directory */}
+            {/* Tab 2: Workers Directory */}
             <button
               onClick={() => setActiveTab('workers')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
@@ -2101,7 +2101,7 @@ export default function App() {
               <span>{t('tabWorkers')}</span>
             </button>
 
-            {/* Tab 3: 🚜 Equipment & Tool Bank */}
+            {/* Tab 3: Equipment & Tool Bank */}
             <button
               onClick={() => setActiveTab('equipment')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'equipment'
@@ -2113,7 +2113,7 @@ export default function App() {
               <span>{t('tabEquipment')}</span>
             </button>
 
-            {/* Tab 4: 📋 Post Employment */}
+            {/* Tab 4: Post Employment */}
             <button
               onClick={() => setActiveTab('post-job')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
@@ -2125,7 +2125,7 @@ export default function App() {
               <span>{t('tabPostJob')}</span>
             </button>
 
-            {/* Tab 5: 📊 Citizen Dashboard */}
+            {/* Tab 5: Citizen Dashboard */}
             <button
               onClick={() => setActiveTab('my-jobs')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 relative ${activeTab === 'my-jobs'
@@ -2142,7 +2142,7 @@ export default function App() {
               )}
             </button>
 
-            {/* Tab 6: 🏦 Bank & DBT Payouts */}
+            {/* Tab 6: Bank & DBT Payouts */}
             <button
               onClick={() => setActiveTab('bank')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'bank'
@@ -2154,7 +2154,7 @@ export default function App() {
               <span>{t('tabBank')}</span>
             </button>
 
-            {/* Tab 7: 🛡️ Grievance & SOS Helplines */}
+            {/* Tab 7: Grievance & SOS Helplines */}
             <button
               onClick={() => setActiveTab('safety')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'safety'
@@ -2191,7 +2191,7 @@ export default function App() {
                         </div>
                         <div className="text-[10px] text-emerald-400 font-medium">
                           {userRole === 'admin'
-                            ? '🛡️ Super Admin'
+                            ? 'Super Admin'
                             : userRole === 'employer'
                             ? 'Employer / नियोक्ता'
                             : 'Worker / कामगार'}
@@ -2222,7 +2222,7 @@ export default function App() {
                       }}
                       className="px-3 py-2 rounded-xl text-xs font-bold bg-[#FF9933]/20 hover:bg-[#FF9933]/30 text-[#FF9933] border border-[#FF9933]/40 transition-colors flex items-center justify-center gap-1.5"
                     >
-                      <span>📊 Dashboard</span>
+                      <span><EmojiIcon name="chart" className="mr-1 h-4 w-4" /> Dashboard</span>
                     </button>
                   </div>
                 </div>
@@ -2650,7 +2650,7 @@ export default function App() {
             {/* Column 2: Portal Navigation */}
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                🏛️ Citizen Services & Navigation
+                <EmojiIcon name="landmark" className="mr-1 inline h-4 w-4" /> Citizen Services & Navigation
               </span>
               <ul className="space-y-2 text-xs text-slate-300 font-medium">
                 <li>
@@ -2756,7 +2756,7 @@ export default function App() {
                   <a href="tel:14434" className="font-bold text-white hover:text-amber-300">14434</a>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>🛡️ <EmojiIcon name="shield" className="mr-1 h-4 w-4" /> Women Safety Helpline:</span>
+                  <span><EmojiIcon name="shield" className="mr-1 h-4 w-4" /> Women Safety Helpline:</span>
                   <a href="tel:1091" className="font-bold text-white hover:text-amber-300">1091</a>
                 </div>
               </div>
