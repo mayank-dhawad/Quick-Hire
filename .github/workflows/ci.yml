@@ -37,3 +37,42 @@ jobs:
         env:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-secret
+
+  supabase-migrations-and-integrity:
+    name: Supabase migrations and database integrity tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Supabase CLI
+        uses: supabase/setup-cli@v1
+        with:
+          version: latest
+
+      - name: Start local Supabase test stack
+        run: supabase start
+
+      - name: Rebuild database from every committed migration
+        run: supabase db reset
+
+      - name: Install PostgreSQL client
+        run: |
+          sudo apt-get update
+          sudo apt-get install --yes postgresql-client
+
+      - name: Create isolated database test fixtures
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/01_test_setup.sql
+
+      - name: Run lifecycle and payment integrity tests
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/02_test_execution.sql
+
+      - name: Run profile privacy and security regression tests
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/06_phase4r_security_and_integrity_tests.sql
+
+      - name: Verify Auth signup creates a valid profile
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/07_auth_profile_trigger_regression.sql
+
+      - name: Stop local Supabase
+        if: always()
+        run: supabase stop --no-backup

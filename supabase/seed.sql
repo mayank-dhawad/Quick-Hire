@@ -1,0 +1,1 @@
+-- QuickHire has no shared seed records. Database test fixtures are created by supabase/tests/01_test_setup.sql in CI.

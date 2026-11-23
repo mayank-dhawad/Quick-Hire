@@ -408,8 +408,13 @@ export async function setupAdminPasswordWithPhoneVerification(
     // 4. Verify admin status
     const adminCheck = await verifyAdminStatus(updatedUser.id);
     if (!adminCheck.isAdmin) {
-      // Re-check or attempt update profile
-      await supabase.from('profiles').update({ role: 'admin' }).eq('id', updatedUser.id);
+      // A profile role is not an administrator grant. Only an authorized
+      // server-side provisioning flow may create the admin_users record.
+      await supabase.auth.signOut();
+      return {
+        success: false,
+        error: 'This account is not provisioned as an administrator. Ask an existing super administrator to grant access before setting administrator credentials.',
+      };
     }
 
     return {
