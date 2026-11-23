@@ -583,10 +583,10 @@ export default function App() {
         const profilesMap = new Map<string, { phone_number: string | null; full_name: string | null }>();
         if (workerIds.length > 0) {
           const { data: profs } = await supabase
-            .from('profiles')
-            .select('id, full_name, phone_number')
+            .from('public_profile_directory')
+            .select('id, full_name')
             .in('id', workerIds);
-          (profs || []).forEach((p) => profilesMap.set(p.id, p));
+          (profs || []).forEach((p) => profilesMap.set(p.id, { ...p, phone_number: null }));
         }
 
         const enriched = rawJobs.map((j) => ({
