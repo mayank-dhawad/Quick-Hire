@@ -1042,7 +1042,12 @@ BEGIN
 
         -- Insert sensitive banking details in private table
         INSERT INTO public.profile_private_details (profile_id, bank_name, bank_account_no, bank_ifsc, upi_id)
-        VALUES (v_fin_user_id, 'HDFC Bank', '123456789012', 'HDFC0001234', 'fin@upi');
+        VALUES (v_fin_user_id, 'HDFC Bank', '123456789012', 'HDFC0001234', 'fin@upi')
+        ON CONFLICT (profile_id) DO UPDATE SET
+            bank_name = EXCLUDED.bank_name,
+            bank_account_no = EXCLUDED.bank_account_no,
+            bank_ifsc = EXCLUDED.bank_ifsc,
+            upi_id = EXCLUDED.upi_id;
 
         -- Insert immutable payment ledger row where fin_user is payee
         INSERT INTO public.payments (
