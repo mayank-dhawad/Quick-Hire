@@ -70,6 +70,9 @@ jobs:
       - name: Run profile privacy and security regression tests
         run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/06_phase4r_security_and_integrity_tests.sql
 
+      - name: Verify Auth signup creates a valid profile
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/07_auth_profile_trigger_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: supabase stop --no-backup
