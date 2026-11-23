@@ -326,15 +326,20 @@ export default function App() {
         .eq('status', 'open')
         .order('created_at', { ascending: false });
 
-      if (!error && data) {
-        setActiveJobs(data as unknown as JobItem[]);
+      if (error) {
+        console.warn('[QuickHire] Unable to load open jobs:', error);
+        showToast('Unable to load jobs right now. Please check your connection and try again.', 'error', false);
+        return;
       }
-    } catch {
-      // Ignore network errors gracefully
+
+      setActiveJobs((data || []) as unknown as JobItem[]);
+    } catch (fetchError) {
+      console.warn('[QuickHire] Open jobs request failed:', fetchError);
+      showToast('Unable to load jobs right now. Please check your connection and try again.', 'error', false);
     } finally {
       isFetchingOpenJobsRef.current = false;
     }
-  }, []);
+  }, [showToast]);
 
   // Concurrency guard for directory worker requests
   const isFetchingWorkersRef = useRef(false);
@@ -572,7 +577,13 @@ export default function App() {
         jobsErr = baselineRes.error;
       }
 
-      if (!jobsErr && jobsData) {
+      if (jobsErr) {
+        console.warn('[QuickHire] Unable to load employer jobs:', jobsErr);
+        showToast('Unable to load your posted jobs. Please try again.', 'error', false);
+        return;
+      }
+
+      if (jobsData) {
         const rawJobs = jobsData as unknown as PostedJobItem[];
         const workerIds: string[] = Array.from(
           new Set(
@@ -600,12 +611,13 @@ export default function App() {
         }));
         setMyPostedJobs(enriched as unknown as PostedJobItem[]);
       }
-    } catch {
-      // Ignore network errors gracefully
+    } catch (fetchError) {
+      console.warn('[QuickHire] Employer jobs request failed:', fetchError);
+      showToast('Unable to load your posted jobs. Please try again.', 'error', false);
     } finally {
       setLoadingMyJobs(false);
     }
-  }, []);
+  }, [showToast]);
 
   interface RawEquipmentQuery {
     id: string;
@@ -1098,14 +1110,17 @@ export default function App() {
         .eq('id', jobId)
         .eq('employer_id', user.id);
 
-      if (!error) {
-        setMyPostedJobs((prev) =>
-          prev.map((j) => (j.id === jobId ? { ...j, status: 'completed' } : j))
-        );
-        fetchOpenJobs();
-      }
-    } catch {
-      // Ignore
+      if (error) throw error;
+
+      setMyPostedJobs((prev) =>
+        prev.map((j) => (j.id === jobId ? { ...j, status: 'completed' } : j))
+      );
+      fetchOpenJobs();
+      showToast('Job marked as completed.', 'success');
+    } catch (completionError) {
+      const message = extractErrorMessage(completionError, 'Unable to mark this job as completed.');
+      console.warn('[QuickHire] Job completion failed:', completionError);
+      showToast(message, 'error');
     }
   };
 
