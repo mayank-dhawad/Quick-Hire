@@ -858,7 +858,13 @@ BEGIN
             id, full_name, role, phone_number, is_assisted_profile, account_status
         ) VALUES (
             v_temp_user_id, 'Lifecycle Test User', 'worker', '+919876500099', false, 'active'
-        );
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            role = EXCLUDED.role,
+            phone_number = EXCLUDED.phone_number,
+            is_assisted_profile = EXCLUDED.is_assisted_profile,
+            account_status = EXCLUDED.account_status;
 
         -- Insert dependent worker record
         INSERT INTO public.workers (
