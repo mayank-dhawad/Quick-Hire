@@ -66,3 +66,13 @@ This pass used read-only queries against the live Supabase schema and source ins
 - Apply the reviews RLS/aggregation migration and add regression tests.
 - Replace exact live policy names, including `Allow public otp management`, rather than relying on guessed historical names.
 - Convert sanitized directory views before restricting direct `profiles` SELECT.
+
+
+## Additional feature-level blockers found
+
+20. **Public equipment catalog visibility:** the live `equipment` table's SELECT policy is authenticated-only, but the main app fetches the equipment catalog even before login and the equipment tab is visible to logged-out visitors. Anonymous users therefore fall back to browser-local equipment data instead of the shared Supabase catalog. Expose only safe listing fields publicly (or use a sanitized public view); never expose owner phone numbers.
+21. **Complaint management is unavailable:** production has no `complaints` table, while `AdminOverview` and `ComplaintsManagement` query and mutate it. The repository migration `20261117170000_add_admin_notifications_and_performance_indexes.sql` creates the table, but that migration is absent from production.
+22. **Payment audit history is unavailable:** production has no `payment_audit_events` table, while the admin payment screen queries it. This is part of the missing payment schema migration chain.
+23. **Assisted worker claiming is not deployed:** production has none of `assisted_profile_claim_secrets`, `assisted_profile_claims`, `claimed_by_profile_id`, or the claim RPCs described by `20261108110000_assisted_worker_claim_and_history.sql`. Do not enable a claim UI until the complete multi-factor flow and historical-record access tests are deployed.
+24. **Admin notifications are not deployed:** production has no `admin_notifications` table. The existing `notifications` table is separate and has no RLS policies. The admin notifications migration is not present in production.
+
