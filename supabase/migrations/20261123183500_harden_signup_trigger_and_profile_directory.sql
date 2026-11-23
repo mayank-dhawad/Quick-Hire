@@ -28,7 +28,6 @@ BEGIN
   INSERT INTO public.profiles (
     id,
     full_name,
-    phone,
     phone_number,
     email,
     role,
@@ -39,7 +38,6 @@ BEGIN
     NEW.id,
     v_full_name,
     NEW.phone,
-    NEW.phone,
     NEW.email,
     v_role,
     'active',
@@ -48,7 +46,6 @@ BEGIN
   ON CONFLICT (id) DO UPDATE
   SET
     email = COALESCE(EXCLUDED.email, public.profiles.email),
-    phone = COALESCE(EXCLUDED.phone, public.profiles.phone),
     phone_number = COALESCE(EXCLUDED.phone_number, public.profiles.phone_number),
     full_name = CASE
       WHEN NULLIF(BTRIM(public.profiles.full_name), '') IS NULL
