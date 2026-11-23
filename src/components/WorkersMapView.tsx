@@ -185,7 +185,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
     return sortedNearbyWorkers.filter((worker) => {
       const isAvailable = worker.is_available === true;
       if (availabilityFilter === 'available' && !isAvailable) return false;
-      if (availabilityFilter === 'unavailable' && isAvailable) return false;
+      if (availabilityFilter === 'unavailable' && worker.is_available !== false) return false;
       if (!query) return true;
       const haystack = [
         worker.profiles?.full_name,
@@ -302,8 +302,8 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
                 <span style="color: ${catColor}; font-weight: 700; font-size: 11px;">${category}</span>
                 <span style="color: #f59e0b; font-weight: 700; font-size: 11px;">★ ${rating}</span>
                 ${wage ? `<span style="color: #334155; font-weight: 700; font-size: 11px;">${wage}</span>` : ''}
-                <span style="color: ${isAvailable ? '#059669' : '#dc2626'}; font-size: 10px; font-weight: 600;">
-                  ${isAvailable ? '• Available for work' : '• Not available'}
+                <span style="color: ${worker.is_available === true ? '#059669' : worker.is_available === false ? '#dc2626' : '#a16207'}; font-size: 10px; font-weight: 600;">
+                  ${worker.is_available === true ? '• Available for work' : worker.is_available === false ? '• Not available' : '• Availability not set'}
                 </span>
               </div>
               ${distanceText ? `<div style="font-weight: 700; color: #16a34a; font-size: 11px; margin-bottom: 4px;">${distanceText}</div>` : ''}
@@ -553,7 +553,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
     if (!map || visibleWorkersWithCoords.length === 0) return;
     const bounds = L.latLngBounds([]);
     visibleWorkersWithCoords.forEach((w) => bounds.extend([w.latitude, w.longitude]));
-    if (centerLat && centerLon && (centerLat !== 20.5937 || centerLon !== 78.9629)) {
+    if (Number.isFinite(centerLat) && Number.isFinite(centerLon) && (centerLat !== 20.5937 || centerLon !== 78.9629)) {
       bounds.extend([centerLat, centerLon]);
     }
     map.fitBounds(bounds, { padding: [40, 40], maxZoom: 14 });
@@ -609,7 +609,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
 
         <div className="flex items-center gap-1.5 shrink-0">
           {/* Toggle Sidebar Button */}
-          {workersWithCoords.length > 0 && (
+          {workers.length > 0 && (
             <button
               type="button"
               onClick={() => setShowSidebar((prev) => !prev)}
@@ -621,7 +621,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
               title="Toggle nearby workers list sidebar"
             >
               <ListFilter className="w-3.5 h-3.5" />
-              <span className="hidden md:inline">List ({workersWithCoords.length})</span>
+              <span className="hidden md:inline">List ({workers.length})</span>
             </button>
           )}
 
