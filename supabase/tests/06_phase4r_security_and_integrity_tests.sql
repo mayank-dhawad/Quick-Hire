@@ -942,7 +942,14 @@ BEGIN
             id, full_name, role, phone_number, is_assisted_profile, created_by, account_status
         ) VALUES (
             v_temp_assisted_id, 'Assisted Rural Worker', 'worker', '+919876500077', true, v_temp_facilitator_id, 'active'
-        );
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            role = EXCLUDED.role,
+            phone_number = EXCLUDED.phone_number,
+            is_assisted_profile = EXCLUDED.is_assisted_profile,
+            created_by = EXCLUDED.created_by,
+            account_status = EXCLUDED.account_status;
 
         -- Delete facilitator auth user
         DELETE FROM auth.users WHERE id = v_temp_facilitator_id;
@@ -1109,7 +1116,10 @@ BEGIN
         VALUES (v_app_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'app.user@quickhire.in', 'pw', now(), now(), now());
 
         INSERT INTO public.profiles (id, full_name, role, phone_number, is_assisted_profile, account_status)
-        VALUES (v_app_user_id, 'Application User', 'worker', '+919876543288', false, 'active');
+        VALUES (v_app_user_id, 'Application User', 'worker', '+919876543288', false, 'active')
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role,
+            phone_number = EXCLUDED.phone_number, is_assisted_profile = EXCLUDED.is_assisted_profile,
+            account_status = EXCLUDED.account_status;
 
         INSERT INTO public.workers (id, category, skills) VALUES (v_app_user_id, 'Construction', ARRAY['Masonry']);
 
@@ -1139,7 +1149,10 @@ BEGIN
         VALUES (v_rev_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'rev.user@quickhire.in', 'pw', now(), now(), now());
 
         INSERT INTO public.profiles (id, full_name, role, phone_number, is_assisted_profile, account_status)
-        VALUES (v_rev_user_id, 'Reviewer User', 'employer', '+919876543277', false, 'active');
+        VALUES (v_rev_user_id, 'Reviewer User', 'employer', '+919876543277', false, 'active')
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role,
+            phone_number = EXCLUDED.phone_number, is_assisted_profile = EXCLUDED.is_assisted_profile,
+            account_status = EXCLUDED.account_status;
 
         INSERT INTO public.reviews (id, reviewer_profile_id, reviewed_profile_id, rating, comment)
         VALUES (v_review_id, v_rev_user_id, v_worker_primary_id, 4.5, 'Good work done on time.');
@@ -1167,7 +1180,10 @@ BEGIN
         VALUES (v_emp_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'emp.user@quickhire.in', 'pw', now(), now(), now());
 
         INSERT INTO public.profiles (id, full_name, role, phone_number, is_assisted_profile, account_status)
-        VALUES (v_emp_user_id, 'Employer User', 'employer', '+919876543266', false, 'active');
+        VALUES (v_emp_user_id, 'Employer User', 'employer', '+919876543266', false, 'active')
+        ON CONFLICT (id) DO UPDATE SET full_name = EXCLUDED.full_name, role = EXCLUDED.role,
+            phone_number = EXCLUDED.phone_number, is_assisted_profile = EXCLUDED.is_assisted_profile,
+            account_status = EXCLUDED.account_status;
 
         INSERT INTO public.jobs (id, employer_id, title, category, status)
         VALUES (v_open_job_id, v_emp_user_id, 'Unfilled Field Work', 'Agriculture', 'open');
