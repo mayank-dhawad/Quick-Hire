@@ -515,7 +515,7 @@ export const translations: Record<string, Record<string, string>> = {
     "updatingEquipmentBtn": "Updating Listing...",
     "equipUpdatedSuccess": "Equipment listing updated successfully in database!",
     "editProfile": "Edit Profile",
-    "createProfile": "Create Profile"
+    "createProfile": "Create Profile",
     "sos24x7": "24/7 Emergency",
     "sosMedical": "Medical & Ambulance",
     "sosWomenSafety": "Women’s Safety",
