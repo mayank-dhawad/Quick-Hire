@@ -853,12 +853,19 @@ BEGIN
             '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Lifecycle Test User"}'::jsonb, now(), now()
         );
 
-        -- Insert matching profile
-        INSERT INTO public.profiles (
-            id, full_name, role, phone_number, is_assisted_profile, account_status
-        ) VALUES (
-            v_temp_user_id, 'Lifecycle Test User', 'worker', '+919876500099', false, 'active'
-        );
+        -- The on_auth_user_created trigger creates the matching profile.
+        -- Verify that trigger-created row instead of inserting a duplicate.
+        SELECT EXISTS(
+            SELECT 1
+            FROM public.profiles
+            WHERE id = v_temp_user_id
+              AND full_name = 'Lifecycle Test User'
+              AND role = 'worker'
+        ) INTO v_profile_exists;
+
+        IF NOT v_profile_exists THEN
+            RAISE EXCEPTION 'TEST 26 SETUP FAILED: Auth signup trigger did not create the expected worker profile.';
+        END IF;
 
         -- Insert dependent worker record
         INSERT INTO public.workers (
