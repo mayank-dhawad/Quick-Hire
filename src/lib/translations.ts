@@ -2699,8 +2699,7 @@ export const translations: Record<string, Record<string, string>> = {
     "pleaseLoginSaveEmergency": "మీ అత్యవసర సంప్రదింపును సేవ్ చేయడానికి దయచేసి లాగిన్ అవ్వండి.",
     "emergencyContactSaved": "అత్యవసర సంప్రదింపు సేవ్ చేయబడింది.",
     "emergencyContactCleared": "అత్యవసర సంప్రదింపు తొలగించబడింది.",
-    "sosSmsMessage": "అత్యవసర SOS! నాకు వెంటనే సహాయం కావాలి. దయచేసి నాకు కాల్ చేయండి లేదా వెంటనే సహాయం పంపండి.",
-  }
+    "sosSmsMessage": "అత్యవసర SOS! నాకు వెంటనే సహాయం కావాలి. దయచేసి నాకు కాల్ చేయండి లేదా వెంటనే సహాయం పంపండి.",  }
 };
 
 
