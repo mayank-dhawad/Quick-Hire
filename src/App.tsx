@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
 import { supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -2889,6 +2890,8 @@ export default function App() {
 
       {/* FLOATING ACCESSIBLE VOICE HELPER */}
       <AccessibleVoiceBar activeTab={activeTab} currentLang={currentLang} />
+
+      <PwaUpdatePrompt />
 
       {/* PWA INSTALL BANNER */}
       <PwaInstallBanner
