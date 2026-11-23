@@ -280,19 +280,19 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
                   ${isAvailable ? '• Available Now' : '• Unavailable'}
                 </span>
               </div>
-              ${distanceText ? `<div style="font-weight: 700; color: #16a34a; font-size: 11px; margin-bottom: 4px;">📍 ${distanceText}</div>` : ''}
+              ${distanceText ? `<div style="font-weight: 700; color: #16a34a; font-size: 11px; margin-bottom: 4px;">${distanceText}</div>` : ''}
               <div style="color: #64748b; font-size: 11px; margin-bottom: 8px;">
                 ${locality}
               </div>
               <div style="display: flex; gap: 4px; margin-top: 6px;">
                 <button id="${callBtnId}" style="flex: 1; padding: 6px 8px; background: #007a5b; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 11px; cursor: pointer; text-align: center;">
-                  📞 Contact
+                  Contact
                 </button>
                 <button id="${profileBtnId}" style="flex: 1; padding: 6px 8px; background: #f1f5f9; color: #0f2942; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; font-size: 11px; cursor: pointer; text-align: center;">
-                  👤 Profile
+                  Profile
                 </button>
                 <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="padding: 6px 8px; background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; font-size: 11px; text-decoration: none; text-align: center; display: inline-flex; align-items: center; justify-content: center;" title="Get directions">
-                  🧭
+                  
                 </a>
               </div>
             </div>
@@ -429,7 +429,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
       L.marker([centerLat, centerLon], { icon: centerPinIcon })
         .addTo(centerLayer)
         .bindPopup(
-          `<strong>📍 ${escapeHtml(centerLabel)}</strong><br/><span style="font-size:11px; color:#64748b;">Search Origin (${centerLat.toFixed(3)}, ${centerLon.toFixed(3)})</span>${radiusKm ? `<br/><span style="font-size:11px; color:#0284c7; font-weight:700;">Radius: ${radiusKm} km</span>` : ''}`
+          `<strong>${escapeHtml(centerLabel)}</strong><br/><span style="font-size:11px; color:#64748b;">Search Origin (${centerLat.toFixed(3)}, ${centerLon.toFixed(3)})</span>${radiusKm ? `<br/><span style="font-size:11px; color:#0284c7; font-weight:700;">Radius: ${radiusKm} km</span>` : ''}`
         );
 
       if (radiusKm && radiusKm > 0) {

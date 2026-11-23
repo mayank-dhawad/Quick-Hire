@@ -1,4 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
+import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
+import { EmojiIcon } from './components/EmojiIcon';
 import { supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1892,7 +1894,7 @@ export default function App() {
 
             <span className="hidden md:inline-flex items-center gap-1.5 bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span>🔊 Voice Guidance Active</span>
+              <span> Voice Guidance Active</span>
             </span>
 
             <a
@@ -2075,7 +2077,7 @@ export default function App() {
       <div className="bg-[#0f2942] text-white sticky top-0 z-40 border-b-2 border-b-[#FF9933] shadow-md w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <nav className="flex items-center overflow-x-auto no-scrollbar py-0.5 gap-1 sm:gap-1.5 w-full">
-            {/* Tab 1: 🏛️ Home / Portal Overview */}
+            {/* Tab 1: Home / Portal Overview */}
             <button
               onClick={() => setActiveTab('home')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'home'
@@ -2083,11 +2085,11 @@ export default function App() {
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
-              <span>🏛️</span>
+              <EmojiIcon name="landmark" className="h-4 w-4" />
               <span>{t('tabHome')}</span>
             </button>
 
-            {/* Tab 2: 👥 Workers Directory */}
+            {/* Tab 2: Workers Directory */}
             <button
               onClick={() => setActiveTab('workers')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
@@ -2095,11 +2097,11 @@ export default function App() {
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
-              <span>👥</span>
+              <EmojiIcon name="users" className="h-4 w-4" />
               <span>{t('tabWorkers')}</span>
             </button>
 
-            {/* Tab 3: 🚜 Equipment & Tool Bank */}
+            {/* Tab 3: Equipment & Tool Bank */}
             <button
               onClick={() => setActiveTab('equipment')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'equipment'
@@ -2107,11 +2109,11 @@ export default function App() {
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
-              <span>🚜</span>
+              <EmojiIcon name="tractor" className="h-4 w-4" />
               <span>{t('tabEquipment')}</span>
             </button>
 
-            {/* Tab 4: 📋 Post Employment */}
+            {/* Tab 4: Post Employment */}
             <button
               onClick={() => setActiveTab('post-job')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
@@ -2119,11 +2121,11 @@ export default function App() {
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
-              <span>📋</span>
+              <EmojiIcon name="clipboard" className="h-4 w-4" />
               <span>{t('tabPostJob')}</span>
             </button>
 
-            {/* Tab 5: 📊 Citizen Dashboard */}
+            {/* Tab 5: Citizen Dashboard */}
             <button
               onClick={() => setActiveTab('my-jobs')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 relative ${activeTab === 'my-jobs'
@@ -2131,7 +2133,7 @@ export default function App() {
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
-              <span>📊</span>
+              <EmojiIcon name="chart" className="h-4 w-4" />
               <span>{t('tabMyJobs')}</span>
               {myPostedJobs.length > 0 && (
                 <span className="w-4 h-4 rounded-full bg-[#FF9933] text-slate-900 text-[10px] font-black flex items-center justify-center">
@@ -2140,7 +2142,7 @@ export default function App() {
               )}
             </button>
 
-            {/* Tab 6: 🏦 Bank & DBT Payouts */}
+            {/* Tab 6: Bank & DBT Payouts */}
             <button
               onClick={() => setActiveTab('bank')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'bank'
@@ -2148,11 +2150,11 @@ export default function App() {
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
-              <span>🏦</span>
+              <EmojiIcon name="landmark" className="h-4 w-4" />
               <span>{t('tabBank')}</span>
             </button>
 
-            {/* Tab 7: 🛡️ Grievance & SOS Helplines */}
+            {/* Tab 7: Grievance & SOS Helplines */}
             <button
               onClick={() => setActiveTab('safety')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'safety'
@@ -2160,7 +2162,7 @@ export default function App() {
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
-              <span>🛡️</span>
+              <EmojiIcon name="shield" className="h-4 w-4" />
               <span>{t('tabSafety')}</span>
             </button>
           </nav>
@@ -2189,10 +2191,10 @@ export default function App() {
                         </div>
                         <div className="text-[10px] text-emerald-400 font-medium">
                           {userRole === 'admin'
-                            ? '🛡️ Super Admin'
+                            ? 'Super Admin'
                             : userRole === 'employer'
-                            ? '🏢 Employer / नियोक्ता'
-                            : '👷 Worker / कामगार'}
+                            ? 'Employer / नियोक्ता'
+                            : 'Worker / कामगार'}
                         </div>
                       </div>
                     </div>
@@ -2220,7 +2222,7 @@ export default function App() {
                       }}
                       className="px-3 py-2 rounded-xl text-xs font-bold bg-[#FF9933]/20 hover:bg-[#FF9933]/30 text-[#FF9933] border border-[#FF9933]/40 transition-colors flex items-center justify-center gap-1.5"
                     >
-                      <span>📊 Dashboard</span>
+                      <span><EmojiIcon name="chart" className="mr-1 h-4 w-4" /> Dashboard</span>
                     </button>
                   </div>
                 </div>
@@ -2258,7 +2260,7 @@ export default function App() {
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'home' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
-                  <span>🏛️</span>
+                  <EmojiIcon name="landmark" className="h-4 w-4" />
                   <span>{t('tabHome')}</span>
                 </button>
                 <button
@@ -2269,7 +2271,7 @@ export default function App() {
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'workers' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
-                  <span>👥</span>
+                  <EmojiIcon name="users" className="h-4 w-4" />
                   <span>{t('tabWorkers')}</span>
                 </button>
                 <button
@@ -2280,7 +2282,7 @@ export default function App() {
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'equipment' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
-                  <span>🚜</span>
+                  <EmojiIcon name="tractor" className="h-4 w-4" />
                   <span>{t('tabEquipment')}</span>
                 </button>
                 <button
@@ -2291,7 +2293,7 @@ export default function App() {
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'post-job' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
-                  <span>📋</span>
+                  <EmojiIcon name="clipboard" className="h-4 w-4" />
                   <span>{t('tabPostJob')}</span>
                 </button>
                 <button
@@ -2303,7 +2305,7 @@ export default function App() {
                     }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span>📊</span>
+                    <EmojiIcon name="chart" className="h-4 w-4" />
                     <span>{t('tabMyJobs')}</span>
                   </div>
                   {myPostedJobs.length > 0 && (
@@ -2320,7 +2322,7 @@ export default function App() {
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'bank' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
-                  <span>🏦</span>
+                  <EmojiIcon name="landmark" className="h-4 w-4" />
                   <span>{t('tabBank')}</span>
                 </button>
                 <button
@@ -2331,7 +2333,7 @@ export default function App() {
                   className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'safety' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
-                  <span>🛡️</span>
+                  <EmojiIcon name="shield" className="h-4 w-4" />
                   <span>{t('tabSafety')}</span>
                 </button>
               </div>
@@ -2648,7 +2650,7 @@ export default function App() {
             {/* Column 2: Portal Navigation */}
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                🏛️ Citizen Services & Navigation
+                <EmojiIcon name="landmark" className="mr-1 inline h-4 w-4" /> Citizen Services & Navigation
               </span>
               <ul className="space-y-2 text-xs text-slate-300 font-medium">
                 <li>
@@ -2659,7 +2661,7 @@ export default function App() {
                     }}
                     className="hover:text-white transition-colors"
                   >
-                    🏛️ {t('tabHome')}
+                    <EmojiIcon name="landmark" className="mr-1 h-4 w-4" /> {t('tabHome')}
                   </button>
                 </li>
                 <li>
@@ -2670,7 +2672,7 @@ export default function App() {
                     }}
                     className="hover:text-white transition-colors"
                   >
-                    👥 {t('tabWorkers')}
+                    <EmojiIcon name="users" className="mr-1 h-4 w-4" /> {t('tabWorkers')}
                   </button>
                 </li>
                 <li>
@@ -2681,7 +2683,7 @@ export default function App() {
                     }}
                     className="hover:text-white transition-colors"
                   >
-                    🚜 {t('tabEquipment')}
+                    <EmojiIcon name="tractor" className="mr-1 h-4 w-4" /> {t('tabEquipment')}
                   </button>
                 </li>
                 <li>
@@ -2692,7 +2694,7 @@ export default function App() {
                     }}
                     className="hover:text-white transition-colors"
                   >
-                    📋 {t('tabPostJob')}
+                    <EmojiIcon name="clipboard" className="mr-1 h-4 w-4" /> {t('tabPostJob')}
                   </button>
                 </li>
                 <li>
@@ -2703,7 +2705,7 @@ export default function App() {
                     }}
                     className="hover:text-white transition-colors"
                   >
-                    📊 {t('tabMyJobs')}
+                    <EmojiIcon name="chart" className="mr-1 h-4 w-4" /> {t('tabMyJobs')}
                   </button>
                 </li>
                 <li>
@@ -2714,7 +2716,7 @@ export default function App() {
                     }}
                     className="hover:text-white transition-colors"
                   >
-                    🏦 {t('tabBank')}
+                    <EmojiIcon name="landmark" className="mr-1 h-4 w-4" /> {t('tabBank')}
                   </button>
                 </li>
                 <li>
@@ -2725,7 +2727,7 @@ export default function App() {
                     }}
                     className="hover:text-white transition-colors"
                   >
-                    🛡️ {t('tabSafety')}
+                    <EmojiIcon name="shield" className="mr-1 h-4 w-4" /> {t('tabSafety')}
                   </button>
                 </li>
               </ul>
@@ -2734,27 +2736,27 @@ export default function App() {
             {/* Column 3: Emergency & Labor Helplines */}
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                📞 Emergency & Labor Helplines
+                 <EmojiIcon name="phone" className="mr-1 inline h-4 w-4" /> Emergency & Labor Helplines
               </span>
               <div className="space-y-2.5 text-xs text-slate-300">
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span>🚨 All-in-One Emergency:</span>
+                  <span> <EmojiIcon name="alert" className="mr-1 h-4 w-4" /> All-in-One Emergency:</span>
                   <a href="tel:112" className="font-bold text-white hover:text-amber-300">112</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span>🚑 Medical Ambulance:</span>
+                  <span> <EmojiIcon name="ambulance" className="mr-1 h-4 w-4" /> Medical Ambulance:</span>
                   <a href="tel:108" className="font-bold text-white hover:text-amber-300">108</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span>🌾 Kisan Call Center:</span>
+                  <span> <EmojiIcon name="sprout" className="mr-1 h-4 w-4" /> Kisan Call Center:</span>
                   <a href="tel:18001801551" className="font-bold text-amber-300 hover:text-white">1800-180-1551</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span>👷 National Labor Helpline:</span>
+                  <span> <EmojiIcon name="hardHat" className="mr-1 h-4 w-4" /> National Labor Helpline:</span>
                   <a href="tel:14434" className="font-bold text-white hover:text-amber-300">14434</a>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span>🛡️ Women Safety Helpline:</span>
+                  <span><EmojiIcon name="shield" className="mr-1 h-4 w-4" /> Women Safety Helpline:</span>
                   <a href="tel:1091" className="font-bold text-white hover:text-amber-300">1091</a>
                 </div>
               </div>
@@ -2763,7 +2765,7 @@ export default function App() {
             {/* Column 4: Supported Regional Languages */}
             <div className="space-y-3">
               <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                🌐 Multilingual Audio Guidance
+                 <EmojiIcon name="globe" className="mr-1 inline h-4 w-4" /> Multilingual Audio Guidance
               </span>
               <p className="text-xs text-slate-300 leading-relaxed">
                 Full voice guidance enabled across 5 regional languages with instant text-to-speech feedback.
@@ -2826,7 +2828,7 @@ export default function App() {
               activeTab === 'home' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <span className="text-lg leading-none">🏛️</span>
+            <EmojiIcon name="landmark" className="h-5 w-5" />
             <span className="text-[10px] mt-1 font-medium tracking-tight">Home</span>
           </button>
 
@@ -2838,7 +2840,7 @@ export default function App() {
               activeTab === 'workers' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <span className="text-lg leading-none">👥</span>
+            <EmojiIcon name="users" className="h-5 w-5" />
             <span className="text-[10px] mt-1 font-medium tracking-tight">Workers</span>
           </button>
 
@@ -2850,7 +2852,7 @@ export default function App() {
               activeTab === 'equipment' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <span className="text-lg leading-none">🚜</span>
+            <EmojiIcon name="tractor" className="h-5 w-5" />
             <span className="text-[10px] mt-1 font-medium tracking-tight">Equipment</span>
           </button>
 
@@ -2862,7 +2864,7 @@ export default function App() {
               activeTab === 'post-job' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
-            <span className="text-lg leading-none">📋</span>
+            <EmojiIcon name="clipboard" className="h-5 w-5" />
             <span className="text-[10px] mt-1 font-medium tracking-tight">Post Job</span>
           </button>
 
@@ -2876,7 +2878,7 @@ export default function App() {
                 : 'text-slate-300 hover:text-white'
             }`}
           >
-            <span className="text-lg leading-none">📊</span>
+            <EmojiIcon name="chart" className="h-5 w-5" />
             <span className="text-[10px] mt-1 font-medium tracking-tight">Dashboard</span>
             {myPostedJobs.length > 0 && (
               <span className="absolute top-2 right-3 w-4 h-4 rounded-full bg-[#FF9933] text-slate-900 text-[9px] font-black flex items-center justify-center">
@@ -2889,6 +2891,8 @@ export default function App() {
 
       {/* FLOATING ACCESSIBLE VOICE HELPER */}
       <AccessibleVoiceBar activeTab={activeTab} currentLang={currentLang} />
+
+      <PwaUpdatePrompt />
 
       {/* PWA INSTALL BANNER */}
       <PwaInstallBanner

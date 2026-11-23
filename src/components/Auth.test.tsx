@@ -63,7 +63,7 @@ describe('Auth Component with Supabase Native Phone Authentication', () => {
     const select = screen.getByLabelText(/Country Code/i) as HTMLSelectElement;
     expect(select).toBeInTheDocument();
     expect(select.value).toBe('+91');
-    expect(screen.getByText(/🇮🇳 \+91 \(India\)/i)).toBeInTheDocument();
+    expect(screen.getByText(/IN \+91 \(India\)/i)).toBeInTheDocument();
   });
 
   it('allows switching between Mobile OTP and Email Login tabs', () => {

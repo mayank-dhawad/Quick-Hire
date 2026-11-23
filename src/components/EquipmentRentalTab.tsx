@@ -1,4 +1,5 @@
 import React from 'react';
+import { EmojiIcon } from './EmojiIcon';
 import { motion } from 'framer-motion';
 import {
   Wrench,
@@ -72,7 +73,7 @@ export function EquipmentRentalTab({
         <div>
           <div className="flex items-center gap-2">
             <span className="text-xs font-bold text-brand-600 uppercase tracking-wider">
-              🚜 {t('tabEquipment')}
+              <EmojiIcon name="tractor" className="mr-1 h-4 w-4" /> {t('tabEquipment')}
             </span>
             <VoiceSpeakerButton
               text={`${t('equipmentTitle')}. ${t('equipmentSub')}`}
@@ -120,14 +121,14 @@ export function EquipmentRentalTab({
               >
                 <span>
                   {cat === 'All'
-                    ? `🌐 ${t('allCategories')}`
+                    ? `${t('allCategories')}`
                     : cat === 'Agriculture'
-                    ? `🌾 ${t('catAgri')}`
+                    ? `${t('catAgri')}`
                     : cat === 'Construction'
-                    ? `🏗️ ${t('catConst')}`
+                    ? `${t('catConst')}`
                     : cat === 'Daily work'
-                    ? `📦 ${t('catDaily')}`
-                    : `🔧 ${t('catSkilled')}`}
+                    ? `${t('catDaily')}`
+                    : `${t('catSkilled')}`}
                 </span>
                 <span
                   className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${

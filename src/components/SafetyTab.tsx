@@ -205,7 +205,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
     const sendSosWithCoords = (lat?: number, lng?: number) => {
       const cleanPhone = emergencyContactPhone.replace(/\D/g, '');
       const locationPart = lat && lng ? ` My current GPS location: https://maps.google.com/?q=${lat},${lng}` : '';
-      const message = `🚨 EMERGENCY SOS ALERT! I need immediate help.${locationPart} Please call me or send help immediately.`;
+      const message = `EMERGENCY SOS ALERT! I need immediate help.${locationPart} Please call me or send help immediately.`;
 
       // Open SMS dialer with prefilled message
       window.open(`sms:+${cleanPhone}?body=${encodeURIComponent(message)}`, '_blank');
@@ -458,7 +458,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   ) : (
                     <>
                       <Send className="w-3.5 h-3.5" />
-                      <span>🚨 Broadcast SOS Alert</span>
+                      <span><ShieldAlert className="mr-1 inline h-4 w-4" /> Broadcast SOS Alert</span>
                     </>
                   )}
                 </button>

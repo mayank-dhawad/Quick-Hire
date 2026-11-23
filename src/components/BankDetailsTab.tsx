@@ -379,7 +379,7 @@ export function BankDetailsTab({
             </div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl sm:text-4xl font-heading font-black tracking-tight text-white flex items-center gap-3">
-                <span className="p-2 rounded-2xl bg-white/10 backdrop-blur-md">🏦</span>
+                <span className="p-2 rounded-2xl bg-white/10 backdrop-blur-md"><Landmark className="h-5 w-5" /></span>
                 <span>{t('bankTitle')}</span>
               </h1>
               <VoiceSpeakerButton
@@ -1106,12 +1106,12 @@ export function BankDetailsTab({
                       <td className="py-3.5 px-3 font-semibold text-slate-800">
                         {p.payment_for_type === 'worker_wage' ? (
                           <span className="inline-flex items-center gap-1">
-                            <span>👷</span>
+                            <span><Building2 className="h-4 w-4" /></span>
                             <span>{t('paymentTypeWage')}</span>
                           </span>
                         ) : (
                           <span className="inline-flex items-center gap-1">
-                            <span>🚜</span>
+                            <span><Building2 className="h-4 w-4" /></span>
                             <span>{t('paymentTypeRental')}</span>
                           </span>
                         )}
@@ -1131,7 +1131,7 @@ export function BankDetailsTab({
                       {/* PAYMENT METHOD */}
                       <td className="py-3.5 px-3">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-100 text-slate-700 font-semibold text-[11px]">
-                          {p.payment_method === 'Direct UPI' ? '⚡ UPI' : '🏛️ Net Banking'}
+                          {p.payment_method === 'Direct UPI' ? 'UPI' : 'Net Banking'}
                         </span>
                       </td>
 

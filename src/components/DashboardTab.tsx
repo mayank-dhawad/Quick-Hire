@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
+import { EmojiIcon } from './EmojiIcon';
 import { User } from '@supabase/supabase-js';
 import { motion } from 'framer-motion';
 import {
@@ -902,7 +903,7 @@ export function DashboardTab({
                     : 'text-slate-500 hover:text-slate-800'
                   }`}
               >
-                👷 Worker View
+                Worker View
               </button>
               <button
                 type="button"
@@ -915,7 +916,7 @@ export function DashboardTab({
                     : 'text-slate-500 hover:text-slate-800'
                   }`}
               >
-                🏢 Employer View
+                Employer View
               </button>
             </div>
 
@@ -1097,7 +1098,7 @@ export function DashboardTab({
                   <span className="text-xs text-emerald-400 font-bold">0% Middleman Cut</span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-heading font-extrabold text-white flex items-center gap-2">
-                  <span>⚡ Worker Direct UPI & Bank Account</span>
+                  <span><EmojiIcon name="activity" className="mr-1 h-4 w-4" /> Worker Direct UPI & Bank Account</span>
                 </h3>
                 <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
                   {t('eduUpiNoWithdrawal')}
@@ -2119,7 +2120,7 @@ export function DashboardTab({
                       <div className="space-y-1">
                         <div className="flex items-center gap-2 flex-wrap">
                           <span className="font-bold text-xs sm:text-sm text-slate-900">
-                            {pay.payment_for_type === 'worker_wage' ? '👷 Worker Wage Payment' : '🚜 Machine Rent Payment'}
+                            {pay.payment_for_type === 'worker_wage' ? 'Worker Wage Payment' : 'Machine Rent Payment'}
                           </span>
                           <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700">
                             {pay.payment_method}

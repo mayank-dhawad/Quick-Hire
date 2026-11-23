@@ -1120,7 +1120,7 @@ export function WorkerProfileModal({
             {/* SECTION 1: PERSONAL DETAILS */}
             <div className="space-y-3 pt-1 border-t border-slate-100">
               <span className="text-xs font-bold uppercase tracking-wider text-brand-700 block">
-                👤 1. Citizen Personal Details
+                1. Citizen Personal Details
               </span>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1225,7 +1225,7 @@ export function WorkerProfileModal({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold uppercase tracking-wider text-brand-700 flex items-center gap-1.5">
                   <MapPin className="w-4 h-4 text-brand-600" />
-                  📍 2. {t('wherePreferToWork') || 'Where would you prefer to work?'} *
+                  <><MapPin className="mr-1 inline h-4 w-4" /> 2. {t('wherePreferToWork') || 'Where would you prefer to work?'} *</>
                 </span>
                 <VoiceSpeakerButton
                   text={t('wherePreferToWork') || 'Where would you prefer to work?'}
@@ -1477,7 +1477,7 @@ export function WorkerProfileModal({
             {/* SECTION 3: WORK DETAILS, SKILLS & WAGE */}
             <div className="space-y-3 pt-2 border-t border-slate-100">
               <span className="text-xs font-bold uppercase tracking-wider text-brand-700 block">
-                🛠️ 3. Work Domain, Skills & Experience
+                3. Work Domain, Skills & Experience
               </span>
 
               {/* CATEGORY */}

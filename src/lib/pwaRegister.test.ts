@@ -32,6 +32,7 @@ describe('pwaRegister utility', () => {
       waiting: null,
       installing: null,
       scope: '/',
+      update: vi.fn().mockResolvedValue(undefined),
     });
 
     Object.defineProperty(global.navigator, 'serviceWorker', {
@@ -73,6 +74,7 @@ describe('pwaRegister utility', () => {
       waiting: null,
       installing: null,
       scope: '/',
+      update: vi.fn().mockResolvedValue(undefined),
     });
 
     Object.defineProperty(global.navigator, 'serviceWorker', {

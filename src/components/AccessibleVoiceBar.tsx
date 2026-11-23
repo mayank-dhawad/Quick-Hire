@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Turtle, Rabbit } from 'lucide-react';
 import { Volume2, VolumeX, Sparkles, ChevronDown, ChevronUp } from 'lucide-react';
 import {
   speakText,
@@ -123,7 +124,7 @@ export function AccessibleVoiceBar({ activeTab, currentLang }: AccessibleVoiceBa
               title={`Speech rate: ${speechRate}x. Click to toggle speed.`}
               className="px-2.5 py-2 rounded-xl text-[11px] font-extrabold border border-slate-200 bg-slate-50 hover:bg-slate-100 text-slate-700 transition-colors shrink-0"
             >
-              {speechRate === 0.7 ? '🐢 0.7x' : '🐇 0.8x'}
+              {speechRate === 0.7 ? <><Turtle className="inline h-3.5 w-3.5" /> 0.7x</> : <><Rabbit className="inline h-3.5 w-3.5" /> 0.8x</>}
             </button>
           </div>
         )}

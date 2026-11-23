@@ -9,7 +9,7 @@
  * 4. Stale-While-Revalidate for local app shell assets.
  */
 
-const CACHE_VERSION = 'v1.1.0';
+const CACHE_VERSION = 'v1.2.0';
 const PRECACHE_NAME = `quickhire-precache-${CACHE_VERSION}`;
 const RUNTIME_CACHE_NAME = `quickhire-runtime-${CACHE_VERSION}`;
 
@@ -59,7 +59,7 @@ self.addEventListener('install', (event) => {
           console.warn('[QuickHire SW] Precache partial error (ignored for resilient start):', err);
         });
       })
-      .then(() => self.skipWaiting())
+      .then(() => undefined)
   );
 });
 
