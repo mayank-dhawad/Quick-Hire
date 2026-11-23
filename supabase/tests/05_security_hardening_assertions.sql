@@ -74,6 +74,24 @@ BEGIN
   IF NOT EXISTS (
     SELECT 1 FROM pg_policies
     WHERE schemaname = 'public'
+      AND tablename = 'job_records'
+      AND policyname = 'job_records_insert_worker_application_or_employer_hire'
+  ) THEN
+    RAISE EXCEPTION 'Missing worker application / employer direct-hire INSERT policy';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
+      AND tablename = 'jobs'
+      AND policyname = 'jobs_insert_active_employer'
+  ) THEN
+    RAISE EXCEPTION 'Missing active-employer-only job creation policy';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname = 'public'
       AND tablename = 'rental_records'
       AND policyname = 'rental_records_select_participants_admin'
   ) THEN
