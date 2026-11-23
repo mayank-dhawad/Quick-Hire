@@ -8,7 +8,7 @@ import { registerServiceWorker } from './lib/pwaRegister';
 // Register PWA service worker with automatic cache management
 registerServiceWorker({
   onNeedRefresh() {
-    console.log('[QuickHire PWA] New update ready. Will activate on next session or reload.');
+    window.dispatchEvent(new CustomEvent('quickhire:pwa-update-ready'));
   },
   onOfflineReady() {
     console.log('[QuickHire PWA] Application precached and ready for offline use.');
