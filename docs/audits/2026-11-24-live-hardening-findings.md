@@ -44,3 +44,25 @@ This pass used read-only queries against the live Supabase schema and source ins
 - No production policy or function changes.
 - No production user/profile/job/payment data changed.
 - No deployment or promotion to production.
+
+
+## Additional verified workflow and policy findings
+
+12. **Direct phone hiring cannot persist on the live schema:** production `jobs` lacks `scheduled_date`, `start_time`, `expected_duration_hours`, `workers_needed`, and `hiring_source`, while `PostCallDirectHireModal` inserts those fields. The same modal inserts wage and lifecycle fields into `job_records`, which are also absent. This feature needs the additive Phase 2 schema and its transition/capacity triggers before frontend use.
+13. **Ratings cannot be submitted:** `RateWorkerModal` inserts and updates `public.reviews`, but the live table has RLS enabled and no policies. The repository migration `20261026120000_worker_ratings_and_rehire_history.sql` contains participant-validated policies and the rating aggregation trigger.
+14. **Rental payments are intentionally blocked:** the equipment UI opens `DirectPaymentModal` with `payment_for_type = 'machine_rental'`. The repository's `record_direct_payment` migration explicitly rejects machine rentals until an authoritative booking relationship exists. The frontend does not create `rental_records`; the live table only has equipment, borrower, status and timestamps, with no dates, duration, agreed total or payment relationship. Do not remove the RPC rejection without implementing a real booking contract and authorization model.
+15. **Existing phone OTP deprecation migration misses the live policy name:** production has a permissive policy named `Allow public otp management`. The repository migration drops three different names, so replaying it unchanged would leave this public ALL policy in place.
+16. **Existing profile update policies are too permissive:** `Users can update own profile` permits either `auth.uid() = id` or `auth.uid() = created_by` and has no explicit `WITH CHECK`; a second policy also allows self-updates. Replace both with a single validated ownership/admin policy and prevent changes to role, owner, assisted-profile attribution and account status through client updates.
+17. **The worker directory views depend on the broad profile SELECT policy:** both `public_profile_directory` and `public_worker_directory` currently use `security_invoker=true`. Restricting base `profiles` SELECT without first converting these to sanitized, security-barrier views would make worker discovery and equipment owner names disappear. The view cutover and frontend field inventory must happen before revoking base-table access.
+18. **Admin private-profile access is incomplete:** live `profile_private_details` SELECT/INSERT/UPDATE policies only allow the profile owner, but the admin user-management UI also queries this table. The repository's intended private-details migration includes admin access; the live policies need a safe admin branch.
+19. **Payment INSERT remains directly available:** production has two authenticated/public INSERT policies on `payments` that only require `auth.uid() = payer_id`. These must not be revoked until the missing `record_direct_payment` RPC, its required payment columns, recipient-details RPC, and reconciliation workflow are deployed and verified together.
+
+## Updated rollout dependencies
+
+- First reconcile the database baseline and run the full repository migration chain in a disposable local Supabase stack. The existing repository SQL tests are psql scripts, not pgTAP files; execute them in their intended order after migrations.
+- Adapt the private-details migration for the live pre-existing partial table (add missing columns before backfill) and verify masked parity/conflict counts before changing profile column privileges.
+- Apply the Phase 2 jobs/job_records lifecycle schema before enabling direct-hire UI.
+- Apply payment schema, recipient-details RPC, and direct-payment RPC as one tested unit; keep machine rentals disabled until a booking contract exists.
+- Apply the reviews RLS/aggregation migration and add regression tests.
+- Replace exact live policy names, including `Allow public otp management`, rather than relying on guessed historical names.
+- Convert sanitized directory views before restricting direct `profiles` SELECT.
