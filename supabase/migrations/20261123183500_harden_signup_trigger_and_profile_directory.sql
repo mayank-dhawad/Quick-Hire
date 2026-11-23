@@ -10,13 +10,13 @@ SECURITY DEFINER
 SET search_path = pg_catalog, public, auth, pg_temp
 AS $function$
 DECLARE
-  v_role public.user_role := 'worker'::public.user_role;
+  v_role text := 'worker';
   v_full_name text;
 BEGIN
   -- Only the two self-selectable roles are accepted from user metadata.
   -- Admin access is provisioned separately by an authorized administrator.
   IF NEW.raw_user_meta_data->>'role' = 'employer' THEN
-    v_role := 'employer'::public.user_role;
+    v_role := 'employer';
   END IF;
 
   v_full_name := COALESCE(
