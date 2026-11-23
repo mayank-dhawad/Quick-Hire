@@ -486,7 +486,7 @@ export function PaymentManagement() {
                       {/* METHOD */}
                       <td className="py-3.5 px-4">
                         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-800 text-slate-300 font-medium text-[11px]">
-                          {p.payment_method === 'Direct UPI' ? '⚡ UPI' : '🏛️ IMPS'}
+                          {p.payment_method === 'Direct UPI' ? 'UPI' : 'IMPS'}
                         </span>
                       </td>
 
