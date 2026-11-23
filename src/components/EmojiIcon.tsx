@@ -1,14 +1,14 @@
 import {
-  Activity, AlertTriangle, Ambulance, Banknote, Bell, BriefcaseBusiness, Building2,
-  ChartNoAxesColumnIncreasing, ClipboardList, Compass, CreditCard, Flag, Globe2,
+  Activity, AlertTriangle, Siren, Banknote, Bell, Briefcase, Building2,
+  BarChart3, ClipboardList, Compass, CreditCard, Flag, Globe2,
   HardHat, House, Landmark, MapPin, Megaphone, Package, Phone, ShieldCheck,
   Sprout, Tractor, UserRound, Users, Volume2, Wrench, type LucideIcon
 } from 'lucide-react';
 
 const ICONS: Record<string, LucideIcon> = {
-  activity: Activity, alert: AlertTriangle, ambulance: Ambulance, banknote: Banknote,
-  bell: Bell, briefcase: BriefcaseBusiness, building: Building2,
-  chart: ChartNoAxesColumnIncreasing, clipboard: ClipboardList, compass: Compass,
+  activity: Activity, alert: AlertTriangle, ambulance: Siren, banknote: Banknote,
+  bell: Bell, briefcase: Briefcase, building: Building2,
+  chart: BarChart3, clipboard: ClipboardList, compass: Compass,
   creditCard: CreditCard, flag: Flag, globe: Globe2, hardHat: HardHat,
   home: House, landmark: Landmark, mapPin: MapPin, megaphone: Megaphone,
   package: Package, phone: Phone, shield: ShieldCheck, sprout: Sprout,
