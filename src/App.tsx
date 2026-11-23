@@ -583,10 +583,10 @@ export default function App() {
         const profilesMap = new Map<string, { phone_number: string | null; full_name: string | null }>();
         if (workerIds.length > 0) {
           const { data: profs } = await supabase
-            .from('profiles')
-            .select('id, full_name, phone_number')
+            .from('public_profile_directory')
+            .select('id, full_name')
             .in('id', workerIds);
-          (profs || []).forEach((p) => profilesMap.set(p.id, p));
+          (profs || []).forEach((p) => profilesMap.set(p.id, { ...p, phone_number: null }));
         }
 
         const enriched = rawJobs.map((j) => ({
@@ -635,10 +635,7 @@ export default function App() {
     try {
       const { data, error } = await supabase
         .from('equipment')
-        .select(`
-          id, owner_id, title, category, description, daily_rent, deposit_required, location, status, created_at, updated_at,
-          profiles:owner_id ( id, full_name, phone_number )
-        `)
+        .select('id, owner_id, title, category, description, daily_rent, deposit_required, location, status, created_at, updated_at')
         .order('created_at', { ascending: false });
 
       let localEquip: EquipmentItem[] = [];
@@ -652,23 +649,41 @@ export default function App() {
       if (error || !data || data.length === 0) {
         setEquipmentList(localEquip);
       } else {
-        const mapped: EquipmentItem[] = (data as unknown as RawEquipmentQuery[]).map((d) => ({
-          id: d.id,
-          owner_id: d.owner_id,
-          title: d.title,
-          category: d.category,
-          description: d.description,
-          daily_rent: Number(d.daily_rent ?? d.daily_rate ?? 0),
-          deposit_required: d.deposit_required ? Number(d.deposit_required) : 0,
-          daily_rate: Number(d.daily_rent ?? d.daily_rate ?? 0),
-          security_deposit: d.deposit_required ? Number(d.deposit_required) : 0,
-          location: d.location,
-          status: (d.status as 'available' | 'rented' | 'maintenance') || 'available',
-          created_at: d.created_at || new Date().toISOString(),
-          owner_name: d.profiles?.full_name || 'Verified Machine Owner',
-          owner_phone: d.profiles?.phone_number || '',
-          profiles: d.profiles,
-        }));
+        // Public equipment listings may show an owner's name, never their phone number.
+        const ownerIds = Array.from(new Set((data as unknown as RawEquipmentQuery[]).map((item) => item.owner_id).filter(Boolean)));
+        const ownerProfilesMap = new Map<string, { full_name: string | null }>();
+        if (ownerIds.length > 0) {
+          const { data: ownerProfiles, error: ownerProfilesError } = await supabase
+            .from('public_profile_directory')
+            .select('id, full_name')
+            .in('id', ownerIds);
+          if (ownerProfilesError) {
+            console.warn('Unable to load public equipment owner names:', ownerProfilesError.message);
+          } else {
+            (ownerProfiles || []).forEach((profile) => ownerProfilesMap.set(profile.id, { full_name: profile.full_name }));
+          }
+        }
+
+        const mapped: EquipmentItem[] = (data as unknown as RawEquipmentQuery[]).map((d) => {
+          const ownerProfile = ownerProfilesMap.get(d.owner_id);
+          return {
+            id: d.id,
+            owner_id: d.owner_id,
+            title: d.title,
+            category: d.category,
+            description: d.description,
+            daily_rent: Number(d.daily_rent ?? d.daily_rate ?? 0),
+            deposit_required: d.deposit_required ? Number(d.deposit_required) : 0,
+            daily_rate: Number(d.daily_rent ?? d.daily_rate ?? 0),
+            security_deposit: d.deposit_required ? Number(d.deposit_required) : 0,
+            location: d.location,
+            status: (d.status as 'available' | 'rented' | 'maintenance') || 'available',
+            created_at: d.created_at || new Date().toISOString(),
+            owner_name: ownerProfile?.full_name || 'Verified Machine Owner',
+            owner_phone: '',
+            profiles: ownerProfile ? { id: d.owner_id, full_name: ownerProfile.full_name, phone_number: null } : null,
+          };
+        });
 
         const merged = [...localEquip];
         for (const item of mapped) {
