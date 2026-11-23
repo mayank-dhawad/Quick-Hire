@@ -127,7 +127,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
     try {
       const { data: { session } } = await supabase.auth.getSession();
       if (!session?.user?.id) {
-        alert('Please log in to save your personal emergency contact.');
+        alert(t('pleaseLoginSaveEmergency'));
         return;
       }
       // Upsert directly to profile_private_details — zero legacy fallback
@@ -144,7 +144,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
         throw new Error(privErr.message);
       }
 
-      setContactSavedNotice(cleanPhone ? 'Emergency contact saved successfully!' : 'Emergency contact cleared successfully.');
+      setContactSavedNotice(cleanPhone ? t('emergencyContactSaved') : t('emergencyContactCleared'));
       setIsEditingContact(false);
       setTimeout(() => setContactSavedNotice(''), 3000);
     } catch (err: unknown) {
@@ -182,7 +182,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
       setEmergencyContactName('');
       setEmergencyContactPhone('');
       setIsEditingContact(false);
-      setContactSavedNotice('Emergency contact cleared successfully.');
+      setContactSavedNotice(t('emergencyContactCleared'));
       setTimeout(() => setContactSavedNotice(''), 3000);
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'Failed to clear emergency contact';
@@ -203,9 +203,10 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
     setSosBroadcastAlert(null);
 
     const sendSosWithCoords = (lat?: number, lng?: number) => {
-      const cleanPhone = emergencyContactPhone.replace(/\D/g, '');
-      const locationPart = lat && lng ? ` My current GPS location: https://maps.google.com/?q=${lat},${lng}` : '';
-      const message = `EMERGENCY SOS ALERT! I need immediate help.${locationPart} Please call me or send help immediately.`;
+      const phoneDigits = emergencyContactPhone.replace(/\D/g, '');
+      const cleanPhone = phoneDigits.length === 10 ? `91${phoneDigits}` : phoneDigits;
+      const locationPart = Number.isFinite(lat) && Number.isFinite(lng) ? ` My current GPS location: https://maps.google.com/?q=${lat},${lng}` : '';
+      const message = `${t('sosSmsMessage')}${locationPart}`;
 
       // Open SMS dialer with prefilled message
       window.open(`sms:+${cleanPhone}?body=${encodeURIComponent(message)}`, '_blank');
@@ -259,7 +260,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
       {/* SECTION 1: EMERGENCY HELPLINES & RURAL SOS */}
       <div className="space-y-5">
         <div className="flex items-center gap-2.5">
-          <span className="p-2 rounded-xl bg-rose-100 text-rose-700">
+          <span className="p-2 rounded-xl bg-red-50 text-red-800">
             <ShieldAlert className="w-5 h-5" />
           </span>
           <div>
@@ -277,7 +278,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           <div className="p-5 rounded-2xl bg-white border border-rose-200 shadow-xs flex flex-col justify-between space-y-4">
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 inline-block mb-2">
-                24x7 Emergency
+                {t('sos24x7')}
               </span>
               <h3 className="font-heading font-black text-2xl text-slate-900">112</h3>
               <p className="text-xs font-bold text-slate-700 mt-0.5">{t('sos112Title')}</p>
@@ -299,7 +300,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           <div className="p-5 rounded-2xl bg-white border border-amber-200 shadow-xs flex flex-col justify-between space-y-4">
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block mb-2">
-                Medical & Ambulance
+                {t('sosMedical')}
               </span>
               <h3 className="font-heading font-black text-2xl text-slate-900">108</h3>
               <p className="text-xs font-bold text-slate-700 mt-0.5">{t('sos108Title')}</p>
@@ -318,10 +319,10 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           </div>
 
           {/* Card 3: 1091 */}
-          <div className="p-5 rounded-2xl bg-white border border-purple-200 shadow-xs flex flex-col justify-between space-y-4">
+          <div className="p-5 rounded-2xl bg-white border border-indigo-200 shadow-xs flex flex-col justify-between space-y-4">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-purple-700 bg-purple-50 px-2 py-0.5 rounded border border-purple-200 inline-block mb-2">
-                Women's Safety
+              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 inline-block mb-2">
+                {t('sosWomenSafety')}
               </span>
               <h3 className="font-heading font-black text-2xl text-slate-900">1091</h3>
               <p className="text-xs font-bold text-slate-700 mt-0.5">{t('sos1091Title')}</p>
@@ -332,7 +333,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             <a
               href="tel:1091"
               aria-label={t('callWomen1091')}
-              className="w-full py-2.5 px-3 rounded-xl bg-purple-600 hover:bg-purple-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              className="w-full py-2.5 px-3 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
             >
               <PhoneCall className="w-3.5 h-3.5" />
               <span>{t('callWomen1091')}</span>
@@ -343,7 +344,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           <div className="p-5 rounded-2xl bg-white border border-brand-200 shadow-xs flex flex-col justify-between space-y-4">
             <div>
               <span className="text-[10px] font-black uppercase tracking-wider text-brand-700 bg-brand-50 px-2 py-0.5 rounded border border-brand-200 inline-block mb-2">
-                Kisan Call Center
+                {t('sosKisanLabel')}
               </span>
               <h3 className="font-heading font-black text-base sm:text-lg text-slate-900 leading-tight">1800-180-1551</h3>
               <p className="text-xs font-bold text-slate-700 mt-0.5">{t('sosKisanTitle')}</p>
@@ -366,7 +367,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
         <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-bold text-emerald-900">National Shramik Toll-Free Helpline: 14434</span>
+            <span className="font-bold text-emerald-900">{t('shramikTitle')}: 14434</span>
             <span className="text-emerald-700 hidden md:inline">— {t('shramikHelplineSub')}</span>
           </div>
           <a
@@ -374,12 +375,12 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition-colors inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0"
           >
             <Phone className="w-3.5 h-3.5" />
-            <span>Call 14434</span>
+            <span>{t('shramikCall')}</span>
           </a>
         </div>
 
         {/* PERSONAL EMERGENCY CONTACT & RAPID SOS */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-rose-50/80 via-white to-amber-50/50 border border-rose-200/80 shadow-xs space-y-4">
+        <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-rose-50 via-white to-orange-50 border border-rose-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <span className="p-2.5 rounded-xl bg-rose-600 text-white shadow-xs">
@@ -387,11 +388,12 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
               </span>
               <div>
                 <h3 className="font-heading font-black text-base sm:text-lg text-slate-900">
-                  Personal Emergency Contact & Rapid SOS
+                  {t('personalSosTitle')}
                 </h3>
                 <p className="text-xs text-slate-500">
-                  Save a trusted family member or local contact for one-tap emergency distress SMS with GPS location
+                  {t('personalSosSubtitle')}
                 </p>
+                <p className="text-[11px] text-slate-500 mt-1">{t('sosSendNote')}</p>
               </div>
             </div>
 
@@ -401,7 +403,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                 onClick={() => setIsEditingContact(true)}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 transition self-start sm:self-auto underline cursor-pointer"
               >
-                Change Contact
+                {t('changeContact')}
               </button>
             )}
           </div>
@@ -424,10 +426,10 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white border border-rose-100 shadow-2xs">
               <div className="space-y-0.5">
                 <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
-                  Configured Trusted Contact
+                  {t('configuredTrustedContact')}
                 </span>
                 <h4 className="font-heading font-bold text-sm text-slate-900">
-                  {emergencyContactName || 'Trusted Personal Contact'}
+                  {emergencyContactName || t('trustedPersonalContact')}
                 </h4>
                 <p className="text-xs font-mono text-slate-600 flex items-center gap-1">
                   <PhoneCall className="w-3 h-3 text-slate-400" />
@@ -441,7 +443,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   className="px-3.5 py-2 rounded-xl bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs"
                 >
                   <Phone className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Call Contact</span>
+                  <span>{t('callContact')}</span>
                 </a>
 
                 <button
@@ -453,12 +455,12 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   {isBroadcastingSos ? (
                     <>
                       <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      <span>Locating GPS...</span>
+                      <span>{t('locatingGps')}</span>
                     </>
                   ) : (
                     <>
                       <Send className="w-3.5 h-3.5" />
-                      <span><ShieldAlert className="mr-1 inline h-4 w-4" /> Broadcast SOS Alert</span>
+                      <span><ShieldAlert className="mr-1 inline h-4 w-4" /> {t('broadcastSos')}</span>
                     </>
                   )}
                 </button>
@@ -467,12 +469,12 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           ) : (
             <form onSubmit={handleSaveEmergencyContact} className="p-4 rounded-xl bg-white border border-slate-200 shadow-2xs space-y-3">
               <span className="text-xs font-bold text-slate-700 block">
-                {emergencyContactPhone ? 'Update Personal Emergency Contact' : 'Register Trusted Emergency Contact'}
+                {emergencyContactPhone ? t('updateEmergencyContact') : t('registerTrustedContact')}
               </span>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1" htmlFor="emergency-contact-name">
-                    Contact Name / Relationship
+                    {t('contactNameRelationship')}
                   </label>
                   <input
                     id="emergency-contact-name"
@@ -485,7 +487,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                 </div>
                 <div>
                   <label className="block text-[11px] font-bold text-slate-600 mb-1" htmlFor="emergency-contact-phone">
-                    Emergency Phone Number (+91)
+                    {t('emergencyPhone')}
                   </label>
                   <input
                     id="emergency-contact-phone"
@@ -506,7 +508,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>{isSavingContact ? 'Saving...' : 'Save Emergency Contact'}</span>
+                  <span>{isSavingContact ? t('saving') : t('saveEmergencyContact')}</span>
                 </button>
                 {(emergencyContactPhone || emergencyContactName) && (
                   <button
@@ -515,7 +517,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                     onClick={handleClearEmergencyContact}
                     className="px-3 py-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs transition cursor-pointer disabled:opacity-50"
                   >
-                    Clear Contact
+                    {t('clearContact')}
                   </button>
                 )}
                 <button
@@ -523,7 +525,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   onClick={() => setIsEditingContact(false)}
                   className="px-3 py-2 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 font-bold text-xs transition cursor-pointer"
                 >
-                  Cancel
+                  {t('cancel')}
                 </button>
               </div>
             </form>
@@ -1065,7 +1067,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                       onClick={() => setIsGrievanceOpen(false)}
                       className="flex-1 py-2.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition"
                     >
-                      Cancel
+                      {t('cancel')}
                     </button>
                     <button
                       type="submit"
