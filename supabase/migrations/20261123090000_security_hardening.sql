@@ -140,15 +140,15 @@ CREATE POLICY "job_records_select_participants_admin"
     OR public.is_admin((SELECT auth.uid()))
   );
 
-CREATE POLICY "job_records_insert_worker_own_open_job"
+CREATE POLICY "job_records_insert_worker_application_or_employer_hire"
   ON public.job_records FOR INSERT TO authenticated
   WITH CHECK (
     public.is_admin((SELECT auth.uid()))
     OR (
+      -- Worker self-application to an open job.
       worker_id = (SELECT auth.uid())
       AND EXISTS (
-        SELECT 1
-        FROM public.profiles p
+        SELECT 1 FROM public.profiles p
         WHERE p.id = (SELECT auth.uid())
           AND p.role = 'worker'::public.user_role
           AND (p.account_status IS NULL OR p.account_status = 'active')
@@ -156,6 +156,24 @@ CREATE POLICY "job_records_insert_worker_own_open_job"
       AND EXISTS (
         SELECT 1 FROM public.jobs j
         WHERE j.id = job_records.job_id AND j.status::text = 'open'
+      )
+    )
+    OR (
+      -- Employer direct hire: only for a job owned by this employer and a real,
+      -- active worker profile. Supports the direct phone-hire workflow.
+      EXISTS (
+        SELECT 1 FROM public.jobs j
+        JOIN public.profiles employer_profile ON employer_profile.id = j.employer_id
+        WHERE j.id = job_records.job_id
+          AND j.employer_id = (SELECT auth.uid())
+          AND employer_profile.role = 'employer'::public.user_role
+          AND (employer_profile.account_status IS NULL OR employer_profile.account_status = 'active')
+      )
+      AND EXISTS (
+        SELECT 1 FROM public.profiles worker_profile
+        WHERE worker_profile.id = job_records.worker_id
+          AND worker_profile.role = 'worker'::public.user_role
+          AND (worker_profile.account_status IS NULL OR worker_profile.account_status = 'active')
       )
     )
   );
@@ -181,6 +199,32 @@ REVOKE ALL ON TABLE public.job_records FROM PUBLIC, anon;
 REVOKE UPDATE, DELETE ON TABLE public.job_records FROM authenticated;
 GRANT SELECT, INSERT ON TABLE public.job_records TO authenticated;
 GRANT UPDATE (status) ON TABLE public.job_records TO authenticated;
+
+-- Jobs are public to browse, but only active employers may create or manage them.
+DROP POLICY IF EXISTS "Employers can insert jobs" ON public.jobs;
+DROP POLICY IF EXISTS "Employers can update their own jobs" ON public.jobs;
+DROP POLICY IF EXISTS "Employers can delete their own jobs" ON public.jobs;
+
+CREATE POLICY "jobs_insert_active_employer"
+  ON public.jobs FOR INSERT TO authenticated
+  WITH CHECK (
+    employer_id = (SELECT auth.uid())
+    AND EXISTS (
+      SELECT 1 FROM public.profiles p
+      WHERE p.id = (SELECT auth.uid())
+        AND p.role = 'employer'::public.user_role
+        AND (p.account_status IS NULL OR p.account_status = 'active')
+    )
+  );
+
+CREATE POLICY "jobs_update_owner_or_admin"
+  ON public.jobs FOR UPDATE TO authenticated
+  USING (employer_id = (SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())))
+  WITH CHECK (employer_id = (SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())));
+
+CREATE POLICY "jobs_delete_owner_or_admin"
+  ON public.jobs FOR DELETE TO authenticated
+  USING (employer_id = (SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())));
 
 -- 4. Rental records: only the borrower, equipment owner, or admin can read.
 DROP POLICY IF EXISTS "Rental records viewable by involved users" ON public.rental_records;
