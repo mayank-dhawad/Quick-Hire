@@ -15,7 +15,9 @@ import {
   ListFilter,
   Phone,
   Star,
-  ChevronRight
+  ChevronRight,
+  Search,
+  CheckCircle2
 } from 'lucide-react';
 import { getTranslation } from '../lib/translations';
 
@@ -127,57 +129,81 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
   const [showSidebar, setShowSidebar] = useState<boolean>(true);
   const [isRefreshing, setIsRefreshing] = useState<boolean>(false);
   const [activeWorkerId, setActiveWorkerId] = useState<string | null>(selectedWorkerId || null);
+  const [workerSearch, setWorkerSearch] = useState('');
+  const [availabilityFilter, setAvailabilityFilter] = useState<'all' | 'available' | 'unavailable'>('all');
+  const renderClusterMarkersRef = useRef<((map: L.Map) => void) | null>(null);
+  const onSelectLocationRef = useRef(onSelectLocation);
+
+  useEffect(() => { onSelectLocationRef.current = onSelectLocation; }, [onSelectLocation]);
+  useEffect(() => { setActiveWorkerId(selectedWorkerId || null); }, [selectedWorkerId]);
 
   const t = (key: string): string => getTranslation(currentLang, key);
 
-  // Extract workers with strictly verified numeric coordinates
+  // Keep directory records even when they do not have map coordinates.
+  // Zero is a valid latitude/longitude value; only reject missing, out-of-range,
+  // or the (0, 0) Null Island placeholder.
   const workersWithCoords = useMemo(() => {
+    const parseCoordinate = (value: unknown): number | null => {
+      if (value === null || value === undefined || value === '') return null;
+      const parsed = Number(value);
+      return Number.isFinite(parsed) ? parsed : null;
+    };
+
     return workers
-      .map((w) => {
-        const lat =
-          w.latitude !== null && w.latitude !== undefined && !isNaN(Number(w.latitude)) && Number(w.latitude) !== 0
-            ? Number(w.latitude)
-            : w.profiles?.latitude !== null && w.profiles?.latitude !== undefined && !isNaN(Number(w.profiles.latitude)) && Number(w.profiles.latitude) !== 0
-            ? Number(w.profiles.latitude)
-            : null;
-
-        const lon =
-          w.longitude !== null && w.longitude !== undefined && !isNaN(Number(w.longitude)) && Number(w.longitude) !== 0
-            ? Number(w.longitude)
-            : w.profiles?.longitude !== null && w.profiles?.longitude !== undefined && !isNaN(Number(w.profiles.longitude)) && Number(w.profiles.longitude) !== 0
-            ? Number(w.profiles.longitude)
-            : null;
-
-        return {
-          ...w,
-          latitude: lat,
-          longitude: lon,
-        };
-      })
+      .map((worker) => ({
+        ...worker,
+        latitude: parseCoordinate(worker.latitude) ?? parseCoordinate(worker.profiles?.latitude),
+        longitude: parseCoordinate(worker.longitude) ?? parseCoordinate(worker.profiles?.longitude),
+      }))
       .filter(
-        (w): w is WorkerItem & { latitude: number; longitude: number } =>
-          w.latitude !== null &&
-          w.longitude !== null &&
-          w.latitude >= -90 &&
-          w.latitude <= 90 &&
-          w.longitude >= -180 &&
-          w.longitude <= 180
+        (worker): worker is WorkerItem & { latitude: number; longitude: number } =>
+          worker.latitude !== null &&
+          worker.longitude !== null &&
+          worker.latitude >= -90 &&
+          worker.latitude <= 90 &&
+          worker.longitude >= -180 &&
+          worker.longitude <= 180 &&
+          !(worker.latitude === 0 && worker.longitude === 0)
       );
   }, [workers]);
 
   const unmappedCount = workers.length - workersWithCoords.length;
 
-  // Sorted nearby workers for sidebar
   const sortedNearbyWorkers = useMemo(() => {
-    return [...workersWithCoords].sort((a, b) => {
-      if (a.distance_km !== null && a.distance_km !== undefined && b.distance_km !== null && b.distance_km !== undefined) {
-        return a.distance_km - b.distance_km;
-      }
-      if (a.distance_km !== null && a.distance_km !== undefined) return -1;
-      if (b.distance_km !== null && b.distance_km !== undefined) return 1;
-      return 0;
+    return [...workers].sort((a, b) => {
+      const availableDelta = Number(b.is_available === true) - Number(a.is_available === true);
+      if (availableDelta !== 0) return availableDelta;
+      if (a.distance_km != null && b.distance_km != null) return a.distance_km - b.distance_km;
+      if (a.distance_km != null) return -1;
+      if (b.distance_km != null) return 1;
+      return (a.profiles?.full_name || '').localeCompare(b.profiles?.full_name || '');
     });
-  }, [workersWithCoords]);
+  }, [workers]);
+
+  const filteredSidebarWorkers = useMemo(() => {
+    const query = workerSearch.trim().toLowerCase();
+    return sortedNearbyWorkers.filter((worker) => {
+      const isAvailable = worker.is_available === true;
+      if (availabilityFilter === 'available' && !isAvailable) return false;
+      if (availabilityFilter === 'unavailable' && isAvailable) return false;
+      if (!query) return true;
+      const haystack = [
+        worker.profiles?.full_name,
+        worker.category,
+        worker.profiles?.village,
+        worker.profiles?.city,
+        worker.profiles?.district,
+        worker.profiles?.location,
+        ...(worker.skills || []),
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(query);
+    });
+  }, [sortedNearbyWorkers, workerSearch, availabilityFilter]);
+
+  const visibleWorkersWithCoords = useMemo(() => {
+    const visibleIds = new Set(filteredSidebarWorkers.map((worker) => worker.id));
+    return workersWithCoords.filter((worker) => visibleIds.has(worker.id));
+  }, [workersWithCoords, filteredSidebarWorkers]);
 
   // Spatial Clustering renderer for markers
   const renderClusterMarkers = useCallback(
@@ -200,7 +226,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
 
       const clusters: ClusterGroup[] = [];
 
-      workersWithCoords.forEach((worker) => {
+      visibleWorkersWithCoords.forEach((worker) => {
         const pt = map.latLngToLayerPoint([worker.latitude, worker.longitude]);
         let placed = false;
 
@@ -277,7 +303,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
                 <span style="color: #f59e0b; font-weight: 700; font-size: 11px;">★ ${rating}</span>
                 ${wage ? `<span style="color: #334155; font-weight: 700; font-size: 11px;">${wage}</span>` : ''}
                 <span style="color: ${isAvailable ? '#059669' : '#dc2626'}; font-size: 10px; font-weight: 600;">
-                  ${isAvailable ? '• Available Now' : '• Unavailable'}
+                  ${isAvailable ? '• Available for work' : '• Not available'}
                 </span>
               </div>
               ${distanceText ? `<div style="font-weight: 700; color: #16a34a; font-size: 11px; margin-bottom: 4px;">${distanceText}</div>` : ''}
@@ -292,7 +318,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
                   Profile
                 </button>
                 <a href="${directionsUrl}" target="_blank" rel="noopener noreferrer" style="padding: 6px 8px; background: #f8fafc; color: #334155; border: 1px solid #cbd5e1; border-radius: 8px; font-weight: 700; font-size: 11px; text-decoration: none; text-align: center; display: inline-flex; align-items: center; justify-content: center;" title="Get directions">
-                  
+                  Directions
                 </a>
               </div>
             </div>
@@ -339,8 +365,10 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
         }
       });
     },
-    [workersWithCoords, activeWorkerId, selectedWorkerId, onCallWorker, onSelectWorker, onViewProfile]
+    [visibleWorkersWithCoords, activeWorkerId, selectedWorkerId, onCallWorker, onSelectWorker, onViewProfile]
   );
+
+  renderClusterMarkersRef.current = renderClusterMarkers;
 
   // Initialize Map Instance once
   useEffect(() => {
@@ -388,21 +416,19 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
       markersLayerRef.current = L.layerGroup().addTo(map);
       centerLayerRef.current = L.layerGroup().addTo(map);
 
-      // Interactive: Click map to set search center
+      // Interactive: Click map to set search center. Use the latest callback.
       map.on('click', (e: L.LeafletMouseEvent) => {
         const { lat, lng } = e.latlng;
-        if (onSelectLocation) {
-          onSelectLocation(
-            Number(lat.toFixed(4)),
-            Number(lng.toFixed(4)),
-            `Selected Location (${lat.toFixed(3)}, ${lng.toFixed(3)})`
-          );
-        }
+        onSelectLocationRef.current?.(
+          Number(lat.toFixed(4)),
+          Number(lng.toFixed(4)),
+          `Selected Location (${lat.toFixed(3)}, ${lng.toFixed(3)})`
+        );
       });
 
       // Update cluster markers on zoom/move
       map.on('zoomend', () => {
-        renderClusterMarkers(map);
+        renderClusterMarkersRef.current?.(map);
       });
     }
 
@@ -425,7 +451,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
 
     centerLayer.clearLayers();
 
-    if (centerLat && centerLon && (centerLat !== 20.5937 || centerLon !== 78.9629)) {
+    if (Number.isFinite(centerLat) && Number.isFinite(centerLon) && (centerLat !== 20.5937 || centerLon !== 78.9629)) {
       L.marker([centerLat, centerLon], { icon: centerPinIcon })
         .addTo(centerLayer)
         .bindPopup(
@@ -459,8 +485,8 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
 
     // Dynamic viewport fit: give priority to search origin when active
     const hasSearchOrigin = Boolean(
-      centerLat &&
-      centerLon &&
+      Number.isFinite(centerLat) &&
+      Number.isFinite(centerLon) &&
       (centerLat !== 20.5937 || centerLon !== 78.9629)
     );
 
@@ -469,15 +495,15 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
         ? radiusKm <= 2 ? 14 : radiusKm <= 5 ? 13 : radiusKm <= 15 ? 12 : radiusKm <= 35 ? 11 : radiusKm <= 75 ? 10 : 9
         : 11;
       map.setView([centerLat, centerLon], targetZoom, { animate: true });
-    } else if (workersWithCoords.length > 1) {
+    } else if (visibleWorkersWithCoords.length > 1) {
       const bounds = L.latLngBounds([]);
-      workersWithCoords.forEach((w) => bounds.extend([w.latitude, w.longitude]));
+      visibleWorkersWithCoords.forEach((w) => bounds.extend([w.latitude, w.longitude]));
       map.fitBounds(bounds, { padding: [35, 35], maxZoom: 13 });
-    } else if (workersWithCoords.length === 1) {
-      const single = workersWithCoords[0];
+    } else if (visibleWorkersWithCoords.length === 1) {
+      const single = visibleWorkersWithCoords[0];
       map.setView([single.latitude, single.longitude], 12);
     }
-  }, [workersWithCoords, renderClusterMarkers, centerLat, centerLon, radiusKm]);
+  }, [visibleWorkersWithCoords, renderClusterMarkers, centerLat, centerLon, radiusKm]);
 
   // Handle selectedWorkerId panning
   useEffect(() => {
@@ -540,17 +566,17 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
     map.setView([centerLat, centerLon], radiusKm ? 11 : 6, { animate: true });
   };
 
-  const handleFocusWorkerFromSidebar = (worker: WorkerItem & { latitude: number; longitude: number }) => {
+  const handleFocusWorkerFromSidebar = (worker: WorkerItem) => {
     setActiveWorkerId(worker.id);
+    onSelectWorker?.(worker);
+    const latitude = worker.latitude ?? worker.profiles?.latitude;
+    const longitude = worker.longitude ?? worker.profiles?.longitude;
+    if (latitude == null || longitude == null || !Number.isFinite(Number(latitude)) || !Number.isFinite(Number(longitude)) || (Number(latitude) === 0 && Number(longitude) === 0)) return;
     const map = mapInstanceRef.current;
     if (!map) return;
-    map.setView([worker.latitude, worker.longitude], 14, { animate: true });
+    map.setView([Number(latitude), Number(longitude)], 14, { animate: true });
     const marker = markerMapRef.current.get(worker.id);
-    if (marker) {
-      setTimeout(() => {
-        marker.openPopup();
-      }, 150);
-    }
+    if (marker) setTimeout(() => marker.openPopup(), 150);
   };
 
   return (
@@ -678,97 +704,106 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
           </button>
         </div>
 
-        {/* Nearby Worker Sidebar (Desktop Docked / Mobile Floating Drawer) */}
+        {/* Worker discovery panel: includes mapped and unmapped directory workers. */}
         {showSidebar && sortedNearbyWorkers.length > 0 && (
           <aside
-            aria-label="Nearby workers in radius"
-            className="absolute md:relative top-0 right-0 bottom-0 z-20 w-72 sm:w-80 bg-white/95 md:bg-white backdrop-blur-md border-l border-slate-200 shadow-xl md:shadow-none flex flex-col h-full"
+            aria-label="Nearby workers"
+            className="absolute left-0 right-0 bottom-0 z-20 w-full max-h-[56%] bg-white/95 backdrop-blur-md border-t border-slate-200 shadow-xl flex flex-col md:relative md:left-auto md:right-auto md:bottom-auto md:w-[340px] md:max-h-full md:border-t-0 md:border-l md:shadow-none"
           >
-            <div className="p-3 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
-              <div>
-                <span className="text-[11px] font-black uppercase tracking-wider text-slate-700 block">
-                  Nearby Workers
-                </span>
-                <span className="text-[10px] text-slate-500 font-medium">
-                  {radiusKm ? `Within ${radiusKm} km · Closest first` : 'Matching radius'}
-                </span>
+            <div className="p-3 border-b border-slate-100 space-y-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <span className="text-xs font-black uppercase tracking-wider text-slate-800 block">Find a worker</span>
+                  <span className="text-[11px] text-slate-500">{filteredSidebarWorkers.length} of {workers.length} workers · nearest first</span>
+                </div>
+                <button type="button" onClick={() => setShowSidebar(false)} className="p-1.5 rounded-lg text-slate-400 hover:bg-slate-100 hover:text-slate-700" title="Hide worker list" aria-label="Hide worker list">
+                  <X className="w-4 h-4" />
+                </button>
               </div>
-              <button
-                type="button"
-                onClick={() => setShowSidebar(false)}
-                className="p-1 rounded text-slate-400 hover:text-slate-600 cursor-pointer"
-                title="Hide sidebar"
-              >
-                <X className="w-3.5 h-3.5" />
-              </button>
+              <div className="relative">
+                <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                <input
+                  value={workerSearch}
+                  onChange={(event) => setWorkerSearch(event.target.value)}
+                  placeholder="Search name, skill or area"
+                  aria-label="Search workers by name, skill or area"
+                  className="w-full pl-9 pr-3 py-2 rounded-xl border border-slate-200 bg-slate-50 text-xs text-slate-800 outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500"
+                />
+              </div>
+              <div className="flex items-center gap-1.5">
+                {([
+                  ['all', 'All workers'],
+                  ['available', 'Available'],
+                  ['unavailable', 'Unavailable'],
+                ] as const).map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setAvailabilityFilter(value)}
+                    aria-pressed={availabilityFilter === value}
+                    className={`px-2.5 py-1.5 rounded-lg text-[10px] font-bold border transition-colors ${availabilityFilter === value ? 'bg-brand-50 text-brand-800 border-brand-200' : 'bg-white text-slate-500 border-slate-200 hover:bg-slate-50'}`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto divide-y divide-slate-100 p-2 space-y-1">
-              {sortedNearbyWorkers.map((w) => {
-                const isSelected = (activeWorkerId || selectedWorkerId) === w.id;
-                const catColor = getCategoryColor(w.category);
-                const rating = w.average_rating ? Number(w.average_rating).toFixed(1) : '5.0';
+            <div className="flex-1 min-h-0 overflow-y-auto p-2 space-y-2">
+              {filteredSidebarWorkers.length === 0 ? (
+                <div className="py-8 px-3 text-center text-xs text-slate-500">No workers match these filters.</div>
+              ) : filteredSidebarWorkers.map((worker) => {
+                const isSelected = (activeWorkerId || selectedWorkerId) === worker.id;
+                const latitude = worker.latitude ?? worker.profiles?.latitude;
+                const longitude = worker.longitude ?? worker.profiles?.longitude;
+                const hasCoordinates = latitude != null && longitude != null &&
+                  Number.isFinite(Number(latitude)) && Number.isFinite(Number(longitude)) &&
+                  !(Number(latitude) === 0 && Number(longitude) === 0);
+                const isAvailable = worker.is_available === true;
+                const locality = worker.profiles?.village || worker.profiles?.district || worker.profiles?.location || worker.preferred_work_location || 'Location not specified';
+                const rating = worker.average_rating != null ? Number(worker.average_rating).toFixed(1) : 'New';
+                const catColor = getCategoryColor(worker.category);
 
                 return (
                   <div
-                    key={w.id}
-                    onClick={() => handleFocusWorkerFromSidebar(w)}
-                    className={`p-2.5 rounded-xl transition-all cursor-pointer border ${
-                      isSelected
-                        ? 'bg-amber-50/70 border-amber-300 shadow-2xs'
-                        : 'bg-white hover:bg-slate-50 border-slate-100'
-                    }`}
+                    key={worker.id}
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => handleFocusWorkerFromSidebar(worker)}
+                    onKeyDown={(event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); handleFocusWorkerFromSidebar(worker); } }}
+                    className={`rounded-xl border p-3 transition-all cursor-pointer ${isSelected ? 'border-brand-300 bg-brand-50/70 shadow-sm' : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-sm'}`}
                   >
-                    <div className="flex items-start justify-between gap-1.5">
+                    <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0">
-                        <div className="font-bold text-xs text-slate-900 truncate">
-                          {w.profiles?.full_name || 'Verified Worker'}
+                        <div className="flex items-center gap-1.5">
+                          <h4 className="text-xs font-extrabold text-slate-900 truncate">{worker.profiles?.full_name || 'Verified Worker'}</h4>
+                          <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600 shrink-0" aria-label="Verified profile" />
                         </div>
-                        <div className="flex items-center gap-1.5 text-[10px] mt-0.5">
-                          <span style={{ color: catColor }} className="font-bold">
-                            {w.category || 'General'}
-                          </span>
-                          <span className="text-amber-500 font-bold flex items-center gap-0.5">
-                            <Star className="w-2.5 h-2.5 fill-amber-400" />
-                            {rating}
-                          </span>
-                        </div>
+                        <div className="text-[10px] font-bold mt-0.5" style={{ color: catColor }}>{worker.category || 'General work'}</div>
                       </div>
-
-                      {w.distance_km !== null && w.distance_km !== undefined && (
-                        <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200 shrink-0">
-                          ~{w.distance_km} km
-                        </span>
-                      )}
-                    </div>
-
-                    <div className="flex items-center justify-between gap-2 mt-2 pt-1.5 border-t border-slate-100 text-[10px]">
-                      <span className="text-slate-500 truncate">
-                        {w.profiles?.village || w.profiles?.district || 'Verified Area'}
+                      <span className={`shrink-0 px-2 py-1 rounded-full text-[9px] font-bold border ${isAvailable ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : worker.is_available === false ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                        {isAvailable ? 'Available for work' : worker.is_available === false ? 'Unavailable' : 'Status not set'}
                       </span>
-                      <div className="flex items-center gap-1 shrink-0">
-                        <button
-                          type="button"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleFocusWorkerFromSidebar(w);
-                          }}
-                          className="px-2 py-0.5 rounded bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold flex items-center gap-0.5 cursor-pointer"
-                        >
-                          <span>Pin</span>
-                          <ChevronRight className="w-2.5 h-2.5" />
+                    </div>
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 mt-2 text-[10px] text-slate-500">
+                      <span className="inline-flex items-center gap-1"><MapPin className="w-3 h-3" />{locality}</span>
+                      {worker.distance_km != null && <span className="font-semibold text-emerald-700">{worker.distance_km} km away</span>}
+                    </div>
+                    <div className="flex items-center justify-between mt-2 pt-2 border-t border-slate-100">
+                      <div className="flex items-center gap-2 text-[10px]">
+                        <span className="font-bold text-slate-800">{worker.daily_wage != null ? `₹${worker.daily_wage}/day` : 'Wage on request'}</span>
+                        <span className="inline-flex items-center gap-1 text-amber-600 font-bold"><Star className="w-3 h-3 fill-amber-400" />{rating}</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button type="button" disabled={!hasCoordinates} onClick={(event) => { event.stopPropagation(); handleFocusWorkerFromSidebar(worker); }} className="px-2 py-1 rounded-lg border border-slate-200 text-[10px] font-bold text-slate-700 disabled:opacity-40 disabled:cursor-not-allowed hover:bg-slate-50">
+                          <MapPin className="w-3 h-3 inline mr-1" />{hasCoordinates ? 'Show on map' : 'No pin'}
                         </button>
+                        {onViewProfile && (
+                          <button type="button" onClick={(event) => { event.stopPropagation(); onViewProfile(worker); }} className="px-2 py-1 rounded-lg bg-slate-100 text-[10px] font-bold text-slate-700 hover:bg-slate-200">Profile</button>
+                        )}
                         {onCallWorker && (
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              onCallWorker(w.id);
-                            }}
-                            className="px-2 py-0.5 rounded bg-brand-500 hover:bg-brand-600 text-white font-bold flex items-center gap-1 cursor-pointer"
-                          >
-                            <Phone className="w-2.5 h-2.5" />
-                            <span>Call</span>
+                          <button type="button" onClick={(event) => { event.stopPropagation(); onCallWorker(worker.id); }} className="px-2 py-1 rounded-lg bg-brand-600 text-[10px] font-bold text-white hover:bg-brand-700">
+                            <Phone className="w-3 h-3 inline mr-1" />Call
                           </button>
                         )}
                       </div>
