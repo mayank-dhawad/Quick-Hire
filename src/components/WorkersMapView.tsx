@@ -63,11 +63,12 @@ function escapeHtml(str?: string | null): string {
     .replace(/'/g, '&#039;');
 }
 
-function createWorkerPinIcon(category?: string | null, isSelected = false): L.DivIcon {
+function createWorkerPinIcon(category?: string | null, isSelected = false, isAvailable = false): L.DivIcon {
   const color = getCategoryColor(category);
+  const statusColor = isAvailable ? '#16a34a' : '#94a3b8';
   const ring = isSelected
     ? 'border: 3px solid #f59e0b; box-shadow: 0 0 16px rgba(245, 158, 11, 0.9); transform: rotate(-45deg) scale(1.15);'
-    : 'border: 2px solid #ffffff; box-shadow: 0 2px 8px rgba(0,0,0,0.35); transform: rotate(-45deg);';
+    : `border: 2px solid ${statusColor}; box-shadow: 0 2px 8px rgba(0,0,0,0.35); transform: rotate(-45deg);`;
   const size = isSelected ? 32 : 24;
   return L.divIcon({
     className: 'custom-worker-pin',
@@ -268,7 +269,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
           const worker = cluster.workers[0];
           const isSelected = (activeWorkerId || selectedWorkerId) === worker.id;
           const marker = L.marker([worker.latitude, worker.longitude], {
-            icon: createWorkerPinIcon(worker.category, isSelected),
+            icon: createWorkerPinIcon(worker.category, isSelected, worker.is_available === true),
             zIndexOffset: isSelected ? 1000 : 0,
           }).addTo(markersLayer);
 
