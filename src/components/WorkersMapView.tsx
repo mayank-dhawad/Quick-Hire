@@ -169,6 +169,7 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
   }, [workers]);
 
   const unmappedCount = workers.length - workersWithCoords.length;
+  const availableWorkersCount = useMemo(() => workers.filter((worker) => worker.is_available === true).length, [workers]);
 
   const sortedNearbyWorkers = useMemo(() => {
     return [...workers].sort((a, b) => {
@@ -596,6 +597,9 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
           <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 border border-slate-200 shrink-0">
             {workersWithCoords.length} plotted on map
           </span>
+          <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 shrink-0">
+            {availableWorkersCount} available
+          </span>
           {unmappedCount > 0 && (
             <span className="text-[11px] font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 shrink-0">
               +{unmappedCount} unmapped
@@ -847,6 +851,10 @@ export const WorkersMapView: React.FC<WorkersMapViewProps> = ({
               +{unmappedCount} {t('unmappedWorkersNotice')}
             </span>
           )}
+          <span className="hidden sm:inline-flex items-center gap-2 text-[10px] text-slate-500">
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-emerald-600" />Available</span>
+            <span className="inline-flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-slate-400" />Unavailable</span>
+          </span>
           <span className="text-[10px] text-slate-400">© OpenStreetMap</span>
         </div>
       </div>
