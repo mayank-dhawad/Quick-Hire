@@ -929,7 +929,13 @@ BEGIN
             id, full_name, role, phone_number, is_assisted_profile, account_status
         ) VALUES (
             v_temp_facilitator_id, 'Facilitator User', 'employer', '+919876500088', false, 'active'
-        );
+        )
+        ON CONFLICT (id) DO UPDATE SET
+            full_name = EXCLUDED.full_name,
+            role = EXCLUDED.role,
+            phone_number = EXCLUDED.phone_number,
+            is_assisted_profile = EXCLUDED.is_assisted_profile,
+            account_status = EXCLUDED.account_status;
 
         -- Insert assisted worker profile created by facilitator
         INSERT INTO public.profiles (
