@@ -919,9 +919,10 @@ export function WorkersTab({
             currentLang={currentLang}
             selectedWorkerId={selectedWorkerId}
             onSelectWorker={(worker) => {
+              // Selecting a marker only highlights the worker; contact is an explicit action.
               setSelectedWorkerId(worker.id);
-              handleCallWorker(worker.id);
             }}
+            onViewProfile={(worker) => onOpenWorkerDiscovery(worker.category, worker.skills?.[0] || '')}
             onCallWorker={(workerId) => handleCallWorker(workerId)}
             onSelectLocation={(lat, lon, label) => {
               const activeRadius = selectedRadiusKm || 25;
