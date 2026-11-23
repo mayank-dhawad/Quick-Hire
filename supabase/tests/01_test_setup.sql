@@ -39,21 +39,7 @@ ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email,
   updated_at = now();
 
--- 4. Populate public.profiles
-INSERT INTO public.profiles (id, full_name, role, phone_number, account_status)
-VALUES
-  ('11111111-1111-1111-1111-111111111111', 'Ramesh Sharma', 'employer', '+919876543210', 'active'),
-  ('22222222-2222-2222-2222-222222222222', 'Suresh Kumar', 'worker', '+919876543211', 'active'),
-  ('33333333-3333-3333-3333-333333333333', 'Amit Patel', 'worker', '+919876543212', 'active'),
-  ('66666666-6666-6666-6666-666666666666', 'Malicious User', 'worker', '+919876543216', 'active'),
-  ('99999999-9999-9999-9999-999999999999', 'Platform Administrator', 'admin', '+919876543219', 'active')
-ON CONFLICT (id) DO UPDATE SET
-  role = EXCLUDED.role,
-  full_name = EXCLUDED.full_name,
-  phone_number = EXCLUDED.phone_number,
-  account_status = EXCLUDED.account_status;
-
--- 5. Ensure admin user exists in admin_users table (for dual-auth public.is_admin())
+-- 4. Ensure admin user exists in admin_users table (for dual-auth public.is_admin())
 -- Strict single-admin safety: never deactivate an unrelated active administrator
 DO $$
 DECLARE
@@ -98,6 +84,22 @@ BEGIN
     END IF;
   END IF;
 END $$;
+
+SELECT set_config('request.jwt.claim.sub', '99999999-9999-9999-9999-999999999999', true);
+
+-- 5. Populate public.profiles
+INSERT INTO public.profiles (id, full_name, role, phone_number, account_status)
+VALUES
+  ('11111111-1111-1111-1111-111111111111', 'Ramesh Sharma', 'employer', '+919876543210', 'active'),
+  ('22222222-2222-2222-2222-222222222222', 'Suresh Kumar', 'worker', '+919876543211', 'active'),
+  ('33333333-3333-3333-3333-333333333333', 'Amit Patel', 'worker', '+919876543212', 'active'),
+  ('66666666-6666-6666-6666-666666666666', 'Malicious User', 'worker', '+919876543216', 'active'),
+  ('99999999-9999-9999-9999-999999999999', 'Platform Administrator', 'admin', '+919876543219', 'active')
+ON CONFLICT (id) DO UPDATE SET
+  role = EXCLUDED.role,
+  full_name = EXCLUDED.full_name,
+  phone_number = EXCLUDED.phone_number,
+  account_status = EXCLUDED.account_status;
 
 -- 6. Create Test Baseline Jobs
 INSERT INTO public.jobs (
