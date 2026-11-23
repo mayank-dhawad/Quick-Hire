@@ -914,6 +914,7 @@ BEGIN
         v_temp_assisted_id uuid := gen_random_uuid();
         v_assisted_still_exists boolean;
         v_assisted_created_by uuid;
+        v_facilitator_profile_exists boolean;
     BEGIN
         -- Insert facilitator in auth.users
         INSERT INTO auth.users (
@@ -925,12 +926,18 @@ BEGIN
             '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Facilitator User"}'::jsonb, now(), now()
         );
 
-        -- Insert facilitator profile
-        INSERT INTO public.profiles (
-            id, full_name, role, phone_number, is_assisted_profile, account_status
-        ) VALUES (
-            v_temp_facilitator_id, 'Facilitator User', 'employer', '+919876500088', false, 'active'
-        );
+        -- The auth.users insert fires on_auth_user_created and creates this profile.
+        -- Verify the trigger-created facilitator profile rather than inserting a duplicate.
+        SELECT EXISTS(
+            SELECT 1
+            FROM public.profiles
+            WHERE id = v_temp_facilitator_id
+              AND full_name = 'Facilitator User'
+        ) INTO v_facilitator_profile_exists;
+
+        IF NOT v_facilitator_profile_exists THEN
+            RAISE EXCEPTION 'TEST 27 SETUP FAILED: Auth signup trigger did not create the facilitator profile.';
+        END IF;
 
         -- Insert assisted worker profile created by facilitator
         INSERT INTO public.profiles (
