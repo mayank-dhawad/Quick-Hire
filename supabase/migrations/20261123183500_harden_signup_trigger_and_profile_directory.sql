@@ -10,7 +10,7 @@ SECURITY DEFINER
 SET search_path = pg_catalog, public, auth, pg_temp
 AS $function$
 DECLARE
-  v_role text := 'worker';
+  v_role public.profiles.role%TYPE := 'worker';
   v_full_name text;
 BEGIN
   -- Only the two self-selectable roles are accepted from user metadata.
