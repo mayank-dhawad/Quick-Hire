@@ -471,9 +471,14 @@ describe('WorkersMapView Component — Advanced Discovery Map', () => {
   it('keeps available and unmapped workers in the list without implying live-online presence', () => {
     const onSelectWorker = vi.fn();
     const onCallWorker = vi.fn();
+    const workersWithUnavailable: WorkerItem[] = [
+      mockWorkers[0],
+      { ...mockWorkers[1], is_available: false },
+      mockWorkers[2],
+    ];
     render(
       <WorkersMapView
-        workers={mockWorkers}
+        workers={workersWithUnavailable}
         centerLat={18.5204}
         centerLon={73.8567}
         onSelectWorker={onSelectWorker}
@@ -491,6 +496,7 @@ describe('WorkersMapView Component — Advanced Discovery Map', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'Unavailable' }));
     expect(screen.queryByText('Baburao Shinde')).not.toBeInTheDocument();
+    expect(screen.getByText('Anand Gaikwad')).toBeInTheDocument();
     expect(screen.queryByText('Unmapped Worker')).not.toBeInTheDocument();
   });
 
