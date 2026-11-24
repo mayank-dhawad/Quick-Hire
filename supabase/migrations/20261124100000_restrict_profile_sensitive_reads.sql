@@ -15,7 +15,6 @@ GRANT SELECT (
   updated_at,
   account_status,
   email,
-  phone,
   village,
   city,
   district,
