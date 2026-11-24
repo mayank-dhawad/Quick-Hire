@@ -468,6 +468,7 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
         p_secret: expect.stringMatching(/^[A-HJ-NP-Z2-9]{24}$/),
       })
     );
+  });
 
   it('preserves existing profile ID when a returning worker edits and updates their profile', async () => {
     const existingProfile = {
