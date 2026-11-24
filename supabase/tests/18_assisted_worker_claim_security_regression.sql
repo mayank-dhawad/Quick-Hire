@@ -56,6 +56,8 @@ BEGIN
   END IF;
   IF has_function_privilege('anon','public.claim_assisted_worker_profile(uuid,text,text)','EXECUTE')
      OR NOT has_function_privilege('authenticated','public.claim_assisted_worker_profile(uuid,text,text)','EXECUTE')
+     OR has_function_privilege('anon','public.get_claimable_assisted_profiles()','EXECUTE')
+     OR NOT has_function_privilege('authenticated','public.get_claimable_assisted_profiles()','EXECUTE')
      OR has_function_privilege('anon','public.set_assisted_profile_claim_secret(uuid,text)','EXECUTE')
      OR NOT has_function_privilege('authenticated','public.set_assisted_profile_claim_secret(uuid,text)','EXECUTE') THEN
     RAISE EXCEPTION 'Claim RPC execution privileges are incorrect';
