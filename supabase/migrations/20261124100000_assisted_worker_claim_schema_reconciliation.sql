@@ -29,7 +29,7 @@ CREATE INDEX IF NOT EXISTS idx_profiles_claimed_by_profile_id
 CREATE TABLE IF NOT EXISTS public.assisted_profile_claim_secrets (
   assisted_profile_id uuid PRIMARY KEY REFERENCES public.profiles(id) ON DELETE CASCADE,
   secret_hash text NOT NULL,
-  created_by uuid REFERENCES auth.users(id) ON DELETE SET NULL,
+  created_by uuid REFERENCES public.profiles(id) ON DELETE SET NULL,
   created_at timestamptz NOT NULL DEFAULT now(),
   updated_at timestamptz NOT NULL DEFAULT now()
 );
@@ -38,8 +38,8 @@ REVOKE ALL ON TABLE public.assisted_profile_claim_secrets FROM PUBLIC, anon, aut
 
 CREATE TABLE IF NOT EXISTS public.assisted_profile_claims (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  assisted_profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
-  claimed_by_profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
+  assisted_profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
+  claimed_by_profile_id uuid NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
   claim_status text NOT NULL DEFAULT 'pending_review'
     CHECK (claim_status IN ('pending_review','verified_and_claimed','rejected','revoked')),
   verification_method text NOT NULL
