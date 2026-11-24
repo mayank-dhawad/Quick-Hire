@@ -100,11 +100,10 @@ export function PaymentManagement() {
             p_profile_ids: payeeIds as string[],
           });
           if (privateErr) throw privateErr;
-          if (privData) {
-            privData.forEach((row) => {
-              privateMap[row.profile_id] = row.upi_id;
-            });
-          }
+          const privateRows = (privData || []) as Array<{ profile_id: string; upi_id: string | null }>;
+          privateRows.forEach((row) => {
+            privateMap[row.profile_id] = row.upi_id;
+          });
         }
       } catch {
         // Fallback during migration
