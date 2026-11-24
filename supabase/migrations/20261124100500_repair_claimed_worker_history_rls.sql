@@ -5,7 +5,7 @@ BEGIN;
 
 CREATE OR REPLACE FUNCTION public.get_claimed_profile_ids(p_user_id uuid)
 RETURNS TABLE (id uuid)
-LANGUAGE sql
+LANGUAGE plpgsql
 SECURITY DEFINER
 STABLE
 SET search_path = pg_catalog, public, pg_temp
