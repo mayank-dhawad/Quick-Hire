@@ -265,6 +265,7 @@ BEGIN
   SELECT p.id,p.full_name,p.location,p.created_at
   FROM public.profiles p
   WHERE p.is_assisted_profile IS TRUE
+    AND p.role::text='worker'
     AND p.claimed_by_profile_id IS NULL
     AND p.account_status='active'
     AND NULLIF(regexp_replace(COALESCE(p.phone_number,''),'[^0-9]','','g'),'')
