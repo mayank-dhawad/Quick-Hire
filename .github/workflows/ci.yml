@@ -23,8 +23,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
@@ -56,13 +56,11 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v3
         with:
-          # Keep the CLI on its supported v2 maintenance line while avoiding
-          # setup-cli@v1's GitHub-release lookup (which is rate-limited in PR CI).
           version: v2.stable
 
       - name: Use an isolated database port for CI
