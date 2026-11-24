@@ -34,6 +34,7 @@ vi.mock('../lib/supabase', () => {
           data: { user: { id: 'mock-user-1' }, session: {} },
           error: null,
         }),
+        signOut: vi.fn().mockResolvedValue({ error: null }),
         signUp: vi.fn().mockResolvedValue({
           data: { user: { id: 'mock-user-1' }, session: {} },
           error: null,
@@ -46,6 +47,19 @@ vi.mock('../lib/supabase', () => {
 describe('Auth Component with Supabase Native Phone Authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(supabase.from).mockImplementation(() => {
+      const queryBuilder: Record<string, unknown> = {};
+      Object.assign(queryBuilder, {
+        select: vi.fn(() => queryBuilder),
+        eq: vi.fn(() => queryBuilder),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        update: vi.fn(() => queryBuilder),
+        delete: vi.fn(() => queryBuilder),
+      });
+      return queryBuilder as never;
+    });
     sessionStorage.clear();
     localStorage.clear();
   });
@@ -189,6 +203,106 @@ describe('Auth Component with Supabase Native Phone Authentication', () => {
         'worker'
       );
     });
+  });
+
+  it('does not enter the app when authenticated profile synchronization fails', async () => {
+    const onLoginSuccessMock = vi.fn();
+    let maybeSingleCalls = 0;
+
+    const queryBuilder: Record<string, unknown> = {
+      select: vi.fn(() => queryBuilder),
+      eq: vi.fn(() => queryBuilder),
+      maybeSingle: vi.fn().mockImplementation(async () => {
+        maybeSingleCalls += 1;
+        if (maybeSingleCalls === 1) {
+          // The authoritative admin lookup finds no admin grant.
+          return { data: null, error: null };
+        }
+        // The normal profile lookup fails, so the app must not start in a partial state.
+        return { data: null, error: { message: 'Database unavailable' } };
+      }),
+      single: vi.fn().mockResolvedValue({ data: null, error: null }),
+      insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+      update: vi.fn(() => queryBuilder),
+      delete: vi.fn(() => queryBuilder),
+    };
+    vi.mocked(supabase.from).mockImplementation(() => queryBuilder as never);
+
+    render(
+      <Auth
+        isOpen={true}
+        isGate={false}
+        currentLang="English"
+        onLoginSuccess={onLoginSuccessMock}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter 10-digit mobile number/i), {
+      target: { value: '9876543210' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send OTP/i }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Enter 6-digit OTP/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter 6-digit OTP/i), {
+      target: { value: '654321' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify & Sign In/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/could not finish setting up your profile/i)).toBeInTheDocument();
+    });
+
+    expect(onLoginSuccessMock).not.toHaveBeenCalled();
+    expect(supabase.auth.signOut).toHaveBeenCalled();
+  });
+
+  it('does not grant admin profile roles from browser-side authentication', async () => {
+    const onLoginSuccessMock = vi.fn();
+    const adminQuery: Record<string, unknown> = {
+      select: vi.fn(() => adminQuery),
+      eq: vi.fn(() => adminQuery),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { role: 'super_admin', is_active: true, verified_email: null, verified_phone: null },
+        error: null,
+      }),
+    };
+    vi.mocked(supabase.from).mockImplementation(() => adminQuery as never);
+
+    render(
+      <Auth
+        isOpen={true}
+        isGate={false}
+        currentLang="English"
+        onLoginSuccess={onLoginSuccessMock}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter 10-digit mobile number/i), {
+      target: { value: '9876543210' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send OTP/i }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Enter 6-digit OTP/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter 6-digit OTP/i), {
+      target: { value: '654321' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify & Sign In/i }));
+
+    await waitFor(() => {
+      expect(onLoginSuccessMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'mock-user-1' }),
+        'admin'
+      );
+    });
+
+    expect(supabase.from).toHaveBeenCalledWith('admin_users');
+    expect(supabase.from).not.toHaveBeenCalledWith('profiles');
   });
 
   it('displays clear error when OTP verification fails and rejects invalid codes', async () => {
