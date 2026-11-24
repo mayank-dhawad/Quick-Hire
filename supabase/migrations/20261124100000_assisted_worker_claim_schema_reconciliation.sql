@@ -458,14 +458,14 @@ WITH CHECK (
 CREATE POLICY profiles_update_self_or_assisted
 ON public.profiles FOR UPDATE TO authenticated
 USING (
-  id=(SELECT auth.uid())
+  (id=(SELECT auth.uid()) AND account_status='active')
   OR (is_assisted_profile IS TRUE AND created_by=(SELECT auth.uid())
       AND claimed_by_profile_id IS NULL AND public.is_active_profile((SELECT auth.uid()),'employer'))
-  OR claimed_by_profile_id=(SELECT auth.uid())
+  OR (claimed_by_profile_id=(SELECT auth.uid()) AND public.is_active_profile((SELECT auth.uid()),'worker'))
   OR public.is_admin((SELECT auth.uid()))
 )
 WITH CHECK (
-  id=(SELECT auth.uid())
+  (id=(SELECT auth.uid()) AND account_status IN ('active','deactivated'))
   OR (is_assisted_profile IS TRUE AND created_by=(SELECT auth.uid())
       AND claimed_by_profile_id IS NULL AND public.is_active_profile((SELECT auth.uid()),'employer'))
   OR (is_assisted_profile IS TRUE AND claimed_by_profile_id=(SELECT auth.uid())
