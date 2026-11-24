@@ -292,7 +292,6 @@ export function Auth({
             }
           }
 
-          const effectiveSavedRole = (existingProfile.role === 'employer' ? 'employer' : 'worker') as 'worker' | 'employer';
         }
       } catch (dbErr) {
         console.warn('Database profile sync failed:', dbErr);
