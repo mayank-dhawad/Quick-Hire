@@ -5,7 +5,7 @@ import { resolve } from 'node:path';
 const root = process.cwd();
 const read = (path) => {
   const fullPath = resolve(root, path);
-  assert.ok(existsSync(fullPath), \`Missing PWA file: \${path}\`);
+  assert.ok(existsSync(fullPath), `Missing PWA file: ${path}`);
   return readFileSync(fullPath);
 };
 const text = (path) => read(path).toString('utf8');
@@ -19,18 +19,18 @@ assert.equal(manifest.display, 'standalone');
 assert.ok(Array.isArray(manifest.icons) && manifest.icons.length >= 4);
 
 for (const icon of manifest.icons) {
-  const bytes = read(\`public\${icon.src}\`);
+  const bytes = read(`public${icon.src}`);
   if (icon.type === 'image/png') {
-    assert.equal(bytes.readUInt32BE(0), 0x89504e47, \`Invalid PNG signature: \${icon.src}\`);
+    assert.equal(bytes.readUInt32BE(0), 0x89504e47, `Invalid PNG signature: ${icon.src}`);
     if (icon.sizes === '192x192' || icon.sizes === '512x512') {
-      assert.equal(bytes.readUInt32BE(16), Number(icon.sizes.split('x')[0]), \`Wrong icon width: \${icon.src}\`);
-      assert.equal(bytes.readUInt32BE(20), Number(icon.sizes.split('x')[1]), \`Wrong icon height: \${icon.src}\`);
+      assert.equal(bytes.readUInt32BE(16), Number(icon.sizes.split('x')[0]), `Wrong icon width: ${icon.src}`);
+      assert.equal(bytes.readUInt32BE(20), Number(icon.sizes.split('x')[1]), `Wrong icon height: ${icon.src}`);
     }
   }
 }
 
 for (const shortcut of manifest.shortcuts ?? []) {
-  assert.ok(shortcut.url.startsWith('/'), \`Shortcut must stay within app scope: \${shortcut.url}\`);
+  assert.ok(shortcut.url.startsWith('/'), `Shortcut must stay within app scope: ${shortcut.url}`);
 }
 
 const html = text('index.html');
@@ -46,7 +46,7 @@ assert.match(registration, /controllerchange/);
 
 const sw = text('public/sw.js');
 for (const protectedPath of ['.supabase.co', '/auth/v1/', '/rest/v1/', '/storage/v1/']) {
-  assert.ok(sw.includes(protectedPath), \`Service worker must bypass sensitive endpoint: \${protectedPath}\`);
+  assert.ok(sw.includes(protectedPath), `Service worker must bypass sensitive endpoint: ${protectedPath}`);
 }
 assert.match(sw, /request\.method !== 'GET'/);
 assert.match(sw, /SKIP_WAITING/);
