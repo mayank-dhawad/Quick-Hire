@@ -573,6 +573,11 @@ BEGIN
     INSERT INTO public.reviews (reviewer_profile_id, reviewed_profile_id, job_id, rating, comment)
     VALUES (v_contractor_id, v_assisted_worker_id, v_historical_job_id, 5, 'Great masonry canal work!');
 
+    -- The reputation RPC is worker-owned: switch from the contractor reviewer
+    -- to the primary worker whose claimed-profile reputation is being read.
+    PERFORM set_config('request.jwt.claim.sub', v_worker_primary_id::text, true);
+    PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+
     SELECT count(*) INTO v_row_count
     FROM public.get_claimed_worker_reputation(v_worker_primary_id);
 
