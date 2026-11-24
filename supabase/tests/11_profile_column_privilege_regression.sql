@@ -4,6 +4,8 @@ DO $$
 DECLARE
   v_column text;
   v_sensitive text[] := ARRAY[
+    'phone_number',
+    'phone',
     'bank_name',
     'bank_account_no',
     'bank_ifsc',
@@ -15,7 +17,6 @@ DECLARE
     'id',
     'role',
     'full_name',
-    'phone_number',
     'email',
     'location',
     'daily_wage'
@@ -51,6 +52,25 @@ BEGIN
 
   IF has_schema_privilege('authenticated', 'public', 'CREATE') THEN
     RAISE EXCEPTION 'Authenticated role must not be able to create objects in public schema';
+  END IF;
+
+  IF NOT has_function_privilege('authenticated', 'public.get_worker_contact_phone(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Authenticated users must retain the authorized worker-contact RPC';
+  END IF;
+
+  IF has_function_privilege('anon', 'public.get_worker_contact_phone(uuid)', 'EXECUTE') THEN
+    RAISE EXCEPTION 'Anonymous users must not execute the worker-contact RPC';
+  END IF;
+
+  IF NOT EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.proname = 'get_worker_contact_phone'
+      AND p.prosecdef = true
+  ) THEN
+    RAISE EXCEPTION 'Worker contact lookup must remain behind its authorization-enforcing SECURITY DEFINER RPC';
   END IF;
 END
 $$;

@@ -40,6 +40,7 @@ interface WorkerProfileRecord {
   id?: string;
   full_name?: string | null;
   phone_number?: string | null;
+  is_assisted_profile?: boolean | null;
   email?: string | null;
   gender?: GenderOption | null;
   date_of_birth?: string | null;
@@ -218,7 +219,7 @@ export function WorkerProfileModal({
     try {
       let profile: WorkerProfileRecord | null = null;
       const profileSelectFields = `
-        id, full_name, phone_number, email, gender,
+        id, full_name, email, gender, is_assisted_profile,
         village, city, district, state, pincode, location,
         latitude, longitude, geocoded_address,
         category, skills, experience_years, daily_wage,
@@ -263,13 +264,30 @@ export function WorkerProfileModal({
       }
       setPrivateDetailsLoadFailed(privLoadError);
 
-      if (profile && (profile.full_name || profile.phone_number)) {
+      if (profile && profile.full_name) {
         setExistingProfileData(profile);
         setHasExistingProfile(true);
         setIsEditing(false); // Default to read-only view when profile already exists
 
         setFullName(profile.full_name || '');
-        setPhoneNumber(profile.phone_number || (user.phone || ''));
+        // Contact numbers are deliberately excluded from shared profile reads.
+        // Resolve them only through the authorization-checked contact RPC.
+        let profilePhone = profile.is_assisted_profile === true ? '' : (user.phone || '');
+        try {
+          const { data: contactData, error: contactError } = await supabase.rpc(
+            'get_worker_contact_phone',
+            { p_worker_id: profile.id || user.id },
+          );
+          const authorizedPhone = (contactData as { phone_number?: string } | null)?.phone_number;
+          if (!contactError && authorizedPhone) {
+            profilePhone = authorizedPhone;
+          } else if (contactError) {
+            console.warn('Notice loading authorized profile contact:', contactError.message);
+          }
+        } catch (contactErr) {
+          console.warn('Notice loading authorized profile contact:', contactErr);
+        }
+        setPhoneNumber(profilePhone);
         setEmail(profile.email || (user.email || ''));
         if (profile.gender) setGender(profile.gender as GenderOption);
 
