@@ -103,35 +103,42 @@ BEGIN
     -- (job_records.reported_by, job_records.arrived_reported_by, payments.recorded_by, profiles.created_by, admin_users.user_id)
     INSERT INTO auth.users (
         id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-        raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+        phone, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
     ) VALUES (
         v_employer_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'employer.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500001', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Farmer Employer"}'::jsonb,
         now(), now()
     ), (
         v_worker_primary_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'worker1.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500002', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Ramesh Worker"}'::jsonb,
         now(), now()
     ), (
         v_worker_unrelated_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'worker2.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500003', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Suresh Other"}'::jsonb,
         now(), now()
     ), (
         v_contractor_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'contractor.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500004', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Contractor Intermediary"}'::jsonb,
         now(), now()
     ), (
         v_admin_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'admin.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500005', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Platform Administrator"}'::jsonb,
         now(), now()
     )
     ON CONFLICT (id) DO UPDATE SET
         email = EXCLUDED.email,
+        phone = EXCLUDED.phone,
+        phone_confirmed_at = EXCLUDED.phone_confirmed_at,
         updated_at = now();
 
     INSERT INTO public.profiles (
@@ -417,17 +424,9 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub', v_worker_primary_id::text, true);
     PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
 
-    v_op_succeeded := false;
-    BEGIN
-        -- Attempt claim with incorrect token
-        PERFORM public.claim_assisted_worker_profile(v_assisted_worker_id, 'otp_and_secret_token', 'WRONG_PIN');
-        v_op_succeeded := true;
-    EXCEPTION WHEN OTHERS THEN
-        v_op_succeeded := false;
-    END;
-
-    IF NOT v_op_succeeded THEN
-        RAISE NOTICE 'TEST 6 PASSED: Claim with phone match but invalid secondary secret was rejected.';
+    v_result_json := public.claim_assisted_worker_profile(v_assisted_worker_id, 'otp_and_secret_token', 'WRONG_PIN');
+    IF COALESCE((v_result_json->>'success')::boolean,false) IS FALSE THEN
+        RAISE NOTICE 'TEST 6 PASSED: Claim with verified phone but invalid secondary secret was rejected.';
     ELSE
         RAISE EXCEPTION 'TEST 6 FAILED: Claim succeeded with invalid secret token!';
     END IF;
@@ -447,15 +446,8 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub', v_worker_unrelated_id::text, true);
     PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
 
-    v_op_succeeded := false;
-    BEGIN
-        PERFORM public.claim_assisted_worker_profile(v_assisted_worker_id, 'otp_and_secret_token', v_claim_secret);
-        v_op_succeeded := true;
-    EXCEPTION WHEN OTHERS THEN
-        v_op_succeeded := false;
-    END;
-
-    IF NOT v_op_succeeded THEN
+    v_result_json := public.claim_assisted_worker_profile(v_assisted_worker_id, 'otp_and_secret_token', v_claim_secret);
+    IF COALESCE((v_result_json->>'success')::boolean,false) IS FALSE THEN
         RAISE NOTICE 'TEST 7B PASSED: Second user claim attempt on already claimed profile was blocked.';
     ELSE
         RAISE EXCEPTION 'TEST 7B FAILED: Duplicate claim was permitted!';
@@ -843,7 +835,7 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub', '', true);
 
     -- ==========================================================================
-    -- TEST 26: Deleting a Genuine Auth User Cascades to Profiles and Dependent Records
+    -- TEST 26: Deleting a Genuine Auth User Anonymizes the Profile and Purges Private Details
     -- ==========================================================================
     DECLARE
         v_temp_user_id uuid := gen_random_uuid();
@@ -901,16 +893,23 @@ BEGIN
         -- Delete genuine auth user
         DELETE FROM auth.users WHERE id = v_temp_user_id;
 
-        -- Assert that trigger cascade cleaned up profile and dependent records
-        SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id = v_temp_user_id) INTO v_profile_exists;
-        SELECT EXISTS(SELECT 1 FROM public.workers WHERE id = v_temp_user_id) INTO v_worker_exists;
-        SELECT EXISTS(SELECT 1 FROM public.profile_private_details WHERE profile_id = v_temp_user_id) INTO v_private_exists;
+        -- Keep the profile anchor for referential integrity, anonymize it, and purge private data.
+        SELECT EXISTS(
+            SELECT 1 FROM public.profiles
+            WHERE id=v_temp_user_id AND full_name='Deactivated User'
+              AND account_status='deactivated' AND phone_number IS NULL
+        ) INTO v_profile_exists;
+        SELECT EXISTS(
+            SELECT 1 FROM public.workers
+            WHERE id=v_temp_user_id AND is_available IS FALSE
+        ) INTO v_worker_exists;
+        SELECT EXISTS(SELECT 1 FROM public.profile_private_details WHERE profile_id=v_temp_user_id) INTO v_private_exists;
 
-        IF v_profile_exists OR v_worker_exists OR v_private_exists THEN
-            RAISE EXCEPTION 'TEST 26 FAILED: Auth user deletion did not cascade clean up profiles or dependent records! profile: %, worker: %, private: %',
+        IF NOT (v_profile_exists AND v_worker_exists AND NOT v_private_exists) THEN
+            RAISE EXCEPTION 'TEST 26 FAILED: Auth deletion must anonymize the profile, deactivate the worker, and purge private details! profile: %, worker: %, private: %',
                 v_profile_exists, v_worker_exists, v_private_exists;
         ELSE
-            RAISE NOTICE 'TEST 26 PASSED: Deleting genuine auth user safely cascaded to profiles, workers, and private details.';
+            RAISE NOTICE 'TEST 26 PASSED: Deleted Auth identity was anonymized while history anchors remained and private details were purged.';
         END IF;
     END;
 
