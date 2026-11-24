@@ -283,8 +283,10 @@ export function WorkerProfileModal({
           setDateOfBirth(privateDob || '');
           setAddressLine(privateAddress || '');
         } else {
-          setDateOfBirth(profile.date_of_birth || '');
-          setAddressLine(profile.address_line || '');
+          // Private fields are loaded only from profile_private_details.
+          // Legacy values are backfilled by the database migration before cutover.
+          setDateOfBirth('');
+          setAddressLine('');
         }
 
         setVillage(profile.village || '');
@@ -622,8 +624,6 @@ export function WorkerProfileModal({
         phone_number: cleanPhoneNumber,
         email: cleanEmail,
         gender: cleanGender,
-        date_of_birth: finalDob,
-        address_line: finalAddressLine,
         village: cleanVillage || null,
         city: cleanCity || null,
         district: cleanDistrict || null,
@@ -638,9 +638,9 @@ export function WorkerProfileModal({
         skills: parsedSkills.length > 0 ? parsedSkills : (existingProfileData?.skills || []),
         experience_years: cleanYears,
         daily_wage: cleanWage,
-        is_assisted_profile: isAssisted,
-        created_by: isAssisted ? user.id : null,
-        account_status: 'active',
+        ...(isAssisted && !hasExistingProfile
+          ? { is_assisted_profile: true, created_by: user.id }
+          : {}),
       };
 
       // Upsert profile
@@ -669,10 +669,9 @@ export function WorkerProfileModal({
             village: cleanVillage || null,
             district: cleanDistrict || null,
             state: cleanState || null,
-            role: 'worker' as const,
-            is_assisted_profile: isAssisted,
-            created_by: isAssisted ? user.id : null,
-            account_status: 'active',
+            ...(isAssisted && !hasExistingProfile
+              ? { is_assisted_profile: true, created_by: user.id }
+              : {}),
           };
           const baselineRetry = await supabase.from('profiles').upsert(baselinePayload);
           profError = baselineRetry.error;
@@ -702,10 +701,12 @@ export function WorkerProfileModal({
                 updated_at: new Date().toISOString(),
               });
             if (privSaveErr) {
-              console.warn('Notice saving private profile details:', privSaveErr.message);
+              console.warn('Private profile details could not be saved:', privSaveErr);
+              throw new Error('Your private profile details could not be saved securely. Please try again.');
             }
           } catch (privErr) {
-            console.warn('Notice saving private profile details:', privErr);
+            console.warn('Private profile details could not be saved:', privErr);
+            throw privErr;
           }
         }
       }

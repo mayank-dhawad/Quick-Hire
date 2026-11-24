@@ -42,6 +42,7 @@ import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { getTranslation, getSuggestedSkillTags } from '../lib/translations';
 import { PostCallDirectHireModal, DirectHireWorkerInfo } from './PostCallDirectHireModal';
+import { getIndianTelUri } from '../lib/phone';
 
 interface WorkersTabProps {
   currentLang?: string;
@@ -145,7 +146,12 @@ export function WorkersTab({
         });
         setIsPostCallOpen(true);
       }
-      window.location.href = `tel:${existing}`;
+      const telUri = getIndianTelUri(existing);
+      if (!telUri) {
+        setCallError({ workerId, message: 'This worker has an invalid Indian mobile number. Please ask them to update their contact details.' });
+        return;
+      }
+      window.location.href = telUri;
       return;
     }
 
@@ -198,7 +204,12 @@ export function WorkersTab({
           });
           setIsPostCallOpen(true);
         }
-        window.location.href = `tel:${retrievedPhone}`;
+        const telUri = getIndianTelUri(retrievedPhone);
+        if (!telUri) {
+          setCallError({ workerId, message: 'This worker has an invalid Indian mobile number. Please ask them to update their contact details.' });
+          return;
+        }
+        window.location.href = telUri;
       } else {
         setCallError({
           workerId,
@@ -908,9 +919,10 @@ export function WorkersTab({
             currentLang={currentLang}
             selectedWorkerId={selectedWorkerId}
             onSelectWorker={(worker) => {
+              // Selecting a marker only highlights the worker; contact is an explicit action.
               setSelectedWorkerId(worker.id);
-              handleCallWorker(worker.id);
             }}
+            onViewProfile={(worker) => onOpenWorkerDiscovery(worker.category, worker.skills?.[0] || '')}
             onCallWorker={(workerId) => handleCallWorker(workerId)}
             onSelectLocation={(lat, lon, label) => {
               const activeRadius = selectedRadiusKm || 25;
@@ -1015,9 +1027,14 @@ export function WorkersTab({
                         </h3>
                         <CheckCircle2 className="w-4 h-4 text-brand-600 fill-brand-50 shrink-0" />
                       </div>
-                      <span className="text-xs font-semibold text-brand-600 block mt-0.5">
-                        {worker.category || 'General Work'}
-                      </span>
+                      <div className="flex items-center gap-2 flex-wrap mt-0.5">
+                        <span className="text-xs font-semibold text-brand-600">
+                          {worker.category || 'General Work'}
+                        </span>
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-bold border ${worker.is_available === true ? 'bg-emerald-50 text-emerald-700 border-emerald-200' : worker.is_available === false ? 'bg-slate-100 text-slate-600 border-slate-200' : 'bg-amber-50 text-amber-700 border-amber-200'}`}>
+                          {worker.is_available === true ? 'Available for work' : worker.is_available === false ? 'Unavailable' : 'Availability not set'}
+                        </span>
+                      </div>
                     </div>
 
                     <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg shrink-0">
