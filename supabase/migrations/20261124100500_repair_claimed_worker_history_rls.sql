@@ -10,12 +10,21 @@ SECURITY DEFINER
 STABLE
 SET search_path = pg_catalog, public, pg_temp
 SET row_security = off
-AS $$
+AS $
+BEGIN
+  IF auth.uid() IS NULL OR p_user_id IS NULL
+     OR (p_user_id <> auth.uid() AND NOT public.is_admin(auth.uid())) THEN
+    RAISE EXCEPTION 'You may only inspect your own claimed profiles.'
+      USING ERRCODE = '42501';
+  END IF;
+
+  RETURN QUERY
   SELECT p.id
   FROM public.profiles AS p
   WHERE p.claimed_by_profile_id = p_user_id
     AND p.is_assisted_profile IS TRUE;
-$$;
+END;
+$;
 
 REVOKE ALL ON FUNCTION public.get_claimed_profile_ids(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_claimed_profile_ids(uuid) TO authenticated;
