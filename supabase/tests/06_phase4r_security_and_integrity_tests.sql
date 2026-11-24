@@ -65,6 +65,7 @@ DECLARE
     v_worker_primary_id uuid := '22222222-2222-2222-2222-222222222222';
     v_worker_unrelated_id uuid := '33333333-3333-3333-3333-333333333333';
     v_assisted_worker_id uuid := gen_random_uuid();
+    v_assisted_worker_id_2 uuid := gen_random_uuid();
     v_contractor_id uuid := '44444444-4444-4444-4444-444444444444';
     v_admin_id uuid := '99999999-9999-9999-9999-999999999999';
 
@@ -452,6 +453,51 @@ BEGIN
     ELSE
         RAISE EXCEPTION 'TEST 7B FAILED: Duplicate claim was permitted!';
     END IF;
+
+    -- 7C: Self-service claim using OTP-confirmed phone and explicit profile confirmation.
+    SET LOCAL ROLE service_role;
+    PERFORM set_config('request.jwt.claim.sub', '', true);
+    INSERT INTO public.profiles (
+      id, full_name, phone_number, role, account_status, is_assisted_profile,
+      created_by, category, skills, experience_years, daily_wage, location
+    ) VALUES (
+      v_assisted_worker_id_2, 'Worker Two Assisted Profile', '+919876500003',
+      'worker', 'active', true, v_contractor_id, 'Agriculture',
+      ARRAY['Harvesting'], 4, 420, 'Test Village'
+    );
+    INSERT INTO public.workers (
+      id, category, skills, experience_years, is_available, location
+    ) VALUES (
+      v_assisted_worker_id_2, 'Agriculture', ARRAY['Harvesting'], 4, true, 'Test Village'
+    );
+
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claim.sub', v_worker_unrelated_id::text, true);
+    PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+
+    SELECT count(*) INTO v_row_count
+    FROM public.get_claimable_assisted_profiles()
+    WHERE id=v_assisted_worker_id_2;
+    IF v_row_count <> 1 THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Verified worker did not discover the matching unclaimed profile.';
+    END IF;
+
+    v_result_json := public.claim_assisted_worker_profile(
+      v_assisted_worker_id_2,'otp_and_contractor_confirmation',NULL
+    );
+    IF COALESCE((v_result_json->>'success')::boolean,false) IS NOT TRUE THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Verified worker could not confirm and claim the matching profile: %',v_result_json;
+    END IF;
+
+    SELECT count(*) INTO v_row_count FROM public.workers WHERE id=v_assisted_worker_id_2;
+    IF v_row_count <> 1 THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Claimant cannot read the linked worker details.';
+    END IF;
+
+    RAISE NOTICE 'TEST 7C PASSED: OTP-verified worker discovered, explicitly confirmed, claimed and read the previous worker profile.';
+
+    SET LOCAL ROLE service_role;
+    PERFORM set_config('request.jwt.claim.sub', '', true);
 
     -- ==========================================================================
     -- TEST 8: Claimed Worker Access to Historical Jobs
