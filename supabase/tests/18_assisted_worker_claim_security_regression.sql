@@ -90,5 +90,26 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'Profiles must not retain a globally readable SELECT policy';
   END IF;
+
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_class c
+    WHERE c.oid='public.public_worker_directory'::regclass
+      AND COALESCE(c.reloptions::text,'') ILIKE '%security_invoker=false%'
+  ) OR NOT EXISTS (
+    SELECT 1 FROM pg_class c
+    WHERE c.oid='public.public_profile_directory'::regclass
+      AND COALESCE(c.reloptions::text,'') ILIKE '%security_invoker=false%'
+  ) THEN
+    RAISE EXCEPTION 'Allowlisted directory views must remain available after profile RLS is narrowed';
+  END IF;
+
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema='public'
+      AND table_name IN ('public_worker_directory','public_profile_directory')
+      AND column_name IN ('phone_number','phone','email','bank_account_no','upi_id','address_line','date_of_birth')
+  ) THEN
+    RAISE EXCEPTION 'Public directory views must not expose direct contact or private profile fields';
+  END IF;
 END
 $$;
