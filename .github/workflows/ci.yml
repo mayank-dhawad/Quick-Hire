@@ -103,6 +103,9 @@ jobs:
       - name: Verify admin-only payment UPI lookup
         run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/15_admin_payment_upi_rpc_regression.sql
 
+      - name: Verify payment recipient details RPC authorization
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/16_payment_recipient_details_rpc_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: |
