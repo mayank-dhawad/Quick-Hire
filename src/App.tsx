@@ -751,10 +751,10 @@ export default function App() {
 
         if (profile?.role === 'employer') {
           setUserRole('employer');
-          localStorage.setItem('quickhire_user_role', 'employer');
+
         } else {
           setUserRole('worker');
-          localStorage.setItem('quickhire_user_role', 'worker');
+
         }
 
         if (profile?.account_status === 'deactivated') {
@@ -821,8 +821,8 @@ export default function App() {
     try {
       clearAdminSession();
       await supabase.auth.signOut();
-      localStorage.removeItem('quickhire_user_session');
-      localStorage.removeItem('quickhire_user_role');
+
+
       lastFetchedUserIdRef.current = null;
       safeSetUser(null);
       setUserRole(null);
@@ -855,7 +855,7 @@ export default function App() {
           key &&
           (key.startsWith('quickhire_bank_') ||
             key.startsWith('quickhire_payment_ledger_') ||
-            key === 'quickhire_user_role' ||
+
             key === 'quickhire_user_equipment')
         ) {
           keysToRemove.push(key);
@@ -931,7 +931,7 @@ export default function App() {
       if (!isMounted) return;
       if (event === 'SIGNED_OUT' || !session) {
         lastFetchedUserIdRef.current = null;
-        localStorage.removeItem('quickhire_user_role');
+
         safeSetUser(null);
         setUserRole(null);
         setMyPostedJobs([]);
@@ -1291,8 +1291,8 @@ export default function App() {
                 key &&
                 (key.startsWith('quickhire_bank_') ||
                   key.startsWith('quickhire_payment_ledger_') ||
-                  key === 'quickhire_user_session' ||
-                  key === 'quickhire_user_role' ||
+
+
                   key === 'quickhire_user_equipment')
               ) {
                 keysToRemove.push(key);
