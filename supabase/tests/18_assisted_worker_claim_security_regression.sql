@@ -69,6 +69,12 @@ BEGIN
     RAISE EXCEPTION 'Claimed-profile helper must restrict caller to self or administrator';
   END IF;
 
+  SELECT pg_get_functiondef('public.claim_assisted_worker_profile(uuid,text,text)'::regprocedure) INTO v_helper_def;
+  IF v_helper_def NOT ILIKE '%otp_and_contractor_confirmation%'
+     OR v_helper_def NOT ILIKE '%phone_confirmed_at%' THEN
+    RAISE EXCEPTION 'Self-service claim must require verified phone and explicit contractor confirmation';
+  END IF;
+
   SELECT id INTO v_worker_id FROM public.profiles
   WHERE role::text='worker' AND COALESCE(is_assisted_profile,false)=false
   LIMIT 1;
