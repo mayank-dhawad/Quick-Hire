@@ -47,6 +47,19 @@ vi.mock('../lib/supabase', () => {
 describe('Auth Component with Supabase Native Phone Authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(supabase.from).mockImplementation(() => {
+      const queryBuilder: Record<string, unknown> = {};
+      Object.assign(queryBuilder, {
+        select: vi.fn(() => queryBuilder),
+        eq: vi.fn(() => queryBuilder),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        update: vi.fn(() => queryBuilder),
+        delete: vi.fn(() => queryBuilder),
+      });
+      return queryBuilder as never;
+    });
     sessionStorage.clear();
     localStorage.clear();
   });
