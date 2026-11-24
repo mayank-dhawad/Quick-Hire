@@ -282,6 +282,15 @@ export function DashboardTab({
   const [loadingWorkerData, setLoadingWorkerData] = useState(false);
   const [loadingEmployerPayments, setLoadingEmployerPayments] = useState(false);
   const [workerFetchError, setWorkerFetchError] = useState<string | null>(null);
+
+  const [claimableProfiles, setClaimableProfiles] = useState<{
+    id: string;
+    full_name: string | null;
+    location: string | null;
+    created_at: string;
+  }[]>([]);
+  const [claimingProfileId, setClaimingProfileId] = useState<string | null>(null);
+  const [claimProfileError, setClaimProfileError] = useState<string | null>(null);
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceiptData | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
@@ -459,6 +468,21 @@ export function DashboardTab({
     setWorkerFetchError(null);
 
     try {
+      // Offer only unclaimed profiles matching this account's OTP-confirmed phone.
+      try {
+        const { data: claimableRows, error: claimableError } = await supabase.rpc('get_claimable_assisted_profiles');
+        if (claimableError) throw claimableError;
+        setClaimableProfiles((claimableRows || []) as {
+          id: string;
+          full_name: string | null;
+          location: string | null;
+          created_at: string;
+        }[]);
+      } catch (claimableError) {
+        console.warn('Claimable assisted profiles are unavailable:', claimableError);
+        setClaimableProfiles([]);
+      }
+
       // A worker may have older work stored against employer-created assisted profiles.
       // The RPC only returns IDs claimed by this authenticated worker (or an admin).
       let workerProfileIds = [user.id];
@@ -645,6 +669,30 @@ export function DashboardTab({
       setLoadingWorkerData(false);
     }
   }, [user]);
+
+  const handleClaimAssistedProfile = async (profileId: string) => {
+    if (!user || claimingProfileId) return;
+    setClaimingProfileId(profileId);
+    setClaimProfileError(null);
+    try {
+      const { data, error } = await supabase.rpc('claim_assisted_worker_profile', {
+        p_assisted_profile_id: profileId,
+        p_verification_method: 'otp_and_contractor_confirmation',
+        p_verification_proof: null,
+      });
+      if (error) throw error;
+      const result = data as { success?: boolean; message?: string } | null;
+      if (!result?.success) {
+        throw new Error(result?.message || 'This profile could not be linked to your account.');
+      }
+      setClaimableProfiles((current) => current.filter((profile) => profile.id !== profileId));
+      await fetchWorkerHistory();
+    } catch (err: unknown) {
+      setClaimProfileError(extractErrorMessage(err, 'Unable to link the previous worker profile.'));
+    } finally {
+      setClaimingProfileId(null);
+    }
+  };
 
   // Fetch employer-initiated payment history
   const fetchEmployerPayments = useCallback(async () => {
@@ -1021,6 +1069,40 @@ export function DashboardTab({
             <div className="p-4 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
               {workerFetchError}
             </div>
+          )}
+          {claimableProfiles.length > 0 && (
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 sm:p-5 space-y-3">
+              <div>
+                <h3 className="font-heading font-extrabold text-base text-emerald-950">
+                  Is this your previous worker profile?
+                </h3>
+                <p className="text-xs text-emerald-900/80 mt-1">
+                  We found an unclaimed profile with your OTP-verified phone number. Confirm the profile is yours to bring its earlier jobs and wage history into this account.
+                </p>
+              </div>
+              {claimableProfiles.map((profile) => (
+                <div key={profile.id} className="rounded-xl bg-white border border-emerald-100 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-slate-900">{profile.full_name || 'Previous worker profile'}</p>
+                    {profile.location && <p className="text-xs text-slate-500 mt-0.5">{profile.location}</p>}
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Created {new Date(profile.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    disabled={claimingProfileId !== null}
+                    onClick={() => handleClaimAssistedProfile(profile.id)}
+                    className="shrink-0 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                  >
+                    {claimingProfileId === profile.id ? 'Linking…' : 'Yes, link my profile'}
+                  </button>
+                </div>
+              ))}
+              {claimProfileError && (
+                <p role="alert" className="text-xs text-red-700">{claimProfileError}</p>
+              )}
+            </section>
           )}
           {/* Worker Hero Profile Summary */}
           <div className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 rounded-3xl border border-emerald-200 p-4 sm:p-6 md:p-8 shadow-xs relative overflow-hidden">
