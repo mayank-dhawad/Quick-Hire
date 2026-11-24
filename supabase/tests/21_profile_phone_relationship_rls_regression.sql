@@ -26,11 +26,12 @@ BEGIN
   INSERT INTO public.jobs (id, employer_id, title, category, offered_wages, workers_needed, status, hiring_source)
   VALUES (v_job_id, v_employer, 'Phone privacy regression fixture', 'Agriculture', 500, 1, 'open', 'application');
 
-  INSERT INTO public.job_records (job_id, worker_id, status, hiring_source, agreement_evidence_type)
-  VALUES (v_job_id, v_worker, 'applied', 'application', 'worker_application_and_employer_acceptance');
-
+  -- Create the assignment through the real worker self-application path.
   PERFORM set_config('role', 'authenticated', true);
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', v_worker::text, true);
+  INSERT INTO public.job_records (job_id, worker_id, status, hiring_source, agreement_evidence_type)
+  VALUES (v_job_id, v_worker, 'applied', 'application', 'worker_application_and_employer_acceptance');
 
   -- An unrelated authenticated user cannot read the worker's phone directly.
   PERFORM set_config('request.jwt.claim.sub', v_unrelated::text, true);
