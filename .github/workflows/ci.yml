@@ -94,6 +94,9 @@ jobs:
       - name: Verify payment audit and complaints schema security
         run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/12_payment_audit_and_complaints_regression.sql
 
+      - name: Verify payment function execution privileges
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/13_payment_function_privilege_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: |
