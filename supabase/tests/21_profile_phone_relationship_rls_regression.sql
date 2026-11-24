@@ -24,16 +24,22 @@ BEGIN
 
   -- No SECURITY DEFINER function in the exposed public schema may be
   -- executable by anonymous callers.
-  IF EXISTS (
-    SELECT 1
+  DECLARE
+    v_anon_definer_functions text;
+  BEGIN
+    SELECT string_agg(format('%I.%I(%s)', n.nspname, p.proname,
+      pg_get_function_identity_arguments(p.oid)), ', ' ORDER BY p.proname)
+    INTO v_anon_definer_functions
     FROM pg_proc p
     JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'public'
       AND p.prosecdef
-      AND has_function_privilege('anon', p.oid, 'EXECUTE')
-  ) THEN
-    RAISE EXCEPTION 'An exposed SECURITY DEFINER function is executable by anon.';
-  END IF;
+      AND has_function_privilege('anon', p.oid, 'EXECUTE');
+
+    IF v_anon_definer_functions IS NOT NULL THEN
+      RAISE EXCEPTION 'Exposed SECURITY DEFINER functions executable by anon: %', v_anon_definer_functions;
+    END IF;
+  END;
 
   IF EXISTS (
     SELECT 1
