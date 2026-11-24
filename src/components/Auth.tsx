@@ -140,8 +140,6 @@ export function Auth({
       const adminCheck = await verifyAdminStatus(authUser.id);
       if (adminCheck.isAdmin) {
         ensureAdminSession(authUser, adminCheck.role, adminCheck.verifiedEmail, adminCheck.verifiedPhone);
-        localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
-        localStorage.setItem('quickhire_user_role', 'admin');
 
         // Admin access is granted only by the server-verified admin_users/is_admin
         // checks above. Never create or promote an admin profile from browser code.
@@ -168,6 +166,10 @@ export function Auth({
           .maybeSingle();
         if (profileLookupError) throw profileLookupError;
         existingProfile = data;
+
+        if (existingProfile?.account_status === 'suspended') {
+          throw new Error('Your QuickHire account is suspended. Please contact support.');
+        }
 
         const normalizedPhone = authUser.phone || (phone ? `${countryCode}${phone.replace(/\D/g, '')}` : null);
 
@@ -239,11 +241,9 @@ export function Auth({
             if (workerInsertError && workerInsertError.code !== '23505') throw workerInsertError;
           }
 
-          localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
-          localStorage.setItem('quickhire_user_role', assignedRole);
         } else {
           // Returning user: PRESERVE existing profile role and data. Do NOT overwrite saved role.
-          // Note: Suspended or deactivated accounts cannot self-activate.
+          // Suspended accounts cannot self-activate. Deactivated accounts are restored only after successful re-authentication.
           const updatePayload: Record<string, unknown> = {};
 
           if (authUser.email && !authUser.email.endsWith('@quickhire.local')) {
@@ -292,9 +292,6 @@ export function Auth({
             }
           }
 
-          const effectiveSavedRole = (existingProfile.role === 'employer' ? 'employer' : 'worker') as 'worker' | 'employer';
-          localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
-          localStorage.setItem('quickhire_user_role', effectiveSavedRole);
         }
       } catch (dbErr) {
         console.warn('Database profile sync failed:', dbErr);
@@ -338,9 +335,12 @@ export function Auth({
       } catch (signOutError) {
         console.warn('Could not clear the partially established auth session:', signOutError);
       }
-      localStorage.removeItem('quickhire_user_session');
-      localStorage.removeItem('quickhire_user_role');
-      setAuthError('Your sign-in was verified, but QuickHire could not finish setting up your profile. Please try again. If this continues, contact support.');
+      const failureMessage = err instanceof Error ? err.message : '';
+      setAuthError(
+        failureMessage.toLowerCase().includes('account is suspended')
+          ? failureMessage
+          : 'Your sign-in was verified, but QuickHire could not finish setting up your profile. Please try again. If this continues, contact support.'
+      );
     }
   };
 

@@ -65,6 +65,7 @@ DECLARE
     v_worker_primary_id uuid := '22222222-2222-2222-2222-222222222222';
     v_worker_unrelated_id uuid := '33333333-3333-3333-3333-333333333333';
     v_assisted_worker_id uuid := gen_random_uuid();
+    v_assisted_worker_id_2 uuid := gen_random_uuid();
     v_contractor_id uuid := '44444444-4444-4444-4444-444444444444';
     v_admin_id uuid := '99999999-9999-9999-9999-999999999999';
 
@@ -103,35 +104,42 @@ BEGIN
     -- (job_records.reported_by, job_records.arrived_reported_by, payments.recorded_by, profiles.created_by, admin_users.user_id)
     INSERT INTO auth.users (
         id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-        raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+        phone, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
     ) VALUES (
         v_employer_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'employer.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500001', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Farmer Employer"}'::jsonb,
         now(), now()
     ), (
         v_worker_primary_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'worker1.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500002', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Ramesh Worker"}'::jsonb,
         now(), now()
     ), (
         v_worker_unrelated_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'worker2.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500003', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Suresh Other"}'::jsonb,
         now(), now()
     ), (
         v_contractor_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'contractor.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500004', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Contractor Intermediary"}'::jsonb,
         now(), now()
     ), (
         v_admin_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
         'admin.test@quickhire.in', '$2a$10$e8kZ10wz9/wB4V8gXbWb4.0mZ3K5zN1xQ7jL4rA2cI1oK9eX4yV7z', now(),
+        '+919876500005', now(),
         '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Platform Administrator"}'::jsonb,
         now(), now()
     )
     ON CONFLICT (id) DO UPDATE SET
         email = EXCLUDED.email,
+        phone = EXCLUDED.phone,
+        phone_confirmed_at = EXCLUDED.phone_confirmed_at,
         updated_at = now();
 
     INSERT INTO public.profiles (
@@ -417,17 +425,9 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub', v_worker_primary_id::text, true);
     PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
 
-    v_op_succeeded := false;
-    BEGIN
-        -- Attempt claim with incorrect token
-        PERFORM public.claim_assisted_worker_profile(v_assisted_worker_id, 'otp_and_secret_token', 'WRONG_PIN');
-        v_op_succeeded := true;
-    EXCEPTION WHEN OTHERS THEN
-        v_op_succeeded := false;
-    END;
-
-    IF NOT v_op_succeeded THEN
-        RAISE NOTICE 'TEST 6 PASSED: Claim with phone match but invalid secondary secret was rejected.';
+    v_result_json := public.claim_assisted_worker_profile(v_assisted_worker_id, 'otp_and_secret_token', 'WRONG_PIN');
+    IF COALESCE((v_result_json->>'success')::boolean,false) IS FALSE THEN
+        RAISE NOTICE 'TEST 6 PASSED: Claim with verified phone but invalid secondary secret was rejected.';
     ELSE
         RAISE EXCEPTION 'TEST 6 FAILED: Claim succeeded with invalid secret token!';
     END IF;
@@ -447,19 +447,84 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub', v_worker_unrelated_id::text, true);
     PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
 
-    v_op_succeeded := false;
-    BEGIN
-        PERFORM public.claim_assisted_worker_profile(v_assisted_worker_id, 'otp_and_secret_token', v_claim_secret);
-        v_op_succeeded := true;
-    EXCEPTION WHEN OTHERS THEN
-        v_op_succeeded := false;
-    END;
-
-    IF NOT v_op_succeeded THEN
+    v_result_json := public.claim_assisted_worker_profile(v_assisted_worker_id, 'otp_and_secret_token', v_claim_secret);
+    IF COALESCE((v_result_json->>'success')::boolean,false) IS FALSE THEN
         RAISE NOTICE 'TEST 7B PASSED: Second user claim attempt on already claimed profile was blocked.';
     ELSE
         RAISE EXCEPTION 'TEST 7B FAILED: Duplicate claim was permitted!';
     END IF;
+
+    -- 7C: Self-service claim using OTP-confirmed phone and an administrator-issued one-time secret.
+    SET LOCAL ROLE service_role;
+    PERFORM set_config('request.jwt.claim.sub', '', true);
+    INSERT INTO public.profiles (
+      id, full_name, phone_number, role, account_status, is_assisted_profile,
+      created_by, category, skills, experience_years, daily_wage, location
+    ) VALUES (
+      v_assisted_worker_id_2, 'Worker Two Assisted Profile', '9876500003',
+      'worker', 'active', true, v_contractor_id, 'Agriculture',
+      ARRAY['Harvesting'], 4, 420, 'Test Village'
+    );
+    INSERT INTO public.workers (
+      id, category, skills, experience_years, is_available, location
+    ) VALUES (
+      v_assisted_worker_id_2, 'Agriculture', ARRAY['Harvesting'], 4, true, 'Test Village'
+    );
+
+    -- A trusted administrator issues a one-time secret; the claimant cannot assert
+    -- contractor confirmation as a substitute for independent proof.
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claim.sub', v_admin_id::text, true);
+    PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+    PERFORM public.set_assisted_profile_claim_secret(
+      v_assisted_worker_id_2,
+      'SECONDARY_SECRET_FOR_ASSISTED_PROFILE_4920'
+    );
+
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claim.sub', v_worker_unrelated_id::text, true);
+    PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+
+    SELECT count(*) INTO v_row_count
+    FROM public.get_claimable_assisted_profiles()
+    WHERE id=v_assisted_worker_id_2;
+    IF v_row_count <> 1 THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Verified worker did not discover the matching unclaimed profile.';
+    END IF;
+
+    v_op_succeeded := false;
+    BEGIN
+      PERFORM public.claim_assisted_worker_profile(
+        v_assisted_worker_id_2,'otp_and_contractor_confirmation',NULL
+      );
+      v_op_succeeded := true;
+    EXCEPTION WHEN invalid_parameter_value THEN
+      v_op_succeeded := false;
+    END;
+    IF v_op_succeeded THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Caller-selected contractor confirmation bypass was accepted.';
+    END IF;
+
+    v_result_json := public.claim_assisted_worker_profile(
+      v_assisted_worker_id_2,'otp_and_secret_token','SECONDARY_SECRET_FOR_ASSISTED_PROFILE_4920'
+    );
+    IF COALESCE((v_result_json->>'success')::boolean,false) IS NOT TRUE THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Verified worker could not claim with administrator-issued secret: %',v_result_json;
+    END IF;
+
+    SELECT count(*) INTO v_row_count FROM public.workers WHERE id=v_assisted_worker_id_2;
+    IF v_row_count <> 1 THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Claimant cannot read the linked worker details.';
+    END IF;
+    SELECT count(*) INTO v_row_count FROM public.profiles WHERE id=v_assisted_worker_id_2;
+    IF v_row_count <> 1 THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Claimant cannot read the linked profile details.';
+    END IF;
+
+    RAISE NOTICE 'TEST 7C PASSED: OTP-verified worker discovered and claimed the previous worker profile with an administrator-issued secret; self-asserted confirmation was rejected.';
+
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claim.sub', '', true);
 
     -- ==========================================================================
     -- TEST 8: Claimed Worker Access to Historical Jobs
@@ -468,13 +533,21 @@ BEGIN
     PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
 
     SELECT count(*) INTO v_row_count
+    FROM public.get_claimed_profile_ids(v_worker_primary_id)
+    WHERE id = v_assisted_worker_id;
+
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'TEST 8A FAILED: Claimed-profile helper returned % rows; expected 1 for the verified claim.', v_row_count;
+    END IF;
+
+    SELECT count(*) INTO v_row_count
     FROM public.job_records
     WHERE id = v_historical_assignment_id;
 
     IF v_row_count = 1 THEN
         RAISE NOTICE 'TEST 8 PASSED: Claimed worker can view historical job records assigned to their assisted profile.';
     ELSE
-        RAISE EXCEPTION 'TEST 8 FAILED: Claimed worker was denied access to historical job records.';
+        RAISE EXCEPTION 'TEST 8B FAILED: Claim helper resolved the profile, but job_records RLS denied its historical assignment.';
     END IF;
 
     -- ==========================================================================
@@ -499,6 +572,11 @@ BEGIN
 
     INSERT INTO public.reviews (reviewer_profile_id, reviewed_profile_id, job_id, rating, comment)
     VALUES (v_contractor_id, v_assisted_worker_id, v_historical_job_id, 5, 'Great masonry canal work!');
+
+    -- The reputation RPC is worker-owned: switch from the contractor reviewer
+    -- to the primary worker whose claimed-profile reputation is being read.
+    PERFORM set_config('request.jwt.claim.sub', v_worker_primary_id::text, true);
+    PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
 
     SELECT count(*) INTO v_row_count
     FROM public.get_claimed_worker_reputation(v_worker_primary_id);
@@ -835,7 +913,7 @@ BEGIN
     PERFORM set_config('request.jwt.claim.sub', '', true);
 
     -- ==========================================================================
-    -- TEST 26: Deleting a Genuine Auth User Cascades to Profiles and Dependent Records
+    -- TEST 26: Deleting a Genuine Auth User Anonymizes the Profile and Purges Private Details
     -- ==========================================================================
     DECLARE
         v_temp_user_id uuid := gen_random_uuid();
@@ -869,9 +947,9 @@ BEGIN
 
         -- Insert dependent worker record
         INSERT INTO public.workers (
-            id, category, skills, daily_wage
+            id, category, skills
         ) VALUES (
-            v_temp_user_id, 'Agriculture', ARRAY['Harvesting'], 350
+            v_temp_user_id, 'Agriculture', ARRAY['Harvesting']
         );
 
         -- Insert dependent private details
@@ -893,16 +971,23 @@ BEGIN
         -- Delete genuine auth user
         DELETE FROM auth.users WHERE id = v_temp_user_id;
 
-        -- Assert that trigger cascade cleaned up profile and dependent records
-        SELECT EXISTS(SELECT 1 FROM public.profiles WHERE id = v_temp_user_id) INTO v_profile_exists;
-        SELECT EXISTS(SELECT 1 FROM public.workers WHERE id = v_temp_user_id) INTO v_worker_exists;
-        SELECT EXISTS(SELECT 1 FROM public.profile_private_details WHERE profile_id = v_temp_user_id) INTO v_private_exists;
+        -- Keep the profile anchor for referential integrity, anonymize it, and purge private data.
+        SELECT EXISTS(
+            SELECT 1 FROM public.profiles
+            WHERE id=v_temp_user_id AND full_name='Deactivated User'
+              AND account_status='deactivated' AND phone_number IS NULL
+        ) INTO v_profile_exists;
+        SELECT EXISTS(
+            SELECT 1 FROM public.workers
+            WHERE id=v_temp_user_id AND is_available IS FALSE
+        ) INTO v_worker_exists;
+        SELECT EXISTS(SELECT 1 FROM public.profile_private_details WHERE profile_id=v_temp_user_id) INTO v_private_exists;
 
-        IF v_profile_exists OR v_worker_exists OR v_private_exists THEN
-            RAISE EXCEPTION 'TEST 26 FAILED: Auth user deletion did not cascade clean up profiles or dependent records! profile: %, worker: %, private: %',
+        IF NOT (v_profile_exists AND v_worker_exists AND NOT v_private_exists) THEN
+            RAISE EXCEPTION 'TEST 26 FAILED: Auth deletion must anonymize the profile, deactivate the worker, and purge private details! profile: %, worker: %, private: %',
                 v_profile_exists, v_worker_exists, v_private_exists;
         ELSE
-            RAISE NOTICE 'TEST 26 PASSED: Deleting genuine auth user safely cascaded to profiles, workers, and private details.';
+            RAISE NOTICE 'TEST 26 PASSED: Deleted Auth identity was anonymized while history anchors remained and private details were purged.';
         END IF;
     END;
 

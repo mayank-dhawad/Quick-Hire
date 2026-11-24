@@ -63,7 +63,7 @@ export function PwaInstallBanner({
                 </span>
               </div>
               <p className="text-xs text-slate-300 mt-0.5 leading-snug">
-                Install for instant offline access & 0% middleman commission.
+                Install for a faster app-like experience. Live job, profile and payment actions need internet.
               </p>
             </div>
           </div>

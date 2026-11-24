@@ -34,6 +34,7 @@ vi.mock('../lib/supabase', () => {
   return {
     supabase: {
       from: vi.fn(),
+      rpc: vi.fn().mockResolvedValue({ data: { success: true }, error: null }),
       auth: {
         signOut: vi.fn().mockResolvedValue({ error: null }),
       },
@@ -156,38 +157,17 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
     });
   });
 
-  it('retrieves profile by phone number if not found by user.id for returning worker', async () => {
-    const existingProfile = {
-      id: 'older-profile-uuid-456',
-      full_name: 'Pooja Sharma',
-      phone_number: '+919876543210',
-      village: 'Shirdi',
-      district: 'Ahmednagar',
-      state: 'Maharashtra',
-      category: 'Construction',
-      experience_years: 3,
-      daily_wage: 550,
-      role: 'worker',
-    };
-
-    let lookupCount = 0;
+  it('does not load another profile by phone when the authenticated user ID has no profile', async () => {
+    const lookupColumns: string[] = [];
     const mockFrom = vi.fn().mockImplementation((table: string) => {
       if (table === 'profiles') {
         return {
           select: vi.fn().mockReturnThis(),
-          eq: vi.fn().mockImplementation((col: string, val: string) => {
-            if (col === 'id') {
-              return {
-                maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
-              };
-            }
-            if (col === 'phone_number' && val === '+919876543210') {
-              lookupCount++;
-              return {
-                maybeSingle: vi.fn().mockResolvedValue({ data: existingProfile, error: null }),
-              };
-            }
-            return { maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }) };
+          eq: vi.fn().mockImplementation((column: string) => {
+            lookupColumns.push(column);
+            return {
+              maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
+            };
           }),
         };
       }
@@ -219,11 +199,10 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
     );
 
     await waitFor(() => {
-      expect(screen.getByText('Pooja Sharma')).toBeInTheDocument();
-      expect(screen.getByText('Shirdi')).toBeInTheDocument();
-      expect(screen.getByText('Ahmednagar, Maharashtra')).toBeInTheDocument();
+      expect(screen.getByPlaceholderText('Full name')).toBeInTheDocument();
     });
-    expect(lookupCount).toBe(1);
+    expect(lookupColumns).toEqual(['id']);
+    expect(screen.queryByText('Pooja Sharma')).not.toBeInTheDocument();
   });
 
   it('gracefully handles missing location column by omitting location on upsert retry', async () => {
@@ -479,6 +458,16 @@ describe('WorkerProfileModal Component - Schema Resiliency & Profile Management'
     expect(saved.is_assisted_profile).toBe(true);
     expect(saved.created_by).toBe(mockUser.id);
     expect(saved.role).toBe('worker');
+    await waitFor(() => {
+      expect(screen.getByText('One-time worker claim code')).toBeInTheDocument();
+    });
+    expect(supabase.rpc).toHaveBeenCalledWith(
+      'set_assisted_profile_claim_secret',
+      expect.objectContaining({
+        p_assisted_profile_id: saved.id,
+        p_secret: expect.stringMatching(/^[A-HJ-NP-Z2-9]{24}$/),
+      })
+    );
   });
 
   it('preserves existing profile ID when a returning worker edits and updates their profile', async () => {

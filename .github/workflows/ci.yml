@@ -8,6 +8,7 @@ on:
       - main
       - "production-hotfix/**"
       - "fix/quickhire-live-hardening-final"
+      - "integration/quickhire-production-ready"
 
 permissions:
   contents: read
@@ -22,12 +23,14 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test -- --reporter=dot
@@ -39,22 +42,29 @@ jobs:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-secret
 
+      - name: Verify PWA manifest, icons and offline security
+        run: node scripts/verify-pwa.mjs
+
+      - name: Verify SEO metadata, robots and sitemap
+        run: node scripts/verify-seo.mjs
+
+      - name: Verify authentication session security
+        run: node scripts/verify-auth-security.mjs
+
   supabase-migrations-and-integrity:
     name: Supabase migrations and database integrity tests
     runs-on: ubuntu-latest
     timeout-minutes: 35
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
       - name: Install Supabase CLI
         uses: supabase/setup-cli@v3
         with:
-          # Keep the CLI on its supported v2 maintenance line while avoiding
-          # setup-cli@v1's GitHub-release lookup (which is rate-limited in PR CI).
           version: v2.stable
 
       - name: Use an isolated database port for CI
-        run: sed -i 's/^port = 54322$/port = 54332/' supabase/config.toml
+        run: sed -i -e 's/^port = 54322$/port = 54332/' -e 's/^port = 54324$/port = 54334/' supabase/config.toml
 
       - name: Start local Supabase test stack
         run: supabase start
@@ -90,6 +100,36 @@ jobs:
 
       - name: Verify sensitive profile columns are not directly readable
         run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/11_profile_column_privilege_regression.sql
+
+      - name: Verify payment audit and complaints schema security
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/12_payment_audit_and_complaints_regression.sql
+
+      - name: Verify payment function execution privileges
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/13_payment_function_privilege_regression.sql
+
+      - name: Verify rental inquiry participant-only reads
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/14_rental_record_rls_regression.sql
+
+      - name: Verify admin-only payment UPI lookup
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/15_admin_payment_upi_rpc_regression.sql
+
+      - name: Verify payment recipient details RPC authorization
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/16_payment_recipient_details_rpc_regression.sql
+
+      - name: Verify legacy private profile sync is disabled
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/17_private_profile_sync_trigger_regression.sql
+
+      - name: Verify assisted worker claim and history security
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/18_assisted_worker_claim_security_regression.sql
+
+      - name: Verify admin settlement status is boolean-only and admin-only
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/19_admin_profile_settlement_status_rpc_regression.sql
+
+      - name: Verify job assignments target active worker profiles
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/20_job_record_worker_role_regression.sql
+
+      - name: Verify profile phone numbers are relationship-scoped
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/21_profile_phone_relationship_rls_regression.sql
 
       - name: Stop local Supabase
         if: always()

@@ -44,5 +44,13 @@ BEGIN
   IF NOT has_table_privilege('authenticated', 'public.profile_private_details', 'SELECT') THEN
     RAISE EXCEPTION 'Authenticated role must retain access to its owner-scoped private details table';
   END IF;
+
+  IF has_schema_privilege('anon', 'public', 'CREATE') THEN
+    RAISE EXCEPTION 'Anonymous role must not be able to create objects in public schema';
+  END IF;
+
+  IF has_schema_privilege('authenticated', 'public', 'CREATE') THEN
+    RAISE EXCEPTION 'Authenticated role must not be able to create objects in public schema';
+  END IF;
 END
 $$;

@@ -31,8 +31,7 @@ interface ProfileRecord {
   state: string | null;
   account_status: string | null;
   created_at: string | null;
-  bank_account_no: string | null;
-  upi_id: string | null;
+  has_settlement_details: boolean | null;
   category?: string | null;
   skills?: string[] | null;
   experience_years?: number | null;
@@ -110,44 +109,39 @@ export function UserManagement() {
         return;
       }
 
-      const privateMap: Record<string, { bank_account_no?: string | null; upi_id?: string | null }> = {};
+      const profileIds = (data as unknown as Array<{ id: string }>).map((profile) => profile.id);
+      const settlementStatus = new Map<string, boolean>();
+      let settlementStatusAvailable = false;
       try {
-        const { data: privData } = await supabase
-          .from('profile_private_details')
-          .select('profile_id, bank_account_no, upi_id');
-        if (privData) {
-          privData.forEach((row) => {
-            privateMap[row.profile_id] = row;
+        // This RPC returns only boolean configuration flags. The admin screen
+        // never reads bank or UPI values from the owner-only private table.
+        for (let start = 0; start < profileIds.length; start += 200) {
+          const { data: statusRows, error: statusError } = await supabase.rpc(
+            'get_admin_profile_settlement_status',
+            { p_profile_ids: profileIds.slice(start, start + 200) }
+          );
+          if (statusError) throw statusError;
+          (statusRows || []).forEach((row: {
+            profile_id: string;
+            bank_account_configured: boolean;
+            upi_configured: boolean;
+          }) => {
+            settlementStatus.set(row.profile_id, Boolean(row.bank_account_configured || row.upi_configured));
           });
         }
-      } catch {
-        // Fallback during migration
+        settlementStatusAvailable = true;
+      } catch (statusError) {
+        console.warn('Admin settlement status is unavailable:', statusError);
       }
 
       if (data) {
-        const maskAdminAccount = (acc?: string | null): string | null => {
-          if (!acc) return null;
-          const clean = acc.replace(/\s+/g, '');
-          if (clean.length <= 4) return '••••';
-          return `••••••••${clean.slice(-4)}`;
-        };
-        const maskAdminUpiId = (upi?: string | null): string | null => {
-          if (!upi) return null;
-          const parts = upi.split('@');
-          if (parts.length !== 2) return '••••@upi';
-          const handle = parts[0];
-          const maskedHandle = handle.length > 2 ? `${handle.slice(0, 2)}***` : `${handle}***`;
-          return `${maskedHandle}@${parts[1]}`;
-        };
-
         const enriched = (data as unknown as ProfileRecord[]).map((p) => {
           const rawWorker = p.workers;
           const normalizedWorker = Array.isArray(rawWorker) ? rawWorker[0] : rawWorker;
           return {
             ...p,
             workers: normalizedWorker || null,
-            bank_account_no: maskAdminAccount(privateMap[p.id]?.bank_account_no),
-            upi_id: maskAdminUpiId(privateMap[p.id]?.upi_id),
+            has_settlement_details: settlementStatusAvailable ? (settlementStatus.get(p.id) ?? false) : null,
           };
         });
         setProfiles(enriched);
@@ -224,7 +218,7 @@ export function UserManagement() {
     if (p.location || p.village) score += 20;
     if (p.category || p.workers?.category) score += 20;
     if ((p.skills && p.skills.length > 0) || (p.workers?.skills && p.workers.skills.length > 0)) score += 10;
-    if (p.bank_account_no || p.upi_id) score += 10;
+    if (p.has_settlement_details === true) score += 10;
     return score;
   };
 
@@ -775,7 +769,7 @@ export function UserManagement() {
                   <span>Direct Bank / UPI Account:</span>
                 </div>
                 <span className="font-bold text-white">
-                  {selectedProfile.bank_account_no || selectedProfile.upi_id ? 'Configured ✓' : 'Not Linked'}
+                  {selectedProfile.has_settlement_details === true ? 'Configured ✓' : selectedProfile.has_settlement_details === false ? 'Not Linked' : 'Status unavailable'}
                 </span>
               </div>
             </div>

@@ -7,6 +7,7 @@ vi.mock('../../lib/supabase', () => {
   return {
     supabase: {
       from: vi.fn(),
+      rpc: vi.fn(),
     },
   };
 });
@@ -25,6 +26,7 @@ import { supabase } from '../../lib/supabase';
 describe('UserManagement Component', () => {
   beforeEach(() => {
     vi.clearAllMocks();
+    vi.mocked(supabase.rpc).mockResolvedValue({ data: [], error: null } as never);
   });
 
   it('handles workers as either array or single object and renders users correctly', async () => {
@@ -103,6 +105,10 @@ describe('UserManagement Component', () => {
       expect(screen.getByText('₹650/day')).toBeInTheDocument();
       // Verifies domain resolution from normalized workers[0].category
       expect(screen.getAllByText('Agriculture').length).toBeGreaterThanOrEqual(2);
+      expect(supabase.from).not.toHaveBeenCalledWith('profile_private_details');
+      expect(supabase.rpc).toHaveBeenCalledWith('get_admin_profile_settlement_status', {
+        p_profile_ids: ['usr-1', 'usr-2'],
+      });
     });
   });
 

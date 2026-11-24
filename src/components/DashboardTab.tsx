@@ -282,6 +282,16 @@ export function DashboardTab({
   const [loadingWorkerData, setLoadingWorkerData] = useState(false);
   const [loadingEmployerPayments, setLoadingEmployerPayments] = useState(false);
   const [workerFetchError, setWorkerFetchError] = useState<string | null>(null);
+
+  const [claimableProfiles, setClaimableProfiles] = useState<{
+    id: string;
+    full_name: string | null;
+    location: string | null;
+    created_at: string;
+  }[]>([]);
+  const [claimingProfileId, setClaimingProfileId] = useState<string | null>(null);
+  const [claimProfileError, setClaimProfileError] = useState<string | null>(null);
+  const [claimSecrets, setClaimSecrets] = useState<Record<string, string>>({});
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceiptData | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
@@ -459,13 +469,46 @@ export function DashboardTab({
     setWorkerFetchError(null);
 
     try {
-      // 1. Fetch Profile and Worker details (non-private fields)
+      // Offer only unclaimed profiles matching this account's OTP-confirmed phone.
+      try {
+        const { data: claimableRows, error: claimableError } = await supabase.rpc('get_claimable_assisted_profiles');
+        if (claimableError) throw claimableError;
+        setClaimableProfiles((claimableRows || []) as {
+          id: string;
+          full_name: string | null;
+          location: string | null;
+          created_at: string;
+        }[]);
+      } catch (claimableError) {
+        console.warn('Claimable assisted profiles are unavailable:', claimableError);
+        setClaimableProfiles([]);
+      }
+
+      // A worker may have older work stored against employer-created assisted profiles.
+      // The RPC only returns IDs claimed by this authenticated worker (or an admin).
+      let workerProfileIds = [user.id];
+      try {
+        const { data: claimedRows, error: claimLookupError } = await supabase.rpc(
+          'get_claimed_profile_ids',
+          { p_user_id: user.id }
+        );
+        if (claimLookupError) throw claimLookupError;
+        workerProfileIds = Array.from(new Set([
+          user.id,
+          ...((claimedRows || []) as { id: string }[]).map((row) => row.id),
+        ]));
+      } catch (claimLookupError) {
+        console.warn('Claimed worker history lookup unavailable; loading current profile only:', claimLookupError);
+      }
+
+      // 1. Fetch the current profile and any linked assisted profiles.
       const { data: prof } = await supabase
         .from('profiles')
         .select(`
           id, full_name, phone_number, role, account_status, category, skills,
-          experience_years, daily_wage, location, village, city, district,
-          state, pincode, created_at, updated_at
+          experience_years, daily_wage, experience_description, preferred_work_location,
+          availability_status, location, village, city, district, state, pincode,
+          created_at, updated_at
         `)
         .eq('id', user.id)
         .single();
@@ -474,7 +517,21 @@ export function DashboardTab({
         .from('workers')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+
+      const claimedIds = workerProfileIds.filter((id) => id !== user.id);
+      let claimedProfile: Record<string, unknown> | null = null;
+      let claimedWorker: Record<string, unknown> | null = null;
+      if (claimedIds.length > 0) {
+        const [{ data: claimedProfiles }, { data: claimedWorkers }] = await Promise.all([
+          supabase.from('profiles')
+            .select('full_name, category, skills, experience_years, daily_wage, experience_description, preferred_work_location, availability_status, location, village, city, district, state, pincode')
+            .in('id', claimedIds),
+          supabase.from('workers').select('*').in('id', claimedIds),
+        ]);
+        claimedProfile = (claimedProfiles?.[0] as Record<string, unknown> | undefined) || null;
+        claimedWorker = (claimedWorkers?.[0] as Record<string, unknown> | undefined) || null;
+      }
 
       // 1b. Fetch private banking details from profile_private_details exclusively
       let privateBanking: { bank_name?: string | null; bank_account_no?: string | null; bank_ifsc?: string | null; upi_id?: string | null } | null = null;
@@ -489,8 +546,29 @@ export function DashboardTab({
         // Non-blocking if table not yet provisioned
       }
 
-      if (prof || wrk || privateBanking) {
-        setWorkerProfile({ ...prof, ...(wrk || {}), ...(privateBanking || {}) });
+      if (prof || wrk || privateBanking || claimedProfile || claimedWorker) {
+        const mergedProfile: Record<string, unknown> = {
+          ...(claimedProfile || {}),
+          ...(claimedWorker || {}),
+          ...(prof || {}),
+          ...(wrk || {}),
+          ...(privateBanking || {}),
+          id: user.id,
+        };
+        const fallbackFields = [
+          'full_name', 'phone_number', 'category', 'skills', 'experience_years',
+          'daily_wage', 'experience_description', 'preferred_work_location',
+          'availability_status', 'location', 'village', 'city', 'district', 'state', 'pincode',
+        ];
+        for (const field of fallbackFields) {
+          const currentValue = mergedProfile[field];
+          const isEmptyArray = Array.isArray(currentValue) && currentValue.length === 0;
+          const isPlaceholderName = field === 'full_name' && currentValue === 'QuickHire User';
+          if (currentValue == null || currentValue === '' || isEmptyArray || isPlaceholderName) {
+            mergedProfile[field] = claimedWorker?.[field] ?? claimedProfile?.[field] ?? currentValue;
+          }
+        }
+        setWorkerProfile(mergedProfile as WorkerProfileState);
       }
 
       // 2. Fetch Applied / Assigned Jobs
@@ -502,7 +580,7 @@ export function DashboardTab({
             agreement_evidence_type, reported_by, eta_minutes, arrived_at, arrived_reported_by, attendance_confirmed_at, attendance_confirmed_by, work_started_at, work_completed_at, break_minutes, overtime_hours, total_working_hours, agreed_wage, total_payable, total_paid, payment_status,
             jobs ( id, title, category, offered_wages, description, status, profiles:employer_id ( full_name, phone_number ) )
           `)
-          .eq('worker_id', user.id)
+          .in('worker_id', workerProfileIds)
           .order('created_at', { ascending: false });
 
         // Resilient fallback to baseline columns if extended Phase 2 columns do not exist yet (42703)
@@ -513,7 +591,7 @@ export function DashboardTab({
               id, job_id, status, created_at,
               jobs ( id, title, category, offered_wages, description, status, profiles:employer_id ( full_name, phone_number ) )
             `)
-            .eq('worker_id', user.id)
+            .in('worker_id', workerProfileIds)
             .order('created_at', { ascending: false });
           records = fallbackRes.data as typeof records;
           recErr = fallbackRes.error;
@@ -530,7 +608,7 @@ export function DashboardTab({
         const { data: wages, error: wageErr } = await supabase
           .from('payments')
           .select('*')
-          .eq('payee_id', user.id)
+          .in('payee_id', workerProfileIds)
           .eq('payment_for_type', 'worker_wage')
           .order('created_at', { ascending: false });
 
@@ -562,7 +640,7 @@ export function DashboardTab({
         const { data: revs, error: revErr } = await supabase
           .from('reviews')
           .select('*')
-          .eq('reviewed_profile_id', user.id)
+          .in('reviewed_profile_id', workerProfileIds)
           .order('created_at', { ascending: false });
 
         if (!revErr && revs) {
@@ -593,6 +671,36 @@ export function DashboardTab({
       setLoadingWorkerData(false);
     }
   }, [user]);
+
+  const handleClaimAssistedProfile = async (profileId: string) => {
+    if (!user || claimingProfileId) return;
+    const claimSecret = (claimSecrets[profileId] || '').trim();
+    if (!claimSecret) {
+      setClaimProfileError('Enter the one-time claim code shared by the person who created this profile.');
+      return;
+    }
+    setClaimingProfileId(profileId);
+    setClaimProfileError(null);
+    try {
+      const { data, error } = await supabase.rpc('claim_assisted_worker_profile', {
+        p_assisted_profile_id: profileId,
+        p_verification_method: 'otp_and_secret_token',
+        p_verification_proof: claimSecret,
+      });
+      if (error) throw error;
+      const result = data as { success?: boolean; message?: string } | null;
+      if (!result?.success) {
+        throw new Error(result?.message || 'This profile could not be linked to your account.');
+      }
+      setClaimSecrets((current) => ({ ...current, [profileId]: '' }));
+      setClaimableProfiles((current) => current.filter((profile) => profile.id !== profileId));
+      await fetchWorkerHistory();
+    } catch (err: unknown) {
+      setClaimProfileError(extractErrorMessage(err, 'Unable to link the previous worker profile.'));
+    } finally {
+      setClaimingProfileId(null);
+    }
+  };
 
   // Fetch employer-initiated payment history
   const fetchEmployerPayments = useCallback(async () => {
@@ -969,6 +1077,51 @@ export function DashboardTab({
             <div className="p-4 rounded-xl bg-red-50 text-red-700 text-xs border border-red-200">
               {workerFetchError}
             </div>
+          )}
+          {claimableProfiles.length > 0 && (
+            <section className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-4 sm:p-5 space-y-3">
+              <div>
+                <h3 className="font-heading font-extrabold text-base text-emerald-950">
+                  Is this your previous worker profile?
+                </h3>
+                <p className="text-xs text-emerald-900/80 mt-1">
+                  We found an unclaimed profile matching your OTP-verified phone number. Enter the one-time claim code given to you by the person who created it to securely recover its earlier jobs and wage history.
+                </p>
+              </div>
+              {claimableProfiles.map((profile) => (
+                <div key={profile.id} className="rounded-xl bg-white border border-emerald-100 p-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="font-bold text-sm text-slate-900">{profile.full_name || 'Previous worker profile'}</p>
+                    {profile.location && <p className="text-xs text-slate-500 mt-0.5">{profile.location}</p>}
+                    <p className="text-[11px] text-slate-400 mt-1">
+                      Created {new Date(profile.created_at).toLocaleDateString()}
+                    </p>
+                  </div>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:shrink-0">
+                    <input
+                      type="password"
+                      autoComplete="one-time-code"
+                      value={claimSecrets[profile.id] || ''}
+                      onChange={(event) => setClaimSecrets((current) => ({ ...current, [profile.id]: event.target.value }))}
+                      placeholder="One-time claim code"
+                      aria-label={`One-time claim code for ${profile.full_name || 'previous worker profile'}`}
+                      className="w-full sm:w-56 rounded-lg border border-slate-200 px-3 py-2.5 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    />
+                    <button
+                      type="button"
+                      disabled={claimingProfileId !== null || !(claimSecrets[profile.id] || '').trim()}
+                      onClick={() => handleClaimAssistedProfile(profile.id)}
+                      className="shrink-0 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                    >
+                      {claimingProfileId === profile.id ? 'Linking…' : 'Link my profile'}
+                    </button>
+                  </div>
+                </div>
+              ))}
+              {claimProfileError && (
+                <p role="alert" className="text-xs text-red-700">{claimProfileError}</p>
+              )}
+            </section>
           )}
           {/* Worker Hero Profile Summary */}
           <div className="bg-gradient-to-br from-emerald-50 via-white to-slate-50 rounded-3xl border border-emerald-200 p-4 sm:p-6 md:p-8 shadow-xs relative overflow-hidden">

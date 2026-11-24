@@ -734,8 +734,8 @@ export default function App() {
       if (adminCheck.isAdmin) {
         setUserRole('admin');
         ensureAdminSession(activeUser, adminCheck.role, adminCheck.verifiedEmail, adminCheck.verifiedPhone);
-        localStorage.setItem('quickhire_user_session', JSON.stringify(activeUser));
-        localStorage.setItem('quickhire_user_role', 'admin');
+        // Supabase Auth is the only source of truth for authenticated sessions.
+        // Do not persist a browser-side user object as a login fallback.
 
         // Administrator access is determined by the server-verified admin_users record.
         // Never create or promote an admin profile from browser-side application code.
@@ -743,18 +743,35 @@ export default function App() {
       } else {
         clearAdminSession();
 
-        const { data: profile } = await supabase
+        const { data: profile, error: profileLookupError } = await supabase
           .from('profiles')
           .select('id, role, account_status')
           .eq('id', activeUser.id)
           .maybeSingle();
 
+        if (profileLookupError) throw profileLookupError;
+        if (!profile) {
+          // An Auth session without its matching QuickHire profile is not a
+          // complete application identity. Do not guess a default worker role.
+          await supabase.auth.signOut();
+          showToast('We could not load your QuickHire profile. Please sign in again.', 'error');
+          return;
+        }
+
+        if (profile.account_status === 'suspended') {
+          // A suspended account must not retain an active client session.
+          // The Auth listener clears user-scoped state after sign-out.
+          await supabase.auth.signOut();
+          showToast('Your account is suspended. Please contact QuickHire support.', 'error');
+          return;
+        }
+
         if (profile?.role === 'employer') {
           setUserRole('employer');
-          localStorage.setItem('quickhire_user_role', 'employer');
+
         } else {
           setUserRole('worker');
-          localStorage.setItem('quickhire_user_role', 'worker');
+
         }
 
         if (profile?.account_status === 'deactivated') {
@@ -774,11 +791,27 @@ export default function App() {
         }
       }
 
-      // Restore applied jobs from database so interest remains persistent across logins & reloads
+      // Restore applications from the current account and any assisted profiles
+      // securely claimed by this same verified worker account.
+      let workerProfileIds = [activeUser.id];
+      try {
+        const { data: claimedRows, error: claimLookupError } = await supabase.rpc(
+          'get_claimed_profile_ids',
+          { p_user_id: activeUser.id }
+        );
+        if (claimLookupError) throw claimLookupError;
+        workerProfileIds = Array.from(new Set([
+          activeUser.id,
+          ...((claimedRows || []) as { id: string }[]).map((row) => row.id),
+        ]));
+      } catch (claimLookupError) {
+        console.warn('Claimed application history lookup unavailable; loading current account only:', claimLookupError);
+      }
+
       const { data: appliedRecords } = await supabase
         .from('job_records')
         .select('job_id')
-        .eq('worker_id', activeUser.id);
+        .in('worker_id', workerProfileIds);
       if (appliedRecords && appliedRecords.length > 0) {
         setAppliedJobIds(new Set(appliedRecords.map((r) => r.job_id)));
       } else {
@@ -789,7 +822,11 @@ export default function App() {
       fetchWorkers();
       fetchMyPostedJobs(activeUser.id);
     } catch (err) {
+      // Permit a retry after transient profile/network failures instead of
+      // permanently treating this user as already hydrated.
+      lastFetchedUserIdRef.current = null;
       console.warn('Error fetching user data:', err);
+      showToast('We could not load your account details. Check your connection and try again.', 'error');
     } finally {
       isFetchingUserDataRef.current = false;
     }
@@ -805,8 +842,8 @@ export default function App() {
     try {
       clearAdminSession();
       await supabase.auth.signOut();
-      localStorage.removeItem('quickhire_user_session');
-      localStorage.removeItem('quickhire_user_role');
+
+
       lastFetchedUserIdRef.current = null;
       safeSetUser(null);
       setUserRole(null);
@@ -839,8 +876,7 @@ export default function App() {
           key &&
           (key.startsWith('quickhire_bank_') ||
             key.startsWith('quickhire_payment_ledger_') ||
-            key === 'quickhire_user_session' ||
-            key === 'quickhire_user_role' ||
+
             key === 'quickhire_user_equipment')
         ) {
           keysToRemove.push(key);
@@ -874,16 +910,6 @@ export default function App() {
       }
     }, 2500);
 
-    const getStoredFallbackUser = (): User | null => {
-      try {
-        const stored = localStorage.getItem('quickhire_user_session');
-        if (stored) return JSON.parse(stored);
-      } catch {
-        // Ignore JSON error
-      }
-      return null;
-    };
-
     // Fetch public job & equipment catalogs once for all visitors on initial mount
     fetchOpenJobs();
     fetchEquipment();
@@ -892,7 +918,7 @@ export default function App() {
       .getSession()
       .then(async ({ data: { session } }) => {
         if (!isMounted) return;
-        const currentUser = session?.user ?? getStoredFallbackUser();
+        const currentUser = session?.user ?? null;
         if (currentUser) {
           safeSetUser(currentUser);
           try {
@@ -900,15 +926,19 @@ export default function App() {
           } catch (err) {
             console.warn('[QuickHire] fetchUserData background notice:', err);
           }
+        } else {
+          // A cached browser user object is not an authenticated session.
+          safeSetUser(null);
+          setUserRole(null);
         }
       })
       .catch((err) => {
         console.warn('[QuickHire] Auth session retrieval error:', err);
         if (isMounted) {
-          const fallbackUser = getStoredFallbackUser();
-          if (fallbackUser) {
-            safeSetUser(fallbackUser);
-          }
+          // Fail closed: if Supabase cannot restore a valid session, keep the
+          // application signed out rather than trusting stale local storage.
+          safeSetUser(null);
+          setUserRole(null);
         }
       })
       .finally(() => {
@@ -922,8 +952,7 @@ export default function App() {
       if (!isMounted) return;
       if (event === 'SIGNED_OUT' || !session) {
         lastFetchedUserIdRef.current = null;
-        localStorage.removeItem('quickhire_user_session');
-        localStorage.removeItem('quickhire_user_role');
+
         safeSetUser(null);
         setUserRole(null);
         setMyPostedJobs([]);
@@ -1283,8 +1312,8 @@ export default function App() {
                 key &&
                 (key.startsWith('quickhire_bank_') ||
                   key.startsWith('quickhire_payment_ledger_') ||
-                  key === 'quickhire_user_session' ||
-                  key === 'quickhire_user_role' ||
+
+
                   key === 'quickhire_user_equipment')
               ) {
                 keysToRemove.push(key);
