@@ -331,6 +331,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
         or: vi.fn().mockReturnThis(),
         order: vi.fn().mockResolvedValue({ data: [], error: null }),
         single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       };
     }) as unknown as typeof supabase.from);
 
