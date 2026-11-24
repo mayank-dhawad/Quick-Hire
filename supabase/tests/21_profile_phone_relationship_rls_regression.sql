@@ -14,6 +14,7 @@ DECLARE
   v_count integer;
   v_contact jsonb;
   v_denied boolean := false;
+  v_anon_definer_functions text;
 BEGIN
   -- SECURITY DEFINER functions use public in their search_path. App roles
   -- must not be able to create shadow objects in that schema.
@@ -24,22 +25,18 @@ BEGIN
 
   -- No SECURITY DEFINER function in the exposed public schema may be
   -- executable by anonymous callers.
-  DECLARE
-    v_anon_definer_functions text;
-  BEGIN
-    SELECT string_agg(format('%I.%I(%s)', n.nspname, p.proname,
+  SELECT string_agg(format('%I.%I(%s)', n.nspname, p.proname,
       pg_get_function_identity_arguments(p.oid)), ', ' ORDER BY p.proname)
-    INTO v_anon_definer_functions
-    FROM pg_proc p
-    JOIN pg_namespace n ON n.oid = p.pronamespace
-    WHERE n.nspname = 'public'
-      AND p.prosecdef
-      AND has_function_privilege('anon', p.oid, 'EXECUTE');
+  INTO v_anon_definer_functions
+  FROM pg_proc p
+  JOIN pg_namespace n ON n.oid = p.pronamespace
+  WHERE n.nspname = 'public'
+    AND p.prosecdef
+    AND has_function_privilege('anon', p.oid, 'EXECUTE');
 
-    IF v_anon_definer_functions IS NOT NULL THEN
-      RAISE EXCEPTION 'Exposed SECURITY DEFINER functions executable by anon: %', v_anon_definer_functions;
-    END IF;
-  END;
+  IF v_anon_definer_functions IS NOT NULL THEN
+    RAISE EXCEPTION 'Exposed SECURITY DEFINER functions executable by anon: %', v_anon_definer_functions;
+  END IF;
 
   IF EXISTS (
     SELECT 1
