@@ -382,6 +382,45 @@ CREATE TRIGGER protect_profile_identity_fields
 BEFORE INSERT OR UPDATE ON public.profiles
 FOR EACH ROW EXECUTE FUNCTION public.protect_profile_identity_fields();
 
+-- Keep directory discovery available through explicit allowlist views while
+-- direct profiles access is restricted to owners and business relationships.
+CREATE OR REPLACE VIEW public.public_profile_directory
+WITH (security_barrier=true,security_invoker=false)
+AS
+SELECT id,full_name,role,location,village,city,district,state
+FROM public.profiles
+WHERE account_status IS NULL OR account_status='active';
+
+CREATE OR REPLACE VIEW public.public_worker_directory
+WITH (security_barrier=true,security_invoker=false)
+AS
+SELECT
+  w.id,
+  p.full_name,
+  w.category,
+  w.skills,
+  w.experience_years,
+  p.daily_wage,
+  w.average_rating,
+  w.is_available,
+  COALESCE(NULLIF(w.location,''),NULLIF(p.location,''),concat_ws(', ',
+    NULLIF(p.village,''),NULLIF(p.city,''),NULLIF(p.district,''),NULLIF(p.state,''))) AS location,
+  p.village,p.city,p.district,p.state,p.is_assisted_profile,
+  round(COALESCE(w.latitude,p.latitude)::numeric,3)::double precision AS latitude,
+  round(COALESCE(w.longitude,p.longitude)::numeric,3)::double precision AS longitude
+FROM public.workers w
+JOIN public.profiles p ON p.id=w.id
+WHERE w.is_available IS TRUE
+  AND p.role='worker'::public.user_role
+  AND (p.account_status IS NULL OR p.account_status='active');
+
+REVOKE ALL ON TABLE public.public_profile_directory,public.public_worker_directory FROM PUBLIC,anon;
+GRANT SELECT ON TABLE public.public_profile_directory,public.public_worker_directory TO authenticated;
+COMMENT ON VIEW public.public_profile_directory IS
+  'Allowlisted active profile directory; excludes contact and private identity fields.';
+COMMENT ON VIEW public.public_worker_directory IS
+  'Allowlisted active worker directory; exposes coarse location only and no direct contact or private fields.';
+
 -- Replace broad profile SELECT/UPDATE policies with ownership and relationship access.
 DO $$
 DECLARE p record;
