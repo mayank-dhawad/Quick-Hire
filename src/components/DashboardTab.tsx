@@ -562,7 +562,8 @@ export function DashboardTab({
         for (const field of fallbackFields) {
           const currentValue = mergedProfile[field];
           const isEmptyArray = Array.isArray(currentValue) && currentValue.length === 0;
-          if (currentValue == null || currentValue === '' || isEmptyArray) {
+          const isPlaceholderName = field === 'full_name' && currentValue === 'QuickHire User';
+          if (currentValue == null || currentValue === '' || isEmptyArray || isPlaceholderName) {
             mergedProfile[field] = claimedWorker?.[field] ?? claimedProfile?.[field] ?? currentValue;
           }
         }
