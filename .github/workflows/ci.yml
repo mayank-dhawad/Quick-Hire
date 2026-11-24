@@ -39,6 +39,9 @@ jobs:
           VITE_SUPABASE_URL: https://example.supabase.co
           VITE_SUPABASE_ANON_KEY: ci-placeholder-not-a-real-secret
 
+      - name: Verify PWA manifest, icons and offline security
+        run: node scripts/verify-pwa.mjs
+
   supabase-migrations-and-integrity:
     name: Supabase migrations and database integrity tests
     runs-on: ubuntu-latest
