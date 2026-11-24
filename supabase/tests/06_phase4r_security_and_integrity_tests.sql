@@ -496,7 +496,7 @@ BEGIN
 
     RAISE NOTICE 'TEST 7C PASSED: OTP-verified worker discovered, explicitly confirmed, claimed and read the previous worker profile.';
 
-    SET LOCAL ROLE service_role;
+    SET LOCAL ROLE authenticated;
     PERFORM set_config('request.jwt.claim.sub', '', true);
 
     -- ==========================================================================
