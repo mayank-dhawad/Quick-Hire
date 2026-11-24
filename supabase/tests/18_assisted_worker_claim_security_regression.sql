@@ -54,6 +54,13 @@ BEGIN
      OR has_table_privilege('authenticated','public.assisted_profile_claim_secrets','SELECT') THEN
     RAISE EXCEPTION 'Claim secret hashes must not be readable by application roles';
   END IF;
+  IF has_function_privilege('anon','public.normalize_quickhire_phone(text)','EXECUTE')
+     OR has_function_privilege('authenticated','public.normalize_quickhire_phone(text)','EXECUTE')
+     OR public.normalize_quickhire_phone('+91 98765-00003')
+        IS DISTINCT FROM public.normalize_quickhire_phone('9876500003') THEN
+    RAISE EXCEPTION 'Phone normalization must support Indian country-code inputs and remain internal-only';
+  END IF;
+
   IF has_function_privilege('anon','public.claim_assisted_worker_profile(uuid,text,text)','EXECUTE')
      OR NOT has_function_privilege('authenticated','public.claim_assisted_worker_profile(uuid,text,text)','EXECUTE')
      OR has_function_privilege('anon','public.get_claimable_assisted_profiles()','EXECUTE')
