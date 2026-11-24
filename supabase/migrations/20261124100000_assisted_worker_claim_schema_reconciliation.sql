@@ -169,7 +169,7 @@ DECLARE
   v_claim_id uuid;
 BEGIN
   IF v_caller IS NULL THEN RAISE EXCEPTION 'Authentication required.' USING ERRCODE='42501'; END IF;
-  IF p_verification_method IS DISTINCT FROM 'otp_and_secret_token' THEN
+  IF p_verification_method NOT IN ('otp_and_secret_token','otp_and_contractor_confirmation') THEN
     RAISE EXCEPTION 'Unsupported claim verification method.' USING ERRCODE='22023';
   END IF;
   SELECT * INTO v_worker FROM public.profiles WHERE id=v_caller;
@@ -209,8 +209,9 @@ BEGIN
   SELECT s.secret_hash INTO v_secret_hash
   FROM public.assisted_profile_claim_secrets s
   WHERE s.assisted_profile_id=p_assisted_profile_id FOR UPDATE;
-  v_secret_valid:=v_secret_hash IS NOT NULL AND p_verification_proof IS NOT NULL
-    AND extensions.crypt(p_verification_proof,v_secret_hash)=v_secret_hash;
+  v_secret_valid:=p_verification_method='otp_and_contractor_confirmation'
+    OR (v_secret_hash IS NOT NULL AND p_verification_proof IS NOT NULL
+        AND extensions.crypt(p_verification_proof,v_secret_hash)=v_secret_hash);
 
   IF NOT v_phone_matches OR NOT v_secret_valid THEN
     INSERT INTO public.assisted_profile_claims(
@@ -219,7 +220,8 @@ BEGIN
     ) VALUES (
       p_assisted_profile_id,v_caller,'rejected','otp_and_secret_token',
       jsonb_build_object('phone_confirmed',v_phone_confirmed_at IS NOT NULL,
-        'phone_match',v_phone_matches,'secret_valid',v_secret_valid),
+        'phone_match',v_phone_matches,'secret_valid',v_secret_valid,
+        'contractor_confirmed',p_verification_method='otp_and_contractor_confirmation'),
       'Phone verification or claim secret validation failed.'
     );
     RETURN jsonb_build_object('success',false,'message','Phone verification or claim code is incorrect.');
@@ -236,13 +238,40 @@ BEGIN
     verification_evidence,verified_at,verified_by
   ) VALUES (
     p_assisted_profile_id,v_caller,'verified_and_claimed','otp_and_secret_token',
-    jsonb_build_object('phone_confirmed',true,'phone_match',true,'secret_valid',true),
+    jsonb_build_object('phone_confirmed',true,'phone_match',true,'secret_valid',p_verification_method='otp_and_secret_token',
+      'contractor_confirmed',p_verification_method='otp_and_contractor_confirmation'),
     now(),v_caller
   ) RETURNING id INTO v_claim_id;
   DELETE FROM public.assisted_profile_claim_secrets WHERE assisted_profile_id=p_assisted_profile_id;
   RETURN jsonb_build_object('success',true,'claim_id',v_claim_id,'profile_id',p_assisted_profile_id);
 END
 $$;
+
+CREATE OR REPLACE FUNCTION public.get_claimable_assisted_profiles()
+RETURNS TABLE(id uuid,full_name text,location text,created_at timestamptz)
+LANGUAGE plpgsql STABLE SECURITY DEFINER
+SET search_path = pg_catalog,public,auth,pg_temp
+SET row_security = off
+AS $
+DECLARE v_uid uuid:=auth.uid(); v_phone text; v_confirmed timestamptz;
+BEGIN
+  IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required.' USING ERRCODE='42501'; END IF;
+  SELECT phone,phone_confirmed_at INTO v_phone,v_confirmed
+  FROM auth.users WHERE auth.users.id=v_uid;
+  IF v_confirmed IS NULL OR NULLIF(regexp_replace(COALESCE(v_phone,''),'[^0-9]','','g'),'') IS NULL THEN
+    RETURN;
+  END IF;
+  RETURN QUERY
+  SELECT p.id,p.full_name,p.location,p.created_at
+  FROM public.profiles p
+  WHERE p.is_assisted_profile IS TRUE
+    AND p.claimed_by_profile_id IS NULL
+    AND p.account_status='active'
+    AND NULLIF(regexp_replace(COALESCE(p.phone_number,''),'[^0-9]','','g'),'')
+      =NULLIF(regexp_replace(COALESCE(v_phone,''),'[^0-9]','','g'),'')
+  ORDER BY p.created_at DESC;
+END
+$;
 
 CREATE OR REPLACE FUNCTION public.admin_claim_assisted_worker_profile(
   p_assisted_profile_id uuid,
@@ -541,6 +570,8 @@ REVOKE ALL ON FUNCTION public.set_assisted_profile_claim_secret(uuid,text) FROM 
 GRANT EXECUTE ON FUNCTION public.set_assisted_profile_claim_secret(uuid,text) TO authenticated;
 REVOKE ALL ON FUNCTION public.claim_assisted_worker_profile(uuid,text,text) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.claim_assisted_worker_profile(uuid,text,text) TO authenticated;
+REVOKE ALL ON FUNCTION public.get_claimable_assisted_profiles() FROM PUBLIC,anon;
+GRANT EXECUTE ON FUNCTION public.get_claimable_assisted_profiles() TO authenticated;
 REVOKE ALL ON FUNCTION public.admin_claim_assisted_worker_profile(uuid,uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.admin_claim_assisted_worker_profile(uuid,uuid) TO authenticated;
 REVOKE ALL ON FUNCTION public.get_claimed_worker_reputation(uuid) FROM PUBLIC,anon;
