@@ -15,6 +15,26 @@ DECLARE
   v_contact jsonb;
   v_denied boolean := false;
 BEGIN
+  -- SECURITY DEFINER functions use public in their search_path. App roles
+  -- must not be able to create shadow objects in that schema.
+  IF has_schema_privilege('anon', 'public', 'CREATE')
+     OR has_schema_privilege('authenticated', 'public', 'CREATE') THEN
+    RAISE EXCEPTION 'Anonymous or authenticated users can CREATE objects in public.';
+  END IF;
+
+  -- No SECURITY DEFINER function in the exposed public schema may be
+  -- executable by anonymous callers.
+  IF EXISTS (
+    SELECT 1
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public'
+      AND p.prosecdef
+      AND has_function_privilege('anon', p.oid, 'EXECUTE')
+  ) THEN
+    RAISE EXCEPTION 'An exposed SECURITY DEFINER function is executable by anon.';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM information_schema.columns
