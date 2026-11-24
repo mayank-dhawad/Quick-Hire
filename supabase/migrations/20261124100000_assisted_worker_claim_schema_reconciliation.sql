@@ -584,7 +584,9 @@ REVOKE ALL ON FUNCTION public.protect_profile_identity_fields() FROM PUBLIC,anon
 COMMENT ON FUNCTION public.get_claimed_profile_ids(uuid) IS
   'Returns claimed assisted profile IDs only to the authenticated claimant or an administrator.';
 COMMENT ON FUNCTION public.claim_assisted_worker_profile(uuid,text,text) IS
-  'Claims an assisted worker only after Auth-confirmed phone matching and one-time secret validation.';
+  'Claims an assisted worker after Auth-confirmed phone matching and explicit contractor confirmation or one-time secret validation.';
+COMMENT ON FUNCTION public.get_claimable_assisted_profiles() IS
+  'Lists only active unclaimed assisted profiles matching the caller''s OTP-confirmed Auth phone.';
 COMMENT ON FUNCTION public.handle_auth_user_deleted() IS
   'Anonymizes deleted Auth identities while retaining job, payment, and assisted-profile history.';
 
