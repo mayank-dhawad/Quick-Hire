@@ -532,6 +532,43 @@ WITH CHECK (
   OR public.is_admin((SELECT auth.uid()))
 );
 
+-- A claimant may read the linked worker row to restore the previous profile's
+-- skills and work details. Other rows remain relationship-scoped.
+ALTER TABLE public.workers ENABLE ROW LEVEL SECURITY;
+DO $
+DECLARE p record;
+BEGIN
+  FOR p IN SELECT policyname FROM pg_policies
+    WHERE schemaname='public' AND tablename='workers' AND cmd='SELECT'
+  LOOP
+    EXECUTE format('DROP POLICY %I ON public.workers',p.policyname);
+  END LOOP;
+END
+$;
+
+CREATE POLICY workers_select_authorized
+ON public.workers FOR SELECT TO authenticated
+USING (
+  id=(SELECT auth.uid())
+  OR EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.id=workers.id AND p.is_assisted_profile IS TRUE
+      AND p.created_by=(SELECT auth.uid()) AND p.claimed_by_profile_id IS NULL
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.id=workers.id AND p.is_assisted_profile IS TRUE
+      AND p.claimed_by_profile_id=(SELECT auth.uid())
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.jobs j JOIN public.job_records jr ON jr.job_id=j.id
+    WHERE j.employer_id=(SELECT auth.uid()) AND jr.worker_id=workers.id
+  )
+  OR public.is_admin((SELECT auth.uid()))
+);
+GRANT SELECT ON public.workers TO authenticated;
+
+
 -- Preserve historical job/payment visibility for the authenticated claimant.
 DROP POLICY IF EXISTS "Job records read policy" ON public.job_records;
 CREATE POLICY "Job records read policy"
