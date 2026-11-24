@@ -186,6 +186,8 @@ export function WorkerProfileModal({
   const [isDeactivating, setIsDeactivating] = useState(false);
   const [privateDetailsLoadFailed, setPrivateDetailsLoadFailed] = useState(false);
   const [feedbackMsg, setFeedbackMsg] = useState<{ type: 'error' | 'success'; text: string } | null>(null);
+  const [assistedClaimSecret, setAssistedClaimSecret] = useState<string | null>(null);
+  const [assistedClaimSecretError, setAssistedClaimSecretError] = useState<string | null>(null);
 
   const t = useCallback((key: string): string => {
     return getTranslation(currentLang, key);
@@ -230,16 +232,9 @@ export function WorkerProfileModal({
 
       profile = pById;
 
-      // If not found by user.id, check by user's phone if available
-      if (!profile && user.phone) {
-        const cleanPhone = user.phone.trim();
-        const { data: pByPhone } = await supabase
-          .from('profiles')
-          .select(profileSelectFields)
-          .eq('phone_number', cleanPhone)
-          .maybeSingle();
-        profile = pByPhone;
-      }
+      // Self-owned profiles are keyed by the Supabase Auth user ID.
+      // Never resolve ownership by phone: assisted profiles may share a phone
+      // number and must be claimed through the verified one-time-secret flow.
 
       // Fetch private details from profile_private_details
       let hasPrivateRecord = false;
@@ -568,7 +563,7 @@ export function WorkerProfileModal({
 
       // Assisted profiles get a unique UUID so they never overwrite the intermediary!
       const isSelf = !isAssisted;
-      const targetId = isSelf ? (existingProfileData?.id || user.id) : (assistedWorkerId || crypto.randomUUID());
+      const targetId = isSelf ? (existingProfileData?.id || user.id) : (assistedWorkerId || existingProfileData?.id || crypto.randomUUID());
 
       // Asynchronous geocoding for locality coordinates
       let geoLat: number | null = geocodedCoord?.latitude ?? existingWorkerData?.latitude ?? existingProfileData?.latitude ?? null;
@@ -754,9 +749,34 @@ export function WorkerProfileModal({
         throw workerErr;
       }
 
+      // Give the worker a one-time secret to claim this assisted profile later.
+      // The database stores only a password hash; this raw code is shown once.
+      if (isAssisted && (!hasExistingProfile || assistedClaimSecretError)) {
+        setAssistedClaimSecret(null);
+        try {
+          const alphabet = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+          const bytes = crypto.getRandomValues(new Uint8Array(24));
+          const claimSecret = Array.from(bytes, (byte) => alphabet[byte % alphabet.length]).join('');
+          const { data: claimResultData, error: claimSecretError } = await supabase.rpc(
+            'set_assisted_profile_claim_secret',
+            { p_assisted_profile_id: targetId, p_secret: claimSecret }
+          );
+          const claimResult = claimResultData as { success?: boolean } | null;
+          if (claimSecretError || !claimResult?.success) {
+            throw claimSecretError || new Error('The claim code could not be saved.');
+          }
+          setAssistedClaimSecret(claimSecret);
+          setAssistedClaimSecretError(null);
+        } catch (claimSecretError) {
+          console.warn('Assisted profile claim code setup failed:', claimSecretError);
+          setAssistedClaimSecretError('The profile was saved, but its one-time claim code could not be created. Save again to retry or ask an administrator for help.');
+        }
+      }
+
       // Update local state and return to Read-Only mode
       setExistingProfileData(fullProfilePayload);
       setExistingWorkerData(fullWorkerPayload);
+      if (isAssisted) setAssistedWorkerId(targetId);
       setHasExistingProfile(true);
       setIsEditing(false); // Return to read-only profile view after successful save!
 
@@ -902,6 +922,37 @@ export function WorkerProfileModal({
                 <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
               )}
               <span>{feedbackMsg.text}</span>
+            </div>
+          )}
+
+          {assistedClaimSecret && (
+            <div className="mb-4 rounded-xl border border-emerald-200 bg-emerald-50 p-4 space-y-2">
+              <p className="text-sm font-bold text-emerald-900">One-time worker claim code</p>
+              <p className="text-xs text-emerald-800">
+                Share this code privately with the worker. Their phone must be OTP-verified and match this profile. This code is shown only once.
+              </p>
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <code className="flex-1 rounded-lg bg-white border border-emerald-200 px-3 py-2 text-sm font-bold tracking-wider break-all text-slate-900">{assistedClaimSecret}</code>
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(assistedClaimSecret);
+                      setFeedbackMsg({ type: 'success', text: 'One-time claim code copied. Share it privately with the worker.' });
+                    } catch {
+                      setFeedbackMsg({ type: 'error', text: 'Copy was unavailable. Select the code and copy it manually.' });
+                    }
+                  }}
+                  className="shrink-0 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white px-3 py-2 text-xs font-bold"
+                >
+                  Copy claim code
+                </button>
+              </div>
+            </div>
+          )}
+          {assistedClaimSecretError && (
+            <div role="alert" className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+              {assistedClaimSecretError}
             </div>
           )}
 
