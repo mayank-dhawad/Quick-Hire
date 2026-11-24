@@ -774,11 +774,27 @@ export default function App() {
         }
       }
 
-      // Restore applied jobs from database so interest remains persistent across logins & reloads
+      // Restore applications from the current account and any assisted profiles
+      // securely claimed by this same verified worker account.
+      let workerProfileIds = [activeUser.id];
+      try {
+        const { data: claimedRows, error: claimLookupError } = await supabase.rpc(
+          'get_claimed_profile_ids',
+          { p_user_id: activeUser.id }
+        );
+        if (claimLookupError) throw claimLookupError;
+        workerProfileIds = Array.from(new Set([
+          activeUser.id,
+          ...((claimedRows || []) as { id: string }[]).map((row) => row.id),
+        ]));
+      } catch (claimLookupError) {
+        console.warn('Claimed application history lookup unavailable; loading current account only:', claimLookupError);
+      }
+
       const { data: appliedRecords } = await supabase
         .from('job_records')
         .select('job_id')
-        .eq('worker_id', activeUser.id);
+        .in('worker_id', workerProfileIds);
       if (appliedRecords && appliedRecords.length > 0) {
         setAppliedJobIds(new Set(appliedRecords.map((r) => r.job_id)));
       } else {
