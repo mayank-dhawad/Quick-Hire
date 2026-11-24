@@ -88,6 +88,9 @@ jobs:
       - name: Verify review, notification and internal contact RLS
         run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/10_reviews_notifications_rls_regression.sql
 
+      - name: Verify sensitive profile columns are not directly readable
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/11_profile_column_privilege_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: |
