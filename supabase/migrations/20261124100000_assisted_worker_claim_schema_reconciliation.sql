@@ -393,13 +393,26 @@ BEGIN
     availability_status='unavailable',experience_description=NULL,preferred_work_location=NULL
     WHERE id=OLD.id;
   UPDATE public.profiles SET
-    full_name='Deactivated User',phone_number=NULL,email=NULL,phone=NULL,gender=NULL,
+    full_name='Deactivated User',phone_number=NULL,email=NULL,gender=NULL,
     address_line=NULL,date_of_birth=NULL,village=NULL,city=NULL,district=NULL,state=NULL,pincode=NULL,
     location=NULL,latitude=NULL,longitude=NULL,geocoded_address=NULL,
     experience_description=NULL,preferred_work_location=NULL,availability_status='unavailable',
     bank_name=NULL,bank_account_no=NULL,bank_ifsc=NULL,upi_id=NULL,
     account_status='deactivated',updated_at=now()
   WHERE id=OLD.id;
+
+  -- Older production schemas may still contain the legacy `phone` column;
+  -- the clean migration schema does not. Clear it conditionally without
+  -- making the trigger depend on that legacy column existing.
+  IF EXISTS (
+    SELECT 1
+    FROM pg_catalog.pg_attribute
+    WHERE attrelid = 'public.profiles'::regclass
+      AND attname = 'phone'
+      AND NOT attisdropped
+  ) THEN
+    EXECUTE 'UPDATE public.profiles SET phone = NULL WHERE id = $1' USING OLD.id;
+  END IF;
   UPDATE public.profiles SET created_by=NULL WHERE created_by=OLD.id;
   UPDATE public.profiles SET claimed_by_profile_id=NULL,updated_at=now()
     WHERE claimed_by_profile_id=OLD.id;
