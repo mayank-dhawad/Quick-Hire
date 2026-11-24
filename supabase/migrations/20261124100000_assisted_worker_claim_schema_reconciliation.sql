@@ -414,7 +414,7 @@ SELECT
 FROM public.workers w
 JOIN public.profiles p ON p.id=w.id
 WHERE w.is_available IS TRUE
-  AND p.role='worker'::public.user_role
+  AND p.role::text='worker'
   AND (p.account_status IS NULL OR p.account_status='active');
 
 REVOKE ALL ON TABLE public.public_profile_directory,public.public_worker_directory FROM PUBLIC,anon;
