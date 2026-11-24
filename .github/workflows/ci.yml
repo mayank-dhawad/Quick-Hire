@@ -8,6 +8,7 @@ on:
       - main
       - "production-hotfix/**"
       - "fix/quickhire-live-hardening-final"
+      - "integration/quickhire-production-ready"
 
 permissions:
   contents: read
@@ -28,6 +29,8 @@ jobs:
           node-version: 22
           cache: npm
       - run: npm ci
+      - name: Audit production dependencies
+        run: npm audit --omit=dev
       - run: npm run typecheck
       - run: npm run lint
       - run: npm test -- --reporter=dot
