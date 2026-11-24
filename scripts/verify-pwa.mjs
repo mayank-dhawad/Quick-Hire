@@ -53,7 +53,7 @@ assert.match(sw, /SKIP_WAITING/);
 assert.match(sw, /\/offline\.html/);
 
 const offline = text('public/offline.html').toLowerCase();
-assert.match(offline, /requires an active internet connection/);
+assert.match(offline, /require an active internet connection/);
 assert.doesNotMatch(offline, /saved forms are held safely on your device/);
 
 const installBanner = text('src/components/PwaInstallBanner.tsx').toLowerCase();
