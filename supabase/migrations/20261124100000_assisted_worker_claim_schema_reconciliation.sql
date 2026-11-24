@@ -177,10 +177,13 @@ BEGIN
 
   SELECT u.phone,u.phone_confirmed_at INTO v_auth_phone,v_phone_confirmed_at
   FROM auth.users u WHERE u.id=v_caller;
-  v_phone_matches:=v_phone_confirmed_at IS NOT NULL
+  v_phone_matches:=COALESCE(
+    v_phone_confirmed_at IS NOT NULL
     AND NULLIF(regexp_replace(COALESCE(v_auth_phone,''),'[^0-9]','','g'),'') IS NOT NULL
     AND NULLIF(regexp_replace(COALESCE(v_auth_phone,''),'[^0-9]','','g'),'')
-      =NULLIF(regexp_replace(COALESCE(v_assisted.phone_number,''),'[^0-9]','','g'),'');
+      =NULLIF(regexp_replace(COALESCE(v_assisted.phone_number,''),'[^0-9]','','g'),''),
+    false
+  );
   SELECT s.secret_hash INTO v_secret_hash
   FROM public.assisted_profile_claim_secrets s
   WHERE s.assisted_profile_id=p_assisted_profile_id FOR UPDATE;
