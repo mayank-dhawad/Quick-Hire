@@ -96,6 +96,24 @@ AS $$
   END
 $$;
 
+CREATE OR REPLACE FUNCTION public.normalize_quickhire_phone(p_phone text)
+RETURNS text
+LANGUAGE plpgsql IMMUTABLE
+SET search_path = pg_catalog,pg_temp
+AS $normalize$
+DECLARE v_digits text:=NULLIF(regexp_replace(COALESCE(p_phone,''),'[^0-9]','','g'),'');
+BEGIN
+  IF v_digits IS NULL THEN RETURN NULL; END IF;
+  -- QuickHire's Indian phone inputs may be stored as +91XXXXXXXXXX or XXXXXXXXXX.
+  IF length(v_digits)=12 AND left(v_digits,2)='91' THEN
+    RETURN right(v_digits,10);
+  ELSIF length(v_digits)=11 AND left(v_digits,1)='0' THEN
+    RETURN right(v_digits,10);
+  END IF;
+  RETURN v_digits;
+END
+$normalize$;
+
 CREATE OR REPLACE FUNCTION public.get_claimed_profile_ids(p_user_id uuid)
 RETURNS TABLE(id uuid)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
@@ -201,9 +219,9 @@ BEGIN
   FROM auth.users u WHERE u.id=v_caller;
   v_phone_matches:=COALESCE(
     v_phone_confirmed_at IS NOT NULL
-    AND NULLIF(regexp_replace(COALESCE(v_auth_phone,''),'[^0-9]','','g'),'') IS NOT NULL
-    AND NULLIF(regexp_replace(COALESCE(v_auth_phone,''),'[^0-9]','','g'),'')
-      =NULLIF(regexp_replace(COALESCE(v_assisted.phone_number,''),'[^0-9]','','g'),''),
+    AND public.normalize_quickhire_phone(v_auth_phone) IS NOT NULL
+    AND public.normalize_quickhire_phone(v_auth_phone)
+      =public.normalize_quickhire_phone(v_assisted.phone_number),
     false
   );
   SELECT s.secret_hash INTO v_secret_hash
@@ -268,8 +286,8 @@ BEGIN
     AND p.role::text='worker'
     AND p.claimed_by_profile_id IS NULL
     AND p.account_status='active'
-    AND NULLIF(regexp_replace(COALESCE(p.phone_number,''),'[^0-9]','','g'),'')
-      =NULLIF(regexp_replace(COALESCE(v_phone,''),'[^0-9]','','g'),'')
+    AND public.normalize_quickhire_phone(p.phone_number)
+      =public.normalize_quickhire_phone(v_phone)
   ORDER BY p.created_at DESC;
 END
 $;
@@ -305,8 +323,9 @@ BEGIN
     RAISE EXCEPTION 'Eligible unclaimed assisted profile and active worker are required.' USING ERRCODE='P0002';
   END IF;
   SELECT phone,phone_confirmed_at INTO v_phone,v_confirmed FROM auth.users WHERE id=p_worker_profile_id;
-  IF v_confirmed IS NULL OR NULLIF(regexp_replace(COALESCE(v_phone,''),'[^0-9]','','g'),'')
-     IS DISTINCT FROM NULLIF(regexp_replace(COALESCE(v_assisted.phone_number,''),'[^0-9]','','g'),'') THEN
+  IF v_confirmed IS NULL OR public.normalize_quickhire_phone(v_phone) IS NULL
+     OR public.normalize_quickhire_phone(v_phone)
+       IS DISTINCT FROM public.normalize_quickhire_phone(v_assisted.phone_number) THEN
     RAISE EXCEPTION 'The target worker must have a verified matching phone number.' USING ERRCODE='42501';
   END IF;
   PERFORM set_config('quickhire.claim_rpc','on',true);
@@ -602,6 +621,7 @@ REVOKE ALL ON TABLE public.assisted_profile_claims FROM PUBLIC,anon,authenticate
 GRANT SELECT ON TABLE public.assisted_profile_claims TO authenticated;
 GRANT ALL ON TABLE public.assisted_profile_claim_secrets,public.assisted_profile_claims TO service_role;
 
+REVOKE ALL ON FUNCTION public.normalize_quickhire_phone(text) FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON FUNCTION public.get_claimed_profile_ids(uuid) FROM PUBLIC,anon;
 GRANT EXECUTE ON FUNCTION public.get_claimed_profile_ids(uuid) TO authenticated;
 REVOKE ALL ON FUNCTION public.set_assisted_profile_claim_secret(uuid,text) FROM PUBLIC,anon;
