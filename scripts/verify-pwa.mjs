@@ -1,8 +1,9 @@
 import assert from 'node:assert/strict';
 import { existsSync, readFileSync } from 'node:fs';
-import { resolve } from 'node:path';
+import { dirname, resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
-const root = process.cwd();
+const root = resolve(dirname(fileURLToPath(import.meta.url)), '..');
 const read = (path) => {
   const fullPath = resolve(root, path);
   assert.ok(existsSync(fullPath), `Missing PWA file: ${path}`);
