@@ -14,6 +14,21 @@ DECLARE
   v_contact jsonb;
   v_denied boolean := false;
 BEGIN
+  IF EXISTS (
+    SELECT 1
+    FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name IN ('public_worker_directory', 'public_profile_directory')
+      AND column_name IN ('phone_number', 'phone')
+  ) THEN
+    RAISE EXCEPTION 'Public discovery views must not expose direct phone columns.';
+  END IF;
+
+  IF NOT has_table_privilege('authenticated', 'public.public_worker_directory', 'SELECT')
+     OR has_table_privilege('anon', 'public.public_worker_directory', 'SELECT') THEN
+    RAISE EXCEPTION 'Worker discovery must remain available to signed-in users only.';
+  END IF;
+
   -- Create a disposable real employer-to-worker relationship as service_role.
   PERFORM set_config('role', 'service_role', true);
   PERFORM set_config('request.jwt.claim.role', 'service_role', true);
