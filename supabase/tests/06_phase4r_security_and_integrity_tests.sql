@@ -869,9 +869,9 @@ BEGIN
 
         -- Insert dependent worker record
         INSERT INTO public.workers (
-            id, category, skills, daily_wage
+            id, category, skills
         ) VALUES (
-            v_temp_user_id, 'Agriculture', ARRAY['Harvesting'], 350
+            v_temp_user_id, 'Agriculture', ARRAY['Harvesting']
         );
 
         -- Insert dependent private details
