@@ -291,6 +291,7 @@ export function DashboardTab({
   }[]>([]);
   const [claimingProfileId, setClaimingProfileId] = useState<string | null>(null);
   const [claimProfileError, setClaimProfileError] = useState<string | null>(null);
+  const [claimSecrets, setClaimSecrets] = useState<Record<string, string>>({});
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceiptData | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
@@ -673,19 +674,25 @@ export function DashboardTab({
 
   const handleClaimAssistedProfile = async (profileId: string) => {
     if (!user || claimingProfileId) return;
+    const claimSecret = (claimSecrets[profileId] || '').trim();
+    if (!claimSecret) {
+      setClaimProfileError('Enter the one-time claim code shared by the person who created this profile.');
+      return;
+    }
     setClaimingProfileId(profileId);
     setClaimProfileError(null);
     try {
       const { data, error } = await supabase.rpc('claim_assisted_worker_profile', {
         p_assisted_profile_id: profileId,
-        p_verification_method: 'otp_and_contractor_confirmation',
-        p_verification_proof: null,
+        p_verification_method: 'otp_and_secret_token',
+        p_verification_proof: claimSecret,
       });
       if (error) throw error;
       const result = data as { success?: boolean; message?: string } | null;
       if (!result?.success) {
         throw new Error(result?.message || 'This profile could not be linked to your account.');
       }
+      setClaimSecrets((current) => ({ ...current, [profileId]: '' }));
       setClaimableProfiles((current) => current.filter((profile) => profile.id !== profileId));
       await fetchWorkerHistory();
     } catch (err: unknown) {
@@ -1078,7 +1085,7 @@ export function DashboardTab({
                   Is this your previous worker profile?
                 </h3>
                 <p className="text-xs text-emerald-900/80 mt-1">
-                  We found an unclaimed profile with your OTP-verified phone number. Confirm the profile is yours to bring its earlier jobs and wage history into this account.
+                  We found an unclaimed profile matching your OTP-verified phone number. Enter the one-time claim code given to you by the person who created it to securely recover its earlier jobs and wage history.
                 </p>
               </div>
               {claimableProfiles.map((profile) => (
@@ -1090,14 +1097,25 @@ export function DashboardTab({
                       Created {new Date(profile.created_at).toLocaleDateString()}
                     </p>
                   </div>
-                  <button
-                    type="button"
-                    disabled={claimingProfileId !== null}
-                    onClick={() => handleClaimAssistedProfile(profile.id)}
-                    className="shrink-0 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold transition-colors"
-                  >
-                    {claimingProfileId === profile.id ? 'Linking…' : 'Yes, link my profile'}
-                  </button>
+                  <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:shrink-0">
+                    <input
+                      type="password"
+                      autoComplete="one-time-code"
+                      value={claimSecrets[profile.id] || ''}
+                      onChange={(event) => setClaimSecrets((current) => ({ ...current, [profile.id]: event.target.value }))}
+                      placeholder="One-time claim code"
+                      aria-label={`One-time claim code for ${profile.full_name || 'previous worker profile'}`}
+                      className="w-full sm:w-56 rounded-lg border border-slate-200 px-3 py-2.5 text-xs text-slate-900 outline-none focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100"
+                    />
+                    <button
+                      type="button"
+                      disabled={claimingProfileId !== null || !(claimSecrets[profile.id] || '').trim()}
+                      onClick={() => handleClaimAssistedProfile(profile.id)}
+                      className="shrink-0 px-4 py-2.5 rounded-xl bg-emerald-700 hover:bg-emerald-800 disabled:opacity-50 text-white text-xs font-bold transition-colors"
+                    >
+                      {claimingProfileId === profile.id ? 'Linking…' : 'Link my profile'}
+                    </button>
+                  </div>
                 </div>
               ))}
               {claimProfileError && (
