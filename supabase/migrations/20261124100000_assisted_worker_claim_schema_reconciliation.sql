@@ -3,6 +3,10 @@
 -- 20261108110000 migration was not recorded as applied.
 BEGIN;
 
+-- Client roles must not be able to create objects in the exposed public schema.
+-- This protects public-schema SECURITY DEFINER functions from object shadowing.
+REVOKE CREATE ON SCHEMA public FROM PUBLIC, anon, authenticated;
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 
 ALTER TABLE public.profiles
