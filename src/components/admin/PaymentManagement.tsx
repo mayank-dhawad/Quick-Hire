@@ -96,10 +96,10 @@ export function PaymentManagement() {
         const records = (data || []) as unknown as Array<{ payee_id?: string }>;
         const payeeIds = [...new Set(records.map((p) => p.payee_id).filter(Boolean))];
         if (payeeIds.length > 0) {
-          const { data: privData } = await supabase
-            .from('profile_private_details')
-            .select('profile_id, upi_id')
-            .in('profile_id', payeeIds as string[]);
+          const { data: privData, error: privateErr } = await supabase.rpc('get_admin_payment_upi', {
+            p_profile_ids: payeeIds as string[],
+          });
+          if (privateErr) throw privateErr;
           if (privData) {
             privData.forEach((row) => {
               privateMap[row.profile_id] = row.upi_id;
