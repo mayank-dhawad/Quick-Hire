@@ -11,6 +11,7 @@ DECLARE
   v_admin uuid := '99999999-9999-9999-9999-999999999999';
   v_job_id uuid := gen_random_uuid();
   v_phone text;
+  v_count integer;
   v_contact jsonb;
   v_denied boolean := false;
 BEGIN
@@ -53,6 +54,14 @@ BEGIN
   SELECT phone_number INTO v_phone FROM public.profiles WHERE id = v_worker;
   IF FOUND THEN
     RAISE EXCEPTION 'Unrelated authenticated user read another worker phone number.';
+  END IF;
+
+  -- Public worker discovery remains available without exposing contact fields.
+  SELECT count(*) INTO v_count
+  FROM public.public_worker_directory
+  WHERE id = v_worker;
+  IF v_count <> 1 THEN
+    RAISE EXCEPTION 'Authenticated worker discovery no longer returns the public worker directory row.';
   END IF;
 
   -- The same unrelated user cannot use the contact RPC to bypass the policy.
