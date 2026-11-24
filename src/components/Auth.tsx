@@ -143,30 +143,8 @@ export function Auth({
         localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
         localStorage.setItem('quickhire_user_role', 'admin');
 
-        // Safe idempotent profile synchronization for administrator
-        try {
-          const { data: existingProf } = await supabase
-            .from('profiles')
-            .select('id, role')
-            .eq('id', authUser.id)
-            .maybeSingle();
-
-          if (!existingProf || existingProf.role !== 'admin') {
-            await supabase.from('profiles').upsert({
-              id: authUser.id,
-              role: 'admin',
-              full_name: authUser.user_metadata?.full_name || 'Platform Administrator',
-              email: authUser.email || null,
-              phone_number: authUser.phone || adminCheck.verifiedPhone || null,
-              account_status: 'active',
-            }, { onConflict: 'id' });
-          }
-
-          // Deactivate accidental worker availability if a worker record existed
-          await supabase.from('workers').update({ is_available: false }).eq('id', authUser.id);
-        } catch {
-          // Non-blocking
-        }
+        // Admin access is granted only by the server-verified admin_users/is_admin
+        // checks above. Never create or promote an admin profile from browser code.
 
         setLoading(false);
         if (onLoginSuccess) {
@@ -183,11 +161,12 @@ export function Auth({
       // 2. Normal citizen / worker / employer handling
       let existingProfile: { id: string; role: string; account_status?: string | null; full_name?: string | null } | null = null;
       try {
-        const { data } = await supabase
+        const { data, error: profileLookupError } = await supabase
           .from('profiles')
           .select('id, role, account_status, full_name')
           .eq('id', authUser.id)
-          .single();
+          .maybeSingle();
+        if (profileLookupError) throw profileLookupError;
         existingProfile = data;
 
         const normalizedPhone = authUser.phone || (phone ? `${countryCode}${phone.replace(/\D/g, '')}` : null);
@@ -215,34 +194,49 @@ export function Auth({
             if (rpcErr) {
               console.warn('register_as_employer RPC unavailable, falling back:', rpcErr);
               const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload);
-              if (insErr && (insErr.code === '42703' || String(insErr.message).includes('column'))) {
-                delete newProfilePayload.email;
-                await supabase.from('profiles').insert(newProfilePayload);
+              if (insErr) {
+                if (insErr.code === '42703' && 'email' in newProfilePayload) {
+                  delete newProfilePayload.email;
+                  const { error: retryError } = await supabase.from('profiles').insert(newProfilePayload);
+                  if (retryError) throw retryError;
+                } else {
+                  throw insErr;
+                }
               }
             } else {
-              // Update additional profile fields
+              // Update additional profile fields after the server-authorized role registration.
               const metaUpdate: Record<string, unknown> = {};
               if (userDisplayName) metaUpdate.full_name = userDisplayName;
               if (normalizedPhone) metaUpdate.phone_number = normalizedPhone;
               if (profileEmail) metaUpdate.email = profileEmail;
               if (Object.keys(metaUpdate).length > 0) {
-                await supabase.from('profiles').update(metaUpdate).eq('id', authUser.id);
+                const { error: metaUpdateError } = await supabase
+                  .from('profiles')
+                  .update(metaUpdate)
+                  .eq('id', authUser.id);
+                if (metaUpdateError) throw metaUpdateError;
               }
             }
           } else {
             // Worker registration
             const { error: insErr } = await supabase.from('profiles').insert(newProfilePayload);
-            if (insErr && (insErr.code === '42703' || String(insErr.message).includes('column'))) {
-              delete newProfilePayload.email;
-              await supabase.from('profiles').insert(newProfilePayload);
+            if (insErr) {
+              if (insErr.code === '42703' && 'email' in newProfilePayload) {
+                delete newProfilePayload.email;
+                const { error: retryError } = await supabase.from('profiles').insert(newProfilePayload);
+                if (retryError) throw retryError;
+              } else {
+                throw insErr;
+              }
             }
 
-            await supabase.from('workers').insert({
+            const { error: workerInsertError } = await supabase.from('workers').insert({
               id: authUser.id,
               category: 'Daily work',
               skills: [] as string[],
               is_available: true,
             });
+            if (workerInsertError && workerInsertError.code !== '23505') throw workerInsertError;
           }
 
           localStorage.setItem('quickhire_user_session', JSON.stringify(authUser));
@@ -265,29 +259,36 @@ export function Auth({
               .update(updatePayload)
               .eq('id', authUser.id);
 
-            if (updErr && (updErr.code === '42703' || String(updErr.message).includes('column'))) {
-              delete updatePayload.email;
-              await supabase
-                .from('profiles')
-                .update(updatePayload)
-                .eq('id', authUser.id);
+            if (updErr) {
+              if (updErr.code === '42703' && 'email' in updatePayload) {
+                delete updatePayload.email;
+                const { error: retryError } = await supabase
+                  .from('profiles')
+                  .update(updatePayload)
+                  .eq('id', authUser.id);
+                if (retryError) throw retryError;
+              } else {
+                throw updErr;
+              }
             }
           }
 
           if (existingProfile.role === 'worker') {
-            const { data: existingWorker } = await supabase
+            const { data: existingWorker, error: workerLookupError } = await supabase
               .from('workers')
               .select('id')
               .eq('id', authUser.id)
-              .single();
+              .maybeSingle();
 
+            if (workerLookupError) throw workerLookupError;
             if (!existingWorker) {
-              await supabase.from('workers').insert({
+              const { error: workerInsertError } = await supabase.from('workers').insert({
                 id: authUser.id,
                 category: 'Daily work',
                 skills: [] as string[],
                 is_available: true,
               });
+              if (workerInsertError && workerInsertError.code !== '23505') throw workerInsertError;
             }
           }
 
@@ -296,7 +297,8 @@ export function Auth({
           localStorage.setItem('quickhire_user_role', effectiveSavedRole);
         }
       } catch (dbErr) {
-        console.warn('Database profile sync notice:', dbErr);
+        console.warn('Database profile sync failed:', dbErr);
+        throw dbErr;
       }
 
       setLoading(false);
@@ -330,13 +332,15 @@ export function Auth({
       }
     } catch (err: unknown) {
       setLoading(false);
-      console.warn('Auth handler error, proceeding with session:', err);
-      if (onLoginSuccess) {
-        onLoginSuccess(authUser, selectedRole);
+      console.error('Authentication succeeded but QuickHire profile setup failed:', err);
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.warn('Could not clear the partially established auth session:', signOutError);
       }
-      if (onClose) {
-        onClose();
-      }
+      localStorage.removeItem('quickhire_user_session');
+      localStorage.removeItem('quickhire_user_role');
+      setAuthError('Your sign-in was verified, but QuickHire could not finish setting up your profile. Please try again. If this continues, contact support.');
     }
   };
 
