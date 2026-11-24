@@ -48,6 +48,9 @@ jobs:
       - name: Verify SEO metadata, robots and sitemap
         run: node scripts/verify-seo.mjs
 
+      - name: Verify authentication session security
+        run: node scripts/verify-auth-security.mjs
+
   supabase-migrations-and-integrity:
     name: Supabase migrations and database integrity tests
     runs-on: ubuntu-latest
