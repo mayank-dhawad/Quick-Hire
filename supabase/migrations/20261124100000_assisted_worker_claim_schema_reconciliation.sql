@@ -270,7 +270,7 @@ RETURNS TABLE(id uuid,full_name text,location text,created_at timestamptz)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog,public,auth,pg_temp
 SET row_security = off
-AS $
+AS $$$$
 DECLARE v_uid uuid:=auth.uid(); v_phone text; v_confirmed timestamptz;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required.' USING ERRCODE='42501'; END IF;
@@ -290,7 +290,7 @@ BEGIN
       =public.normalize_quickhire_phone(v_phone)
   ORDER BY p.created_at DESC;
 END
-$;
+$$$$;
 
 CREATE OR REPLACE FUNCTION public.admin_claim_assisted_worker_profile(
   p_assisted_profile_id uuid,
