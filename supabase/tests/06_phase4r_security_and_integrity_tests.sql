@@ -493,6 +493,10 @@ BEGIN
     IF v_row_count <> 1 THEN
       RAISE EXCEPTION 'TEST 7C FAILED: Claimant cannot read the linked worker details.';
     END IF;
+    SELECT count(*) INTO v_row_count FROM public.profiles WHERE id=v_assisted_worker_id_2;
+    IF v_row_count <> 1 THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Claimant cannot read the linked profile details.';
+    END IF;
 
     RAISE NOTICE 'TEST 7C PASSED: OTP-verified worker discovered, explicitly confirmed, claimed and read the previous worker profile.';
 
