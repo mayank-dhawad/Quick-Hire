@@ -743,13 +743,22 @@ export default function App() {
       } else {
         clearAdminSession();
 
-        const { data: profile } = await supabase
+        const { data: profile, error: profileLookupError } = await supabase
           .from('profiles')
           .select('id, role, account_status')
           .eq('id', activeUser.id)
           .maybeSingle();
 
-        if (profile?.account_status === 'suspended') {
+        if (profileLookupError) throw profileLookupError;
+        if (!profile) {
+          // An Auth session without its matching QuickHire profile is not a
+          // complete application identity. Do not guess a default worker role.
+          await supabase.auth.signOut();
+          showToast('We could not load your QuickHire profile. Please sign in again.', 'error');
+          return;
+        }
+
+        if (profile.account_status === 'suspended') {
           // A suspended account must not retain an active client session.
           // The Auth listener clears user-scoped state after sign-out.
           await supabase.auth.signOut();
