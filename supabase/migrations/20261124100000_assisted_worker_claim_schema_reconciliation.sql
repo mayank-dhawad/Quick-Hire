@@ -564,55 +564,28 @@ BEGIN
 END
 $$;
 
--- Use a narrow SECURITY DEFINER predicate so worker-row authorization can
--- inspect profile relationships without granting authenticated users direct
--- SELECT access to otherwise restricted profile columns.
-CREATE OR REPLACE FUNCTION public.can_read_worker_profile_record(p_worker_id uuid)
-RETURNS boolean
-LANGUAGE sql
-STABLE
-SECURITY DEFINER
-SET search_path = pg_catalog, public, auth, pg_temp
-SET row_security = off
-AS $function$
-  SELECT auth.uid() IS NOT NULL AND (
-    p_worker_id = auth.uid()
-    OR EXISTS (
-      SELECT 1
-      FROM public.profiles AS profile
-      WHERE profile.id = p_worker_id
-        AND profile.is_assisted_profile IS TRUE
-        AND profile.created_by = auth.uid()
-        AND profile.claimed_by_profile_id IS NULL
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM public.profiles AS profile
-      WHERE profile.id = p_worker_id
-        AND profile.is_assisted_profile IS TRUE
-        AND profile.claimed_by_profile_id = auth.uid()
-    )
-    OR EXISTS (
-      SELECT 1
-      FROM public.jobs AS job
-      JOIN public.job_records AS record ON record.job_id = job.id
-      WHERE job.employer_id = auth.uid()
-        AND record.worker_id = p_worker_id
-    )
-    OR public.is_admin(auth.uid())
-  )
-$function$;
-
-REVOKE ALL ON FUNCTION public.can_read_worker_profile_record(uuid) FROM PUBLIC, anon;
-GRANT EXECUTE ON FUNCTION public.can_read_worker_profile_record(uuid) TO authenticated;
-
+-- Relationship checks remain under the existing profiles RLS policy.
 CREATE POLICY workers_select_authorized
 ON public.workers FOR SELECT TO authenticated
-USING (public.can_read_worker_profile_record(id));
-GRANT SELECT ON public.workers TO authenticated;
-
-COMMENT ON FUNCTION public.can_read_worker_profile_record(uuid) IS
-  'Narrow worker-row authorization predicate; checks relationships without exposing private profile columns.';
+USING (
+  id=(SELECT auth.uid())
+  OR EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.id=workers.id AND p.is_assisted_profile IS TRUE
+      AND p.created_by=(SELECT auth.uid()) AND p.claimed_by_profile_id IS NULL
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.id=workers.id AND p.is_assisted_profile IS TRUE
+      AND p.claimed_by_profile_id=(SELECT auth.uid())
+  )
+  OR EXISTS (
+    SELECT 1 FROM public.jobs j JOIN public.job_records jr ON jr.job_id=j.id
+    WHERE j.employer_id=(SELECT auth.uid()) AND jr.worker_id=workers.id
+  )
+  OR public.is_admin((SELECT auth.uid()))
+);
+GRANT SELECT ON public.workers TO authenticated; checks relationships without exposing private profile columns.';
 
 
 -- Preserve historical job/payment visibility for the authenticated claimant.
@@ -641,7 +614,8 @@ CREATE POLICY claims_read_policy
 ON public.assisted_profile_claims FOR SELECT TO authenticated
 USING (claimed_by_profile_id=(SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())));
 
-GRANT SELECT (experience_description,preferred_work_location,availability_status) ON public.profiles TO authenticated;
+-- Relationship columns are exposed only for rows permitted by profiles_select_authorized.
+GRANT SELECT (id,is_assisted_profile,created_by,claimed_by_profile_id,experience_description,preferred_work_location,availability_status) ON public.profiles TO authenticated;
 REVOKE ALL ON TABLE public.assisted_profile_claim_secrets FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON TABLE public.assisted_profile_claims FROM PUBLIC,anon,authenticated;
 GRANT SELECT ON TABLE public.assisted_profile_claims TO authenticated;
