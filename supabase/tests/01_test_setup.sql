@@ -28,15 +28,17 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 -- 3. Populate auth.users
 INSERT INTO auth.users (
   id, instance_id, aud, role, email, encrypted_password, email_confirmed_at,
-  raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  phone, phone_confirmed_at, raw_app_meta_data, raw_user_meta_data, created_at, updated_at
 ) VALUES
-  ('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'employer.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Ramesh Sharma"}'::jsonb, now(), now()),
-  ('22222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'worker1.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Suresh Kumar"}'::jsonb, now(), now()),
-  ('33333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'worker2.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Amit Patel"}'::jsonb, now(), now()),
-  ('66666666-6666-6666-6666-666666666666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'attacker.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Malicious User"}'::jsonb, now(), now()),
-  ('99999999-9999-9999-9999-999999999999', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Platform Administrator"}'::jsonb, now(), now())
+  ('11111111-1111-1111-1111-111111111111', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'employer.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '+919876543210', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Ramesh Sharma"}'::jsonb, now(), now()),
+  ('22222222-2222-2222-2222-222222222222', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'worker1.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '+919876543211', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Suresh Kumar"}'::jsonb, now(), now()),
+  ('33333333-3333-3333-3333-333333333333', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'worker2.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '+919876543212', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Amit Patel"}'::jsonb, now(), now()),
+  ('66666666-6666-6666-6666-666666666666', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'attacker.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '+919876543216', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Malicious User"}'::jsonb, now(), now()),
+  ('99999999-9999-9999-9999-999999999999', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'admin.test@quickhire.in', crypt('Password123!', gen_salt('bf')), now(), '+919876543219', now(), '{"provider":"email","providers":["email"]}'::jsonb, '{"full_name":"Platform Administrator"}'::jsonb, now(), now())
 ON CONFLICT (id) DO UPDATE SET
   email = EXCLUDED.email,
+  phone = EXCLUDED.phone,
+  phone_confirmed_at = EXCLUDED.phone_confirmed_at,
   updated_at = now();
 
 -- 4. Ensure admin user exists in admin_users table (for dual-auth public.is_admin())
