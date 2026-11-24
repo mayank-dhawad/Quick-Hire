@@ -38,6 +38,16 @@ BEGIN
     RAISE EXCEPTION 'Exposed SECURITY DEFINER functions executable by anon: %', v_anon_definer_functions;
   END IF;
 
+  -- Trigger-only SECURITY DEFINER functions must not be exposed as client RPCs.
+  IF has_function_privilege('anon', 'public.auto_confirm_quickhire_local_users()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.auto_confirm_quickhire_local_users()', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.check_single_admin_constraint()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.check_single_admin_constraint()', 'EXECUTE')
+     OR has_function_privilege('anon', 'public.protect_profile_admin_role()', 'EXECUTE')
+     OR has_function_privilege('authenticated', 'public.protect_profile_admin_role()', 'EXECUTE') THEN
+    RAISE EXCEPTION 'A trigger-only SECURITY DEFINER function is executable by a client role.';
+  END IF;
+
   IF EXISTS (
     SELECT 1
     FROM information_schema.columns
