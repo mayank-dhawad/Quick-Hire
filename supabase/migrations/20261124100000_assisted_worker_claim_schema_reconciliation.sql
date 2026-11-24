@@ -187,7 +187,7 @@ DECLARE
   v_claim_id uuid;
 BEGIN
   IF v_caller IS NULL THEN RAISE EXCEPTION 'Authentication required.' USING ERRCODE='42501'; END IF;
-  IF p_verification_method IS NULL OR p_verification_method NOT IN ('otp_and_secret_token','otp_and_contractor_confirmation') THEN
+  IF p_verification_method IS DISTINCT FROM 'otp_and_secret_token' THEN
     RAISE EXCEPTION 'Unsupported claim verification method.' USING ERRCODE='22023';
   END IF;
   SELECT * INTO v_worker FROM public.profiles WHERE id=v_caller;
@@ -227,9 +227,9 @@ BEGIN
   SELECT s.secret_hash INTO v_secret_hash
   FROM public.assisted_profile_claim_secrets s
   WHERE s.assisted_profile_id=p_assisted_profile_id FOR UPDATE;
-  v_secret_valid:=p_verification_method='otp_and_contractor_confirmation'
-    OR (v_secret_hash IS NOT NULL AND p_verification_proof IS NOT NULL
-        AND extensions.crypt(p_verification_proof,v_secret_hash)=v_secret_hash);
+  v_secret_valid:=v_secret_hash IS NOT NULL
+    AND p_verification_proof IS NOT NULL
+    AND extensions.crypt(p_verification_proof,v_secret_hash)=v_secret_hash;
 
   IF NOT v_phone_matches OR NOT v_secret_valid THEN
     INSERT INTO public.assisted_profile_claims(
@@ -238,8 +238,7 @@ BEGIN
     ) VALUES (
       p_assisted_profile_id,v_caller,'rejected','otp_and_secret_token',
       jsonb_build_object('phone_confirmed',v_phone_confirmed_at IS NOT NULL,
-        'phone_match',v_phone_matches,'secret_valid',v_secret_valid,
-        'contractor_confirmed',p_verification_method='otp_and_contractor_confirmation'),
+        'phone_match',v_phone_matches,'secret_valid',v_secret_valid),
       'Phone verification or claim secret validation failed.'
     );
     RETURN jsonb_build_object('success',false,'message','Phone verification or claim code is incorrect.');
@@ -256,8 +255,7 @@ BEGIN
     verification_evidence,verified_at,verified_by
   ) VALUES (
     p_assisted_profile_id,v_caller,'verified_and_claimed','otp_and_secret_token',
-    jsonb_build_object('phone_confirmed',true,'phone_match',true,'secret_valid',p_verification_method='otp_and_secret_token',
-      'contractor_confirmed',p_verification_method='otp_and_contractor_confirmation'),
+    jsonb_build_object('phone_confirmed',true,'phone_match',true,'secret_valid',true),
     now(),v_caller
   ) RETURNING id INTO v_claim_id;
   DELETE FROM public.assisted_profile_claim_secrets WHERE assisted_profile_id=p_assisted_profile_id;
@@ -270,7 +268,7 @@ RETURNS TABLE(id uuid,full_name text,location text,created_at timestamptz)
 LANGUAGE plpgsql STABLE SECURITY DEFINER
 SET search_path = pg_catalog,public,auth,pg_temp
 SET row_security = off
-AS $$$$
+AS $$
 DECLARE v_uid uuid:=auth.uid(); v_phone text; v_confirmed timestamptz;
 BEGIN
   IF v_uid IS NULL THEN RAISE EXCEPTION 'Authentication required.' USING ERRCODE='42501'; END IF;
@@ -290,7 +288,7 @@ BEGIN
       =public.normalize_quickhire_phone(v_phone)
   ORDER BY p.created_at DESC;
 END
-$$$$;
+$$;
 
 CREATE OR REPLACE FUNCTION public.admin_claim_assisted_worker_profile(
   p_assisted_profile_id uuid,
@@ -555,7 +553,7 @@ WITH CHECK (
 -- A claimant may read the linked worker row to restore the previous profile's
 -- skills and work details. Other rows remain relationship-scoped.
 ALTER TABLE public.workers ENABLE ROW LEVEL SECURITY;
-DO $
+DO $$
 DECLARE p record;
 BEGIN
   FOR p IN SELECT policyname FROM pg_policies
@@ -564,7 +562,7 @@ BEGIN
     EXECUTE format('DROP POLICY %I ON public.workers',p.policyname);
   END LOOP;
 END
-$;
+$$;
 
 CREATE POLICY workers_select_authorized
 ON public.workers FOR SELECT TO authenticated
@@ -642,7 +640,7 @@ REVOKE ALL ON FUNCTION public.protect_profile_identity_fields() FROM PUBLIC,anon
 COMMENT ON FUNCTION public.get_claimed_profile_ids(uuid) IS
   'Returns claimed assisted profile IDs only to the authenticated claimant or an administrator.';
 COMMENT ON FUNCTION public.claim_assisted_worker_profile(uuid,text,text) IS
-  'Claims an assisted worker after Auth-confirmed phone matching and explicit contractor confirmation or one-time secret validation.';
+  'Claims an assisted worker only after Auth-confirmed phone matching and one-time secret validation.';
 COMMENT ON FUNCTION public.get_claimable_assisted_profiles() IS
   'Lists only active unclaimed assisted profiles matching the caller''s OTP-confirmed Auth phone.';
 COMMENT ON FUNCTION public.handle_auth_user_deleted() IS

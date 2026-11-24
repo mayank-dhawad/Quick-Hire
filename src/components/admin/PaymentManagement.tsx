@@ -231,36 +231,10 @@ export function PaymentManagement() {
         p_notes: reconcileNotes.trim() || 'Admin manual reconciliation',
       });
 
-      if (rpcErr) {
-        // Fallback: direct update
-        const { error: updErr } = await supabase
-          .from('payments')
-          .update({
-            status: targetStatus,
-            verification_status: newVerificationStatus,
-            verification_notes: reconcileNotes.trim() || 'Admin manual reconciliation',
-            verified_at: targetStatus === 'paid' ? new Date().toISOString() : null,
-            updated_at: new Date().toISOString(),
-          })
-          .eq('id', selectedPayment.id);
-
-        if (updErr) throw updErr;
-
-        // Fallback: record audit event
-        await supabase.from('payment_audit_events').insert([
-          {
-            payment_id: selectedPayment.id,
-            previous_status: selectedPayment.status,
-            new_status: targetStatus,
-            event_type: 'admin_reconciled',
-            actor_id: session.user.id,
-            metadata: {
-              notes: reconcileNotes,
-              reconciled_by: session.user.email,
-            },
-          },
-        ]);
-      }
+      // Reconciliation must be atomic with its database audit event. Never
+      // fall back to direct table writes if the authoritative RPC is missing
+      // or rejects the request.
+      if (rpcErr) throw rpcErr;
 
       // 2. Log to admin audit log
       await logAdminAction({

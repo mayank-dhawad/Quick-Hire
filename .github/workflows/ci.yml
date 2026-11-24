@@ -115,6 +115,12 @@ jobs:
       - name: Verify assisted worker claim and history security
         run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/18_assisted_worker_claim_security_regression.sql
 
+      - name: Verify admin settlement status is boolean-only and admin-only
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/19_admin_profile_settlement_status_rpc_regression.sql
+
+      - name: Verify job assignments target active worker profiles
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/20_job_record_worker_role_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: |

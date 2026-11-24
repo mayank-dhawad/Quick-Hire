@@ -77,9 +77,12 @@ BEGIN
   END IF;
 
   SELECT pg_get_functiondef('public.claim_assisted_worker_profile(uuid,text,text)'::regprocedure) INTO v_helper_def;
-  IF v_helper_def NOT ILIKE '%otp_and_contractor_confirmation%'
-     OR v_helper_def NOT ILIKE '%phone_confirmed_at%' THEN
-    RAISE EXCEPTION 'Self-service claim must require verified phone and explicit contractor confirmation';
+  IF v_helper_def ILIKE '%otp_and_contractor_confirmation%'
+     OR v_helper_def NOT ILIKE '%otp_and_secret_token%'
+     OR v_helper_def NOT ILIKE '%phone_confirmed_at%'
+     OR v_helper_def NOT ILIKE '%secret_hash%'
+     OR v_helper_def NOT ILIKE '%extensions.crypt%' THEN
+    RAISE EXCEPTION 'Self-service claim must require a verified matching phone and one-time secret proof; caller-selected confirmation is forbidden';
   END IF;
 
   SELECT id INTO v_worker_id FROM public.profiles
