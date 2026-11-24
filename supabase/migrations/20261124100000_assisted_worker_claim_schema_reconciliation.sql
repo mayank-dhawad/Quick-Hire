@@ -169,7 +169,7 @@ DECLARE
   v_claim_id uuid;
 BEGIN
   IF v_caller IS NULL THEN RAISE EXCEPTION 'Authentication required.' USING ERRCODE='42501'; END IF;
-  IF p_verification_method NOT IN ('otp_and_secret_token','otp_and_contractor_confirmation') THEN
+  IF p_verification_method IS NULL OR p_verification_method NOT IN ('otp_and_secret_token','otp_and_contractor_confirmation') THEN
     RAISE EXCEPTION 'Unsupported claim verification method.' USING ERRCODE='22023';
   END IF;
   SELECT * INTO v_worker FROM public.profiles WHERE id=v_caller;
