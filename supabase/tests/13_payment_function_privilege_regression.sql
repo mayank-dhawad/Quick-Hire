@@ -3,6 +3,7 @@
 DO $$
 DECLARE
   v_signature text;
+  v_index_count integer;
   v_trigger_functions text[] := ARRAY[
     'public.check_job_worker_capacity()',
     'public.check_payment_status_authorization()',
@@ -15,6 +16,34 @@ DECLARE
     'public.prevent_audit_tampering()'
   ];
 BEGIN
+  -- Regression guard: jobs has one public SELECT policy, not a duplicate
+  -- authenticated policy that is automatically included by the public role.
+  IF EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public'
+      AND tablename='jobs'
+      AND policyname='Jobs are viewable by authenticated users'
+  ) THEN
+    RAISE EXCEPTION 'Redundant authenticated jobs SELECT policy remains';
+  END IF;
+
+  SELECT count(*) INTO v_index_count
+  FROM pg_indexes
+  WHERE schemaname='public'
+    AND indexname = ANY (ARRAY[
+      'idx_admin_audit_logs_admin_id','idx_equipment_owner_id',
+      'idx_job_records_arrived_reported_by','idx_job_records_attendance_confirmed_by',
+      'idx_job_records_cancelled_by','idx_job_records_reported_by','idx_job_records_worker_id',
+      'idx_jobs_cancelled_by','idx_jobs_employer_id','idx_notifications_profile_id',
+      'idx_payments_payee_id','idx_payments_payer_id','idx_payments_recorded_by',
+      'idx_payments_verified_by','idx_profiles_created_by',
+      'idx_rental_records_borrower_id','idx_rental_records_equipment_id',
+      'idx_reviews_reviewed_profile_id','idx_reviews_reviewer_profile_id'
+    ]);
+  IF v_index_count <> 19 THEN
+    RAISE EXCEPTION 'Expected 19 foreign-key support indexes, found %', v_index_count;
+  END IF;
+
   -- Client roles must never be able to create objects in the exposed schema.
   -- This protects SECURITY DEFINER routines from public-schema object shadowing.
   IF has_schema_privilege('anon', 'public', 'CREATE')
