@@ -333,7 +333,11 @@ export function Auth({
     } catch (err: unknown) {
       setLoading(false);
       console.error('Authentication succeeded but QuickHire profile setup failed:', err);
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch (signOutError) {
+        console.warn('Could not clear the partially established auth session:', signOutError);
+      }
       localStorage.removeItem('quickhire_user_session');
       localStorage.removeItem('quickhire_user_role');
       setAuthError('Your sign-in was verified, but QuickHire could not finish setting up your profile. Please try again. If this continues, contact support.');
