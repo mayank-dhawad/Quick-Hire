@@ -468,13 +468,21 @@ BEGIN
     PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
 
     SELECT count(*) INTO v_row_count
+    FROM public.get_claimed_profile_ids(v_worker_primary_id)
+    WHERE id = v_assisted_worker_id;
+
+    IF v_row_count <> 1 THEN
+        RAISE EXCEPTION 'TEST 8A FAILED: Claimed-profile helper returned % rows; expected 1 for the verified claim.', v_row_count;
+    END IF;
+
+    SELECT count(*) INTO v_row_count
     FROM public.job_records
     WHERE id = v_historical_assignment_id;
 
     IF v_row_count = 1 THEN
         RAISE NOTICE 'TEST 8 PASSED: Claimed worker can view historical job records assigned to their assisted profile.';
     ELSE
-        RAISE EXCEPTION 'TEST 8 FAILED: Claimed worker was denied access to historical job records.';
+        RAISE EXCEPTION 'TEST 8B FAILED: Claim helper resolved the profile, but job_records RLS denied its historical assignment.';
     END IF;
 
     -- ==========================================================================
