@@ -822,7 +822,11 @@ export default function App() {
       fetchWorkers();
       fetchMyPostedJobs(activeUser.id);
     } catch (err) {
+      // Permit a retry after transient profile/network failures instead of
+      // permanently treating this user as already hydrated.
+      lastFetchedUserIdRef.current = null;
       console.warn('Error fetching user data:', err);
+      showToast('We could not load your account details. Check your connection and try again.', 'error');
     } finally {
       isFetchingUserDataRef.current = false;
     }
