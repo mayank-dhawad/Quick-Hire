@@ -734,8 +734,8 @@ export default function App() {
       if (adminCheck.isAdmin) {
         setUserRole('admin');
         ensureAdminSession(activeUser, adminCheck.role, adminCheck.verifiedEmail, adminCheck.verifiedPhone);
-        localStorage.setItem('quickhire_user_session', JSON.stringify(activeUser));
-        localStorage.setItem('quickhire_user_role', 'admin');
+        // Supabase Auth is the only source of truth for authenticated sessions.
+        // Do not persist a browser-side user object as a login fallback.
 
         // Administrator access is determined by the server-verified admin_users record.
         // Never create or promote an admin profile from browser-side application code.
@@ -855,7 +855,6 @@ export default function App() {
           key &&
           (key.startsWith('quickhire_bank_') ||
             key.startsWith('quickhire_payment_ledger_') ||
-            key === 'quickhire_user_session' ||
             key === 'quickhire_user_role' ||
             key === 'quickhire_user_equipment')
         ) {
@@ -890,16 +889,6 @@ export default function App() {
       }
     }, 2500);
 
-    const getStoredFallbackUser = (): User | null => {
-      try {
-        const stored = localStorage.getItem('quickhire_user_session');
-        if (stored) return JSON.parse(stored);
-      } catch {
-        // Ignore JSON error
-      }
-      return null;
-    };
-
     // Fetch public job & equipment catalogs once for all visitors on initial mount
     fetchOpenJobs();
     fetchEquipment();
@@ -908,7 +897,7 @@ export default function App() {
       .getSession()
       .then(async ({ data: { session } }) => {
         if (!isMounted) return;
-        const currentUser = session?.user ?? getStoredFallbackUser();
+        const currentUser = session?.user ?? null;
         if (currentUser) {
           safeSetUser(currentUser);
           try {
@@ -916,15 +905,19 @@ export default function App() {
           } catch (err) {
             console.warn('[QuickHire] fetchUserData background notice:', err);
           }
+        } else {
+          // A cached browser user object is not an authenticated session.
+          safeSetUser(null);
+          setUserRole(null);
         }
       })
       .catch((err) => {
         console.warn('[QuickHire] Auth session retrieval error:', err);
         if (isMounted) {
-          const fallbackUser = getStoredFallbackUser();
-          if (fallbackUser) {
-            safeSetUser(fallbackUser);
-          }
+          // Fail closed: if Supabase cannot restore a valid session, keep the
+          // application signed out rather than trusting stale local storage.
+          safeSetUser(null);
+          setUserRole(null);
         }
       })
       .finally(() => {
@@ -938,7 +931,6 @@ export default function App() {
       if (!isMounted) return;
       if (event === 'SIGNED_OUT' || !session) {
         lastFetchedUserIdRef.current = null;
-        localStorage.removeItem('quickhire_user_session');
         localStorage.removeItem('quickhire_user_role');
         safeSetUser(null);
         setUserRole(null);
