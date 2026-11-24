@@ -246,6 +246,52 @@ describe('Auth Component with Supabase Native Phone Authentication', () => {
     expect(supabase.auth.signOut).toHaveBeenCalled();
   });
 
+  it('does not grant admin profile roles from browser-side authentication', async () => {
+    const onLoginSuccessMock = vi.fn();
+    const adminQuery: Record<string, unknown> = {
+      select: vi.fn(() => adminQuery),
+      eq: vi.fn(() => adminQuery),
+      maybeSingle: vi.fn().mockResolvedValue({
+        data: { role: 'super_admin', is_active: true, verified_email: null, verified_phone: null },
+        error: null,
+      }),
+    };
+    vi.mocked(supabase.from).mockImplementation(() => adminQuery as never);
+
+    render(
+      <Auth
+        isOpen={true}
+        isGate={false}
+        currentLang="English"
+        onLoginSuccess={onLoginSuccessMock}
+      />
+    );
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter 10-digit mobile number/i), {
+      target: { value: '9876543210' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Send OTP/i }));
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText(/Enter 6-digit OTP/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText(/Enter 6-digit OTP/i), {
+      target: { value: '654321' },
+    });
+    fireEvent.click(screen.getByRole('button', { name: /Verify & Sign In/i }));
+
+    await waitFor(() => {
+      expect(onLoginSuccessMock).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'mock-user-1' }),
+        'admin'
+      );
+    });
+
+    expect(supabase.from).toHaveBeenCalledWith('admin_users');
+    expect(supabase.from).not.toHaveBeenCalledWith('profiles');
+  });
+
   it('displays clear error when OTP verification fails and rejects invalid codes', async () => {
     vi.mocked(supabase.auth.verifyOtp).mockResolvedValueOnce({
       data: { user: null, session: null },
