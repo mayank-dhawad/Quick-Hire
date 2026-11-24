@@ -665,4 +665,32 @@ COMMENT ON FUNCTION public.get_claimable_assisted_profiles() IS
 COMMENT ON FUNCTION public.handle_auth_user_deleted() IS
   'Anonymizes deleted Auth identities while retaining job, payment, and assisted-profile history.';
 
+
+-- Remove the redundant authenticated SELECT policy on jobs. The existing
+-- public SELECT policy already covers both anonymous and authenticated users.
+DROP POLICY IF EXISTS "Jobs are viewable by authenticated users" ON public.jobs;
+
+-- Cover foreign-key lookups and parent-row deletes with indexes. Existing
+-- composite indexes do not cover these FK columns unless the FK is the
+-- leading index column; retain all existing indexes and add only missing ones.
+CREATE INDEX IF NOT EXISTS idx_admin_audit_logs_admin_id ON public.admin_audit_logs(admin_id);
+CREATE INDEX IF NOT EXISTS idx_equipment_owner_id ON public.equipment(owner_id);
+CREATE INDEX IF NOT EXISTS idx_job_records_arrived_reported_by ON public.job_records(arrived_reported_by);
+CREATE INDEX IF NOT EXISTS idx_job_records_attendance_confirmed_by ON public.job_records(attendance_confirmed_by);
+CREATE INDEX IF NOT EXISTS idx_job_records_cancelled_by ON public.job_records(cancelled_by);
+CREATE INDEX IF NOT EXISTS idx_job_records_reported_by ON public.job_records(reported_by);
+CREATE INDEX IF NOT EXISTS idx_job_records_worker_id ON public.job_records(worker_id);
+CREATE INDEX IF NOT EXISTS idx_jobs_cancelled_by ON public.jobs(cancelled_by);
+CREATE INDEX IF NOT EXISTS idx_jobs_employer_id ON public.jobs(employer_id);
+CREATE INDEX IF NOT EXISTS idx_notifications_profile_id ON public.notifications(profile_id);
+CREATE INDEX IF NOT EXISTS idx_payments_payee_id ON public.payments(payee_id);
+CREATE INDEX IF NOT EXISTS idx_payments_payer_id ON public.payments(payer_id);
+CREATE INDEX IF NOT EXISTS idx_payments_recorded_by ON public.payments(recorded_by);
+CREATE INDEX IF NOT EXISTS idx_payments_verified_by ON public.payments(verified_by);
+CREATE INDEX IF NOT EXISTS idx_profiles_created_by ON public.profiles(created_by);
+CREATE INDEX IF NOT EXISTS idx_rental_records_borrower_id ON public.rental_records(borrower_id);
+CREATE INDEX IF NOT EXISTS idx_rental_records_equipment_id ON public.rental_records(equipment_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_reviewed_profile_id ON public.reviews(reviewed_profile_id);
+CREATE INDEX IF NOT EXISTS idx_reviews_reviewer_profile_id ON public.reviews(reviewer_profile_id);
+
 COMMIT;
