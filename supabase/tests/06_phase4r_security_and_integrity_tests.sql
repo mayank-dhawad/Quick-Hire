@@ -461,7 +461,7 @@ BEGIN
       id, full_name, phone_number, role, account_status, is_assisted_profile,
       created_by, category, skills, experience_years, daily_wage, location
     ) VALUES (
-      v_assisted_worker_id_2, 'Worker Two Assisted Profile', '+919876500003',
+      v_assisted_worker_id_2, 'Worker Two Assisted Profile', '9876500003',
       'worker', 'active', true, v_contractor_id, 'Agriculture',
       ARRAY['Harvesting'], 4, 420, 'Test Village'
     );
