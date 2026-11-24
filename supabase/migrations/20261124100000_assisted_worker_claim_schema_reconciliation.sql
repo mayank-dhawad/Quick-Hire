@@ -8,6 +8,28 @@ CREATE EXTENSION IF NOT EXISTS pgcrypto WITH SCHEMA extensions;
 ALTER TABLE public.profiles
   ADD COLUMN IF NOT EXISTS claimed_by_profile_id uuid;
 
+-- Align worker capability fields across the older production schema and the
+-- clean repository schema. Existing values are preserved and backfilled.
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS experience_description text,
+  ADD COLUMN IF NOT EXISTS preferred_work_location text,
+  ADD COLUMN IF NOT EXISTS availability_status text;
+
+ALTER TABLE public.workers
+  ADD COLUMN IF NOT EXISTS experience_description text,
+  ADD COLUMN IF NOT EXISTS preferred_work_location text,
+  ADD COLUMN IF NOT EXISTS availability_status text DEFAULT 'available';
+
+UPDATE public.workers w
+SET experience_description=COALESCE(w.experience_description,p.experience_description),
+    preferred_work_location=COALESCE(w.preferred_work_location,p.preferred_work_location),
+    availability_status=COALESCE(w.availability_status,p.availability_status,'available')
+FROM public.profiles p
+WHERE p.id=w.id
+  AND (w.experience_description IS NULL OR w.preferred_work_location IS NULL
+       OR w.availability_status IS NULL);
+
+
 -- Assisted worker profiles use independent UUIDs and may share the worker's
 -- verified phone with the later authenticated account.
 ALTER TABLE public.profiles DROP CONSTRAINT IF EXISTS profiles_id_fkey;
@@ -316,7 +338,8 @@ BEGIN
   UPDATE public.complaints SET reporter_name=NULL,reporter_phone=NULL WHERE reporter_id=OLD.id;
   UPDATE public.jobs SET status='cancelled',updated_at=now()
     WHERE employer_id=OLD.id AND status='open';
-  UPDATE public.workers SET is_available=false,location=NULL,latitude=NULL,longitude=NULL,geocoded_address=NULL
+  UPDATE public.workers SET is_available=false,location=NULL,latitude=NULL,longitude=NULL,geocoded_address=NULL,
+    availability_status='unavailable',experience_description=NULL,preferred_work_location=NULL
     WHERE id=OLD.id;
   UPDATE public.profiles SET
     full_name='Deactivated User',phone_number=NULL,email=NULL,phone=NULL,gender=NULL,
@@ -405,8 +428,8 @@ SELECT
   w.skills,
   w.experience_years,
   p.daily_wage,
-  p.experience_description,
-  p.preferred_work_location,
+  COALESCE(w.experience_description,p.experience_description) AS experience_description,
+  COALESCE(w.preferred_work_location,p.preferred_work_location) AS preferred_work_location,
   w.average_rating,
   w.is_available,
   COALESCE(NULLIF(w.location,''),NULLIF(p.location,''),concat_ws(', ',
@@ -506,6 +529,7 @@ CREATE POLICY claims_read_policy
 ON public.assisted_profile_claims FOR SELECT TO authenticated
 USING (claimed_by_profile_id=(SELECT auth.uid()) OR public.is_admin((SELECT auth.uid())));
 
+GRANT SELECT (experience_description,preferred_work_location,availability_status) ON public.profiles TO authenticated;
 REVOKE ALL ON TABLE public.assisted_profile_claim_secrets FROM PUBLIC,anon,authenticated;
 REVOKE ALL ON TABLE public.assisted_profile_claims FROM PUBLIC,anon,authenticated;
 GRANT SELECT ON TABLE public.assisted_profile_claims TO authenticated;
