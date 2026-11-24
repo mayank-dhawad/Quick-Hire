@@ -57,6 +57,10 @@ TO authenticated
 USING (
   payer_id = (SELECT auth.uid())
   OR payee_id = (SELECT auth.uid())
+  OR payer_id IN (
+    SELECT claimed.id
+    FROM public.get_claimed_profile_ids((SELECT auth.uid())) AS claimed
+  )
   OR payee_id IN (
     SELECT claimed.id
     FROM public.get_claimed_profile_ids((SELECT auth.uid())) AS claimed
