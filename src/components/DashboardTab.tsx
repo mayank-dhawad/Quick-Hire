@@ -565,7 +565,7 @@ export function DashboardTab({
               id, job_id, status, created_at,
               jobs ( id, title, category, offered_wages, description, status, profiles:employer_id ( full_name, phone_number ) )
             `)
-            .eq('worker_id', user.id)
+            .in('worker_id', workerProfileIds)
             .order('created_at', { ascending: false });
           records = fallbackRes.data as typeof records;
           recErr = fallbackRes.error;
