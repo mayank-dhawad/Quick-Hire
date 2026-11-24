@@ -749,6 +749,14 @@ export default function App() {
           .eq('id', activeUser.id)
           .maybeSingle();
 
+        if (profile?.account_status === 'suspended') {
+          // A suspended account must not retain an active client session.
+          // The Auth listener clears user-scoped state after sign-out.
+          await supabase.auth.signOut();
+          showToast('Your account is suspended. Please contact QuickHire support.', 'error');
+          return;
+        }
+
         if (profile?.role === 'employer') {
           setUserRole('employer');
 
