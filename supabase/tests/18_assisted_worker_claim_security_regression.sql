@@ -100,6 +100,14 @@ BEGIN
   END IF;
 
   IF NOT EXISTS (
+    SELECT 1 FROM pg_policies
+    WHERE schemaname='public' AND tablename='workers'
+      AND cmd='SELECT' AND qual ILIKE '%claimed_by_profile_id%'
+  ) THEN
+    RAISE EXCEPTION 'Claimants must be able to read their linked worker profile details';
+  END IF;
+
+  IF NOT EXISTS (
     SELECT 1 FROM pg_class c
     WHERE c.oid='public.public_worker_directory'::regclass
       AND COALESCE(c.reloptions::text,'') ILIKE '%security_invoker=false%'
