@@ -260,7 +260,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
       {/* SECTION 1: EMERGENCY HELPLINES & RURAL SOS */}
       <div className="space-y-5">
         <div className="flex items-center gap-2.5">
-          <span className="p-2 rounded-xl bg-red-50 text-red-800">
+          <span className="p-2 rounded-xl bg-slate-100 text-[#102a43]">
             <ShieldAlert className="w-5 h-5" />
           </span>
           <div>
@@ -275,9 +275,9 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           {/* Card 1: 112 */}
-          <div className="p-5 rounded-2xl bg-white border border-rose-200 shadow-xs flex flex-col justify-between space-y-4">
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-rose-700 bg-rose-50 px-2 py-0.5 rounded border border-rose-200 inline-block mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block mb-2">
                 {t('sos24x7')}
               </span>
               <h3 className="font-heading font-black text-2xl text-slate-900">112</h3>
@@ -289,7 +289,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             <a
               href="tel:112"
               aria-label={t('callEmergency112')}
-              className="w-full py-2.5 px-3 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              className="w-full py-2.5 px-3 rounded-xl bg-[#102a43] hover:bg-[#183b56] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
             >
               <PhoneCall className="w-3.5 h-3.5" />
               <span>{t('callEmergency112')}</span>
@@ -297,9 +297,9 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           </div>
 
           {/* Card 2: 108 */}
-          <div className="p-5 rounded-2xl bg-white border border-amber-200 shadow-xs flex flex-col justify-between space-y-4">
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 bg-amber-50 px-2 py-0.5 rounded border border-amber-200 inline-block mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block mb-2">
                 {t('sosMedical')}
               </span>
               <h3 className="font-heading font-black text-2xl text-slate-900">108</h3>
@@ -311,7 +311,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             <a
               href="tel:108"
               aria-label={t('callAmbulance108')}
-              className="w-full py-2.5 px-3 rounded-xl bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              className="w-full py-2.5 px-3 rounded-xl bg-[#102a43] hover:bg-[#183b56] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
             >
               <PhoneCall className="w-3.5 h-3.5" />
               <span>{t('callAmbulance108')}</span>
@@ -319,9 +319,9 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           </div>
 
           {/* Card 3: 1091 */}
-          <div className="p-5 rounded-2xl bg-white border border-indigo-200 shadow-xs flex flex-col justify-between space-y-4">
+          <div className="p-5 rounded-2xl bg-white border border-slate-200 shadow-sm flex flex-col justify-between space-y-4">
             <div>
-              <span className="text-[10px] font-black uppercase tracking-wider text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded border border-indigo-200 inline-block mb-2">
+              <span className="text-[10px] font-black uppercase tracking-wider text-slate-700 bg-slate-100 px-2 py-0.5 rounded border border-slate-200 inline-block mb-2">
                 {t('sosWomenSafety')}
               </span>
               <h3 className="font-heading font-black text-2xl text-slate-900">1091</h3>
@@ -333,7 +333,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
             <a
               href="tel:1091"
               aria-label={t('callWomen1091')}
-              className="w-full py-2.5 px-3 rounded-xl bg-indigo-700 hover:bg-indigo-800 text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
+              className="w-full py-2.5 px-3 rounded-xl bg-[#102a43] hover:bg-[#183b56] text-white font-bold text-xs flex items-center justify-center gap-1.5 transition-colors shadow-xs"
             >
               <PhoneCall className="w-3.5 h-3.5" />
               <span>{t('callWomen1091')}</span>
@@ -364,15 +364,15 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
         </div>
 
         {/* Shramik Helpline Bar */}
-        <div className="p-4 rounded-2xl bg-emerald-50/70 border border-emerald-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
           <div className="flex items-center gap-2">
-            <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-pulse" />
-            <span className="font-bold text-emerald-900">{t('shramikTitle')}: 14434</span>
-            <span className="text-emerald-700 hidden md:inline">— {t('shramikHelplineSub')}</span>
+            <span className="w-2.5 h-2.5 rounded-full bg-brand-600" />
+            <span className="font-bold text-slate-800">{t('shramikTitle')}: 14434</span>
+            <span className="text-slate-500 hidden md:inline">— {t('shramikHelplineSub')}</span>
           </div>
           <a
             href="tel:14434"
-            className="px-4 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl font-bold transition-colors inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0"
+            className="px-4 py-2 bg-[#102a43] hover:bg-[#183b56] text-white rounded-xl font-bold transition-colors inline-flex items-center gap-1.5 self-start sm:self-auto shrink-0"
           >
             <Phone className="w-3.5 h-3.5" />
             <span>{t('shramikCall')}</span>
@@ -380,11 +380,11 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
         </div>
 
         {/* PERSONAL EMERGENCY CONTACT & RAPID SOS */}
-        <div className="p-5 sm:p-6 rounded-2xl bg-gradient-to-br from-rose-50 via-white to-orange-50 border border-rose-200 shadow-sm space-y-4">
+        <div className="p-5 sm:p-6 rounded-2xl bg-slate-50 border border-slate-200 shadow-sm space-y-4">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
-              <span className="p-2.5 rounded-xl bg-rose-600 text-white shadow-xs">
-                <ShieldAlert className="w-5 h-5 animate-pulse" />
+              <span className="p-2.5 rounded-xl bg-[#102a43] text-white shadow-xs">
+                <ShieldAlert className="w-5 h-5" />
               </span>
               <div>
                 <h3 className="font-heading font-black text-base sm:text-lg text-slate-900">
@@ -423,9 +423,9 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
           )}
 
           {emergencyContactPhone && !isEditingContact ? (
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white border border-rose-100 shadow-2xs">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 p-4 rounded-xl bg-white border border-slate-200 shadow-2xs">
               <div className="space-y-0.5">
-                <span className="text-[10px] font-bold uppercase tracking-wider text-rose-600">
+                <span className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                   {t('configuredTrustedContact')}
                 </span>
                 <h4 className="font-heading font-bold text-sm text-slate-900">
@@ -450,7 +450,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                   type="button"
                   onClick={handleTriggerPersonalSos}
                   disabled={isBroadcastingSos}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 active:scale-95 text-white font-extrabold text-xs flex items-center gap-2 transition shadow-md cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#b42318] hover:bg-[#912018] active:scale-95 text-white font-extrabold text-xs flex items-center gap-2 transition shadow-md cursor-pointer disabled:opacity-50"
                 >
                   {isBroadcastingSos ? (
                     <>
@@ -482,7 +482,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                     value={emergencyContactName}
                     onChange={(e) => setEmergencyContactName(e.target.value)}
                     placeholder="e.g. Ramesh (Brother) / Sarpanch"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#183b56] focus:border-[#183b56] outline-none"
                   />
                 </div>
                 <div>
@@ -496,7 +496,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                     value={emergencyContactPhone}
                     onChange={(e) => setEmergencyContactPhone(e.target.value)}
                     placeholder="e.g. 9876543210"
-                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none"
+                    className="w-full px-3 py-2 text-xs rounded-xl border border-slate-300 focus:ring-2 focus:ring-[#183b56] focus:border-[#183b56] outline-none"
                   />
                 </div>
               </div>
@@ -505,7 +505,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                 <button
                   type="submit"
                   disabled={isSavingContact}
-                  className="px-4 py-2 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
+                  className="px-4 py-2 rounded-xl bg-[#102a43] hover:bg-[#183b56] text-white font-bold text-xs flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer disabled:opacity-50"
                 >
                   <ShieldCheck className="w-3.5 h-3.5" />
                   <span>{isSavingContact ? t('saving') : t('saveEmergencyContact')}</span>
@@ -515,7 +515,7 @@ export function SafetyTab({ currentLang = 'English' }: SafetyTabProps) {
                     type="button"
                     disabled={isSavingContact}
                     onClick={handleClearEmergencyContact}
-                    className="px-3 py-2 rounded-xl border border-rose-200 text-rose-700 hover:bg-rose-50 font-bold text-xs transition cursor-pointer disabled:opacity-50"
+                    className="px-3 py-2 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-100 font-bold text-xs transition cursor-pointer disabled:opacity-50"
                   >
                     {t('clearContact')}
                   </button>
