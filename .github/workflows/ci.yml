@@ -109,6 +109,9 @@ jobs:
       - name: Verify legacy private profile sync is disabled
         run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/17_private_profile_sync_trigger_regression.sql
 
+      - name: Verify assisted worker claim and history security
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/18_assisted_worker_claim_security_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: |
