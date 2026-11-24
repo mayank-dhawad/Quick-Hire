@@ -394,7 +394,8 @@ SELECT id,full_name,role,location,village,city,district,state
 FROM public.profiles
 WHERE account_status IS NULL OR account_status='active';
 
-CREATE OR REPLACE VIEW public.public_worker_directory
+DROP VIEW IF EXISTS public.public_worker_directory;
+CREATE VIEW public.public_worker_directory
 WITH (security_barrier=true,security_invoker=false)
 AS
 SELECT
@@ -404,13 +405,19 @@ SELECT
   w.skills,
   w.experience_years,
   p.daily_wage,
+  p.experience_description,
+  p.preferred_work_location,
   w.average_rating,
   w.is_available,
   COALESCE(NULLIF(w.location,''),NULLIF(p.location,''),concat_ws(', ',
-    NULLIF(p.village,''),NULLIF(p.city,''),NULLIF(p.district,''),NULLIF(p.state,''))) AS location,
-  p.village,p.city,p.district,p.state,p.is_assisted_profile,
+    NULLIF(p.village,''),NULLIF(p.district,''),NULLIF(p.state,''))) AS location,
+  p.village,
+  p.district,
+  p.state,
+  p.is_assisted_profile,
   round(COALESCE(w.latitude,p.latitude)::numeric,3)::double precision AS latitude,
-  round(COALESCE(w.longitude,p.longitude)::numeric,3)::double precision AS longitude
+  round(COALESCE(w.longitude,p.longitude)::numeric,3)::double precision AS longitude,
+  p.city
 FROM public.workers w
 JOIN public.profiles p ON p.id=w.id
 WHERE w.is_available IS TRUE
