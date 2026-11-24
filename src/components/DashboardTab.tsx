@@ -459,13 +459,31 @@ export function DashboardTab({
     setWorkerFetchError(null);
 
     try {
-      // 1. Fetch Profile and Worker details (non-private fields)
+      // A worker may have older work stored against employer-created assisted profiles.
+      // The RPC only returns IDs claimed by this authenticated worker (or an admin).
+      let workerProfileIds = [user.id];
+      try {
+        const { data: claimedRows, error: claimLookupError } = await supabase.rpc(
+          'get_claimed_profile_ids',
+          { p_user_id: user.id }
+        );
+        if (claimLookupError) throw claimLookupError;
+        workerProfileIds = Array.from(new Set([
+          user.id,
+          ...((claimedRows || []) as { id: string }[]).map((row) => row.id),
+        ]));
+      } catch (claimLookupError) {
+        console.warn('Claimed worker history lookup unavailable; loading current profile only:', claimLookupError);
+      }
+
+      // 1. Fetch the current profile and any linked assisted profiles.
       const { data: prof } = await supabase
         .from('profiles')
         .select(`
           id, full_name, phone_number, role, account_status, category, skills,
-          experience_years, daily_wage, location, village, city, district,
-          state, pincode, created_at, updated_at
+          experience_years, daily_wage, experience_description, preferred_work_location,
+          availability_status, location, village, city, district, state, pincode,
+          created_at, updated_at
         `)
         .eq('id', user.id)
         .single();
@@ -474,7 +492,21 @@ export function DashboardTab({
         .from('workers')
         .select('*')
         .eq('id', user.id)
-        .single();
+        .maybeSingle();
+
+      const claimedIds = workerProfileIds.filter((id) => id !== user.id);
+      let claimedProfile: Record<string, unknown> | null = null;
+      let claimedWorker: Record<string, unknown> | null = null;
+      if (claimedIds.length > 0) {
+        const [{ data: claimedProfiles }, { data: claimedWorkers }] = await Promise.all([
+          supabase.from('profiles')
+            .select('full_name, category, skills, experience_years, daily_wage, experience_description, preferred_work_location, availability_status, location, village, city, district, state, pincode')
+            .in('id', claimedIds),
+          supabase.from('workers').select('*').in('id', claimedIds),
+        ]);
+        claimedProfile = (claimedProfiles?.[0] as Record<string, unknown> | undefined) || null;
+        claimedWorker = (claimedWorkers?.[0] as Record<string, unknown> | undefined) || null;
+      }
 
       // 1b. Fetch private banking details from profile_private_details exclusively
       let privateBanking: { bank_name?: string | null; bank_account_no?: string | null; bank_ifsc?: string | null; upi_id?: string | null } | null = null;
@@ -489,8 +521,28 @@ export function DashboardTab({
         // Non-blocking if table not yet provisioned
       }
 
-      if (prof || wrk || privateBanking) {
-        setWorkerProfile({ ...prof, ...(wrk || {}), ...(privateBanking || {}) });
+      if (prof || wrk || privateBanking || claimedProfile || claimedWorker) {
+        const mergedProfile: Record<string, unknown> = {
+          ...(claimedProfile || {}),
+          ...(claimedWorker || {}),
+          ...(prof || {}),
+          ...(wrk || {}),
+          ...(privateBanking || {}),
+          id: user.id,
+        };
+        const fallbackFields = [
+          'full_name', 'phone_number', 'category', 'skills', 'experience_years',
+          'daily_wage', 'experience_description', 'preferred_work_location',
+          'availability_status', 'location', 'village', 'city', 'district', 'state', 'pincode',
+        ];
+        for (const field of fallbackFields) {
+          const currentValue = mergedProfile[field];
+          const isEmptyArray = Array.isArray(currentValue) && currentValue.length === 0;
+          if (currentValue == null || currentValue === '' || isEmptyArray) {
+            mergedProfile[field] = claimedWorker?.[field] ?? claimedProfile?.[field] ?? currentValue;
+          }
+        }
+        setWorkerProfile(mergedProfile as WorkerProfileState);
       }
 
       // 2. Fetch Applied / Assigned Jobs
@@ -502,7 +554,7 @@ export function DashboardTab({
             agreement_evidence_type, reported_by, eta_minutes, arrived_at, arrived_reported_by, attendance_confirmed_at, attendance_confirmed_by, work_started_at, work_completed_at, break_minutes, overtime_hours, total_working_hours, agreed_wage, total_payable, total_paid, payment_status,
             jobs ( id, title, category, offered_wages, description, status, profiles:employer_id ( full_name, phone_number ) )
           `)
-          .eq('worker_id', user.id)
+          .in('worker_id', workerProfileIds)
           .order('created_at', { ascending: false });
 
         // Resilient fallback to baseline columns if extended Phase 2 columns do not exist yet (42703)
@@ -530,7 +582,7 @@ export function DashboardTab({
         const { data: wages, error: wageErr } = await supabase
           .from('payments')
           .select('*')
-          .eq('payee_id', user.id)
+          .in('payee_id', workerProfileIds)
           .eq('payment_for_type', 'worker_wage')
           .order('created_at', { ascending: false });
 
@@ -562,7 +614,7 @@ export function DashboardTab({
         const { data: revs, error: revErr } = await supabase
           .from('reviews')
           .select('*')
-          .eq('reviewed_profile_id', user.id)
+          .in('reviewed_profile_id', workerProfileIds)
           .order('created_at', { ascending: false });
 
         if (!revErr && revs) {
