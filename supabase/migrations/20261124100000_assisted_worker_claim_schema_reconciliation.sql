@@ -589,7 +589,7 @@ USING (
   )
   OR public.is_admin((SELECT auth.uid()))
 );
-GRANT SELECT ON public.workers TO authenticated; checks relationships without exposing private profile columns.';
+GRANT SELECT ON public.workers TO authenticated;
 
 
 -- Preserve historical job/payment visibility for the authenticated claimant.
