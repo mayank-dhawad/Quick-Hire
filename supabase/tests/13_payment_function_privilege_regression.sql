@@ -15,6 +15,13 @@ DECLARE
     'public.prevent_audit_tampering()'
   ];
 BEGIN
+  -- Client roles must never be able to create objects in the exposed schema.
+  -- This protects SECURITY DEFINER routines from public-schema object shadowing.
+  IF has_schema_privilege('anon', 'public', 'CREATE')
+     OR has_schema_privilege('authenticated', 'public', 'CREATE') THEN
+    RAISE EXCEPTION 'Client roles must not have CREATE privilege on schema public';
+  END IF;
+
   FOREACH v_signature IN ARRAY v_trigger_functions LOOP
     IF has_function_privilege('anon', v_signature, 'EXECUTE')
        OR has_function_privilege('authenticated', v_signature, 'EXECUTE') THEN
