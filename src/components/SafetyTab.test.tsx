@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import { describe, it, expect, vi } from 'vitest';
 import React from 'react';
 import { SafetyTab } from './SafetyTab';
@@ -53,7 +53,7 @@ describe('SafetyTab — Emergency Helplines & SOS Translation Verification', () 
 
     // Card 4: 1800-180-1551
     expect(screen.getByText('1800-180-1551')).toBeInTheDocument();
-    expect(screen.getByText('Kisan Call Centre')).toBeInTheDocument();
+    expect(screen.getAllByText('Kisan Call Centre')).toHaveLength(2);
     expect(screen.getByText('Agricultural information and support for farmers.')).toBeInTheDocument();
 
     // Ensure no raw card keys exist
@@ -111,7 +111,7 @@ describe('SafetyTab — Emergency Helplines & SOS Translation Verification', () 
     expect(screen.getByText('राष्ट्रीय आपातकालीन हेल्पलाइन')).toBeInTheDocument();
     expect(screen.getByText('एम्बुलेंस आपातकालीन सेवा')).toBeInTheDocument();
     expect(screen.getByText('महिला हेल्पलाइन')).toBeInTheDocument();
-    expect(screen.getByText('किसान कॉल सेंटर')).toBeInTheDocument();
+    expect(screen.getAllByText('किसान कॉल सेंटर')).toHaveLength(2);
 
     // Hindi Button Labels
     expect(screen.getByText('आपातकालीन हेल्पलाइन पर कॉल करें — 112')).toBeInTheDocument();
@@ -211,13 +211,13 @@ describe('SafetyTab — Emergency Helplines & SOS Translation Verification', () 
 
       // Click Change Contact to enter editing mode
       const changeBtn = screen.getByRole('button', { name: /Change Contact/i });
-      changeBtn.click();
+      fireEvent.click(changeBtn);
 
       // Click Clear Contact
       const clearBtn = await screen.findByRole('button', { name: /Clear Contact/i });
-      clearBtn.click();
+      fireEvent.click(clearBtn);
 
-      await screen.findByText(/Emergency contact cleared successfully/i);
+      await screen.findByText('Emergency contact cleared.');
 
       // Verify null values persisted to profile_private_details
       expect(upsertMock).toHaveBeenCalledWith(
