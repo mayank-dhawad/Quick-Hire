@@ -737,30 +737,8 @@ export default function App() {
         localStorage.setItem('quickhire_user_session', JSON.stringify(activeUser));
         localStorage.setItem('quickhire_user_role', 'admin');
 
-        // Safe, Idempotent profile synchronization for administrator
-        try {
-          const { data: existingProfile } = await supabase
-            .from('profiles')
-            .select('id, role')
-            .eq('id', activeUser.id)
-            .maybeSingle();
-
-          if (!existingProfile || existingProfile.role !== 'admin') {
-            await supabase.from('profiles').upsert({
-              id: activeUser.id,
-              role: 'admin',
-              full_name: activeUser.user_metadata?.full_name || 'Platform Administrator',
-              email: activeUser.email || null,
-              phone_number: activeUser.phone || adminCheck.verifiedPhone || null,
-              account_status: 'active',
-            }, { onConflict: 'id' });
-          }
-
-          // Deactivate any accidental worker availability if a worker record existed
-          await supabase.from('workers').update({ is_available: false }).eq('id', activeUser.id);
-        } catch {
-          // Non-blocking
-        }
+        // Administrator access is determined by the server-verified admin_users record.
+        // Never create or promote an admin profile from browser-side application code.
 
       } else {
         clearAdminSession();
