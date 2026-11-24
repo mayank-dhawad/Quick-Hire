@@ -97,6 +97,9 @@ jobs:
       - name: Verify payment function execution privileges
         run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/13_payment_function_privilege_regression.sql
 
+      - name: Verify rental inquiry participant-only reads
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/14_rental_record_rls_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: |
