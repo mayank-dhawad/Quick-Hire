@@ -45,6 +45,9 @@ jobs:
       - name: Verify PWA manifest, icons and offline security
         run: node scripts/verify-pwa.mjs
 
+      - name: Verify SEO metadata, robots and sitemap
+        run: node scripts/verify-seo.mjs
+
   supabase-migrations-and-integrity:
     name: Supabase migrations and database integrity tests
     runs-on: ubuntu-latest
