@@ -10,7 +10,7 @@ SECURITY DEFINER
 STABLE
 SET search_path = pg_catalog, public, pg_temp
 SET row_security = off
-AS $
+AS $function$
 BEGIN
   IF auth.uid() IS NULL OR p_user_id IS NULL
      OR (p_user_id <> auth.uid() AND NOT public.is_admin(auth.uid())) THEN
@@ -24,7 +24,7 @@ BEGIN
   WHERE p.claimed_by_profile_id = p_user_id
     AND p.is_assisted_profile IS TRUE;
 END;
-$;
+$function$;
 
 REVOKE ALL ON FUNCTION public.get_claimed_profile_ids(uuid) FROM PUBLIC, anon;
 GRANT EXECUTE ON FUNCTION public.get_claimed_profile_ids(uuid) TO authenticated;
