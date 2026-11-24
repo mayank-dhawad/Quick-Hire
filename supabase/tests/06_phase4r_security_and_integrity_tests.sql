@@ -454,7 +454,7 @@ BEGIN
         RAISE EXCEPTION 'TEST 7B FAILED: Duplicate claim was permitted!';
     END IF;
 
-    -- 7C: Self-service claim using OTP-confirmed phone and explicit profile confirmation.
+    -- 7C: Self-service claim using OTP-confirmed phone and a creator-issued one-time secret.
     SET LOCAL ROLE service_role;
     PERFORM set_config('request.jwt.claim.sub', '', true);
     INSERT INTO public.profiles (
@@ -471,6 +471,16 @@ BEGIN
       v_assisted_worker_id_2, 'Agriculture', ARRAY['Harvesting'], 4, true, 'Test Village'
     );
 
+    -- The profile creator issues a one-time secret; the claimant cannot assert
+    -- contractor confirmation as a substitute for independent proof.
+    SET LOCAL ROLE authenticated;
+    PERFORM set_config('request.jwt.claim.sub', v_contractor_id::text, true);
+    PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+    PERFORM public.set_assisted_profile_claim_secret(
+      v_assisted_worker_id_2,
+      'SECONDARY_SECRET_FOR_ASSISTED_PROFILE_4920'
+    );
+
     SET LOCAL ROLE authenticated;
     PERFORM set_config('request.jwt.claim.sub', v_worker_unrelated_id::text, true);
     PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
@@ -482,11 +492,24 @@ BEGIN
       RAISE EXCEPTION 'TEST 7C FAILED: Verified worker did not discover the matching unclaimed profile.';
     END IF;
 
+    v_op_succeeded := false;
+    BEGIN
+      PERFORM public.claim_assisted_worker_profile(
+        v_assisted_worker_id_2,'otp_and_contractor_confirmation',NULL
+      );
+      v_op_succeeded := true;
+    EXCEPTION WHEN invalid_parameter_value THEN
+      v_op_succeeded := false;
+    END;
+    IF v_op_succeeded THEN
+      RAISE EXCEPTION 'TEST 7C FAILED: Caller-selected contractor confirmation bypass was accepted.';
+    END IF;
+
     v_result_json := public.claim_assisted_worker_profile(
-      v_assisted_worker_id_2,'otp_and_contractor_confirmation',NULL
+      v_assisted_worker_id_2,'otp_and_secret_token','SECONDARY_SECRET_FOR_ASSISTED_PROFILE_4920'
     );
     IF COALESCE((v_result_json->>'success')::boolean,false) IS NOT TRUE THEN
-      RAISE EXCEPTION 'TEST 7C FAILED: Verified worker could not confirm and claim the matching profile: %',v_result_json;
+      RAISE EXCEPTION 'TEST 7C FAILED: Verified worker could not claim with creator-issued secret: %',v_result_json;
     END IF;
 
     SELECT count(*) INTO v_row_count FROM public.workers WHERE id=v_assisted_worker_id_2;
@@ -498,7 +521,7 @@ BEGIN
       RAISE EXCEPTION 'TEST 7C FAILED: Claimant cannot read the linked profile details.';
     END IF;
 
-    RAISE NOTICE 'TEST 7C PASSED: OTP-verified worker discovered, explicitly confirmed, claimed and read the previous worker profile.';
+    RAISE NOTICE 'TEST 7C PASSED: OTP-verified worker discovered and claimed the previous worker profile with a creator-issued secret; self-asserted confirmation was rejected.';
 
     SET LOCAL ROLE authenticated;
     PERFORM set_config('request.jwt.claim.sub', '', true);
