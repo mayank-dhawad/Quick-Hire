@@ -64,7 +64,7 @@ jobs:
           version: v2.stable
 
       - name: Use an isolated database port for CI
-        run: sed -i 's/^port = 54322$/port = 54332/' supabase/config.toml
+        run: sed -i -e 's/^port = 54322$/port = 54332/' -e 's/^port = 54324$/port = 54334/' supabase/config.toml
 
       - name: Start local Supabase test stack
         run: supabase start
