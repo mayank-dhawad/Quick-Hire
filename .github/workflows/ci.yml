@@ -53,6 +53,9 @@ jobs:
           # setup-cli@v1's GitHub-release lookup (which is rate-limited in PR CI).
           version: v2.stable
 
+      - name: Use an isolated database port for CI
+        run: sed -i 's/^port = 54322$/port = 54332/' supabase/config.toml
+
       - name: Start local Supabase test stack
         run: supabase start
 
@@ -65,22 +68,22 @@ jobs:
           sudo apt-get install --yes postgresql-client
 
       - name: Create isolated database test fixtures
-        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/01_test_setup.sql
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/01_test_setup.sql
 
       - name: Run lifecycle and payment integrity tests
-        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/02_test_execution.sql
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/02_test_execution.sql
 
       - name: Run profile privacy and security regression tests
-        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/06_phase4r_security_and_integrity_tests.sql
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/06_phase4r_security_and_integrity_tests.sql
 
       - name: Verify Auth signup creates a valid profile
-        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/07_auth_profile_trigger_regression.sql
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/07_auth_profile_trigger_regression.sql
 
       - name: Verify private profile fields and owner-only access
-        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/08_private_profile_fields_regression.sql
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/08_private_profile_fields_regression.sql
 
       - name: Verify legacy OTP table is inaccessible to app roles
-        run: psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/09_legacy_otp_security_regression.sql
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/09_legacy_otp_security_regression.sql
 
       - name: Stop local Supabase
         if: always()
