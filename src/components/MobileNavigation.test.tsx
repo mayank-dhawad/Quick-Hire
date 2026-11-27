@@ -137,7 +137,7 @@ describe('Mobile Navigation, Account Drawer & Responsiveness', () => {
     expect(mobileNav).toHaveTextContent(/Home/i);
     expect(mobileNav).toHaveTextContent(/Workers/i);
     expect(mobileNav).toHaveTextContent(/Equipment/i);
-    expect(mobileNav).toHaveTextContent(/Post Job/i);
+    expect(mobileNav).toHaveTextContent(/Post a Job/i);
     expect(mobileNav).toHaveTextContent(/Dashboard/i);
 
     fireEvent.click(within(mobileNav).getByRole('button', { name: /Workers/i }));
