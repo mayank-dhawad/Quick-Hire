@@ -167,7 +167,6 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
 
     // Verify Previously Hired Workers section header is rendered inside employer dashboard
     expect(screen.getByText(/Previously Hired Workers/i)).toBeInTheDocument();
-    expect(screen.getByText('New')).toBeInTheDocument();
 
     // Verify the previously hired worker Ramesh Patel is listed with hire count and rating
     await waitFor(() => {
@@ -356,6 +355,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
     await waitFor(() => {
       expect(tablesQueried).toContain('profile_private_details');
     });
+    expect(screen.getByText('New')).toBeInTheDocument();
 
     // Ensure profiles query selected safe non-private columns only
     const profilesQuery = selectedColumns.join(' ');
