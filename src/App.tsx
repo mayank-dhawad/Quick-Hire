@@ -1796,7 +1796,8 @@ export default function App() {
                                           ) : (
                                             <span className="text-slate-400 text-[10px]">{t('numberNotShared')}</span>
                                           )}
-                                          <button
+                                          {(rec.status === 'completed' || rec.status === 'work_completed') && rec.work_completed_at && (
+<button
                                             onClick={() => {
                                               setShowEmployerDashboard(false);
                                               setDirectPaymentModal({
@@ -1816,6 +1817,7 @@ export default function App() {
                                             <Landmark className="w-3 h-3 text-emerald-700" />
                                             <span>₹ {t('payWageToBank')}</span>
                                           </button>
+)}
                                         </div>
                                       </div>
                                     );
@@ -2475,16 +2477,6 @@ export default function App() {
                 } else {
                   setIsWorkerModalOpen(true);
                 }
-              }}
-              onOpenDirectPayment={(recipientId, recipientName, recipientPhone) => {
-                setDirectPaymentModal({
-                  isOpen: true,
-                  recipientId,
-                  recipientName,
-                  recipientPhone,
-                  paymentForType: 'worker_wage',
-                  defaultAmount: 500,
-                });
               }}
               onOpenWorkerDiscovery={(category, skill) => {
                 if (!user) {
