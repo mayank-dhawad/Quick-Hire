@@ -3,6 +3,8 @@
 
 export const translations: Record<string, Record<string, string>> = {
   "English": {
+    "rentalProviderApprovalRequired": "Publishing and managing rental listings is available only to providers approved by a QuickHire administrator.",
+
     "publicNavAbout": "About",
     "publicNavHow": "How It Works",
     "publicNavFeatures": "Features",
@@ -573,6 +575,8 @@ export const translations: Record<string, Record<string, string>> = {
     "sosSendNote": "Your messaging app opens with a prepared SOS. Review it and tap Send; QuickHire does not send SMS automatically.",
   },
   "हिंदी (Hindi)": {
+    "rentalProviderApprovalRequired": "किराये की सूची पोस्ट और प्रबंधित करने की सुविधा केवल QuickHire प्रशासक द्वारा स्वीकृत प्रदाताओं के लिए उपलब्ध है।",
+
     "publicNavAbout": "परिचय",
     "publicNavHow": "कैसे काम करता है",
     "publicNavFeatures": "सुविधाएँ",
@@ -1143,6 +1147,8 @@ export const translations: Record<string, Record<string, string>> = {
     "sosSendNote": "आपका मैसेजिंग ऐप तैयार SOS संदेश के साथ खुलेगा। संदेश जाँचकर भेजें दबाएँ; QuickHire अपने आप SMS नहीं भेजता।",
   },
   "मराठी (Marathi)": {
+    "rentalProviderApprovalRequired": "भाड्याच्या सूची पोस्ट आणि व्यवस्थापित करण्याची सुविधा फक्त QuickHire प्रशासकाने मंजूर केलेल्या पुरवठादारांसाठी उपलब्ध आहे.",
+
     "publicNavAbout": "माहिती",
     "publicNavHow": "कसे कार्य करते",
     "publicNavFeatures": "वैशिष्ट्ये",
@@ -1713,6 +1719,8 @@ export const translations: Record<string, Record<string, string>> = {
     "sosSendNote": "तुमचे मेसेजिंग अॅप तयार SOS संदेशासह उघडेल. संदेश तपासून पाठवा दाबा; QuickHire आपोआप SMS पाठवत नाही.",
   },
   "বাংলা (Bengali)": {
+    "rentalProviderApprovalRequired": "ভাড়ার তালিকা পোস্ট ও পরিচালনা করার সুবিধা শুধুমাত্র QuickHire প্রশাসকের অনুমোদিত প্রদানকারীদের জন্য উপলব্ধ।",
+
     "publicNavAbout": "পরিচিতি",
     "publicNavHow": "যেভাবে কাজ করে",
     "publicNavFeatures": "বৈশিষ্ট্য",
@@ -2283,6 +2291,8 @@ export const translations: Record<string, Record<string, string>> = {
     "sosSendNote": "আপনার মেসেজিং অ্যাপ প্রস্তুত SOS বার্তা নিয়ে খুলবে। বার্তাটি দেখে Send চাপুন; QuickHire স্বয়ংক্রিয়ভাবে SMS পাঠায় না।",
   },
   "తెలుగు (Telugu)": {
+    "rentalProviderApprovalRequired": "అద్దె జాబితాలను పోస్ట్ చేయడం మరియు నిర్వహించడం QuickHire నిర్వాహకుడు ఆమోదించిన ప్రొవైడర్లకు మాత్రమే అందుబాటులో ఉంటుంది।",
+
     "publicNavAbout": "గురించి",
     "publicNavHow": "ఎలా పనిచేస్తుంది",
     "publicNavFeatures": "ఫీచర్లు",
