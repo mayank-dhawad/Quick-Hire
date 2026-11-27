@@ -55,7 +55,6 @@ interface WorkersTabProps {
   user: User | null;
   onRequireLogin: () => void;
   onRegisterSkillProfile: () => void;
-  onOpenDirectPayment: (recipientId: string, recipientName: string, recipientPhone?: string | null) => void;
   onOpenWorkerDiscovery: (category: string, skill: string) => void;
   onRefreshWorkers?: () => void;
   onAssignmentCreated?: (assignment: Record<string, unknown>, job: Record<string, unknown>) => void;
@@ -72,7 +71,6 @@ export function WorkersTab({
   user,
   onRequireLogin,
   onRegisterSkillProfile,
-  onOpenDirectPayment,
   onOpenWorkerDiscovery,
   onRefreshWorkers,
   onAssignmentCreated,
@@ -1174,23 +1172,7 @@ export function WorkersTab({
                       </button>
                     ) : null}
 
-                    <button
-                      onClick={() => {
-                        if (!user) {
-                          onRequireLogin();
-                          return;
-                        }
-                        onOpenDirectPayment(
-                          worker.profiles?.id || worker.id,
-                          name,
-                          workerPhones[worker.id] || null
-                        );
-                      }}
-                      className="flex-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 border border-emerald-200 cursor-pointer"
-                    >
-                      <Landmark className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>{t('payWageToBank')}</span>
-                    </button>
+                    
                   </div>
 
                   <button
