@@ -186,10 +186,17 @@ BEGIN
         END IF;
     END IF;
 
-    IF NULLIF(trim(p_payment_reference), '') IS NULL
-       OR NULLIF(trim(p_idempotency_key), '') IS NULL
-       OR trim(p_idempotency_key) <> trim(p_payment_reference) THEN
-        RAISE EXCEPTION 'A stable payment reference and matching idempotency key are required.'
+    IF NULLIF(trim(p_payment_reference), '') IS NULL THEN
+        RAISE EXCEPTION 'A stable payment reference is required for every worker wage payment.'
+            USING ERRCODE = '23514';
+    END IF;
+
+    -- Older trusted callers may omit p_idempotency_key; when supplied, it must
+    -- match the unique payment reference used as the canonical idempotency key.
+    IF p_idempotency_key IS NOT NULL
+       AND (NULLIF(trim(p_idempotency_key), '') IS NULL
+            OR trim(p_idempotency_key) <> trim(p_payment_reference)) THEN
+        RAISE EXCEPTION 'The idempotency key must match the stable payment reference.'
             USING ERRCODE = '23514';
     END IF;
 
