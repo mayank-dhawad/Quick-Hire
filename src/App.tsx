@@ -29,6 +29,7 @@ import { usePwaInstall } from './hooks/usePwaInstall';
 import { speakText, getVoiceGuidance } from './lib/speech';
 import { VoiceSpeakerButton } from './components/VoiceSpeakerButton';
 import { AccessibleVoiceBar } from './components/AccessibleVoiceBar';
+import { VoiceAssistanceToggle } from './components/VoiceAssistanceToggle';
 import { extractErrorMessage } from './lib/errorHandler';
 import { resolveLocalityCoordinates } from './lib/geocoding';
 
@@ -1966,6 +1967,8 @@ export default function App() {
 
           {/* Right: Language Selector, User Role Badge, Profile, Logout */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+
+            <VoiceAssistanceToggle currentLang={currentLang} />
 
             {/* 5-Language Selector */}
             <div className="relative shrink-0">
