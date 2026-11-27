@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
+import { Auth } from './components/Auth';
 import { EmojiIcon } from './components/EmojiIcon';
 import { supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
@@ -34,7 +35,6 @@ import { extractErrorMessage } from './lib/errorHandler';
 import { resolveLocalityCoordinates } from './lib/geocoding';
 
 // Lazy-loaded modals for code splitting and ultra-fast initial load
-const Auth = lazy(() => import('./components/Auth').then(m => ({ default: m.Auth })));
 const WorkerDiscoveryModal = lazy(() => import('./components/WorkerDiscoveryModal').then(m => ({ default: m.WorkerDiscoveryModal })));
 const WorkerProfileModal = lazy(() => import('./components/WorkerProfileModal').then(m => ({ default: m.WorkerProfileModal })));
 const PostEquipmentModal = lazy(() => import('./components/PostEquipmentModal').then(m => ({ default: m.PostEquipmentModal })));
@@ -1372,22 +1372,20 @@ export default function App() {
   // Public launch experience: no operational listings or private records before login.
   if (!user) {
     return (
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-600">{t('loadingQuickHire')}</div>}>
-        <Auth
-          isGate
-          currentLang={currentLang}
-          onLangChange={handleLangChange}
-          onLoginSuccess={(loggedInUser, role) => {
-            safeSetUser(loggedInUser);
-            setUserRole(role);
-            fetchUserData(loggedInUser, true);
-            if (role === 'admin') {
-              navigateTo('/admin');
-              setAppRoute('admin-overview');
-            }
-          }}
-        />
-      </Suspense>
+      <Auth
+        isGate
+        currentLang={currentLang}
+        onLangChange={handleLangChange}
+        onLoginSuccess={(loggedInUser, role) => {
+          safeSetUser(loggedInUser);
+          setUserRole(role);
+          fetchUserData(loggedInUser, true);
+          if (role === 'admin') {
+            navigateTo('/admin');
+            setAppRoute('admin-overview');
+          }
+        }}
+      />
     );
   }
 
