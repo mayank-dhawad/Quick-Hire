@@ -475,6 +475,16 @@ BEGIN
     RETURN NEW;
   END IF;
 
+  -- Refund/reversal child rows are created by the verified administrator
+  -- reconciliation workflow and are validated by the existing ledger triggers.
+  IF NEW.parent_payment_id IS NOT NULL THEN
+    IF NOT v_is_admin THEN
+      RAISE EXCEPTION 'Only an administrator may create a payment reversal or refund row.'
+        USING ERRCODE = '42501';
+    END IF;
+    RETURN NEW;
+  END IF;
+
   IF v_actor_id IS NULL OR NEW.payer_id IS DISTINCT FROM v_actor_id THEN
     RAISE EXCEPTION 'Authenticated payment submissions must be recorded by the signed-in payer.'
       USING ERRCODE = '42501';
