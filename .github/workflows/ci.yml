@@ -131,6 +131,9 @@ jobs:
       - name: Verify profile phone numbers are relationship-scoped
         run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/21_profile_phone_relationship_rls_regression.sql
 
+      - name: Verify employer-only wage completion and payment authorization
+        run: psql "postgresql://postgres:postgres@127.0.0.1:54332/postgres" -v ON_ERROR_STOP=1 -f supabase/tests/22_employer_wage_authorization_regression.sql
+
       - name: Stop local Supabase
         if: always()
         run: |
