@@ -1203,13 +1203,13 @@ export default function App() {
     );
   }
 
-  // Dedicated Admin Login Page (/admin/login)
+  // Dedicated {t('adminLogin')} Page (/admin/login)
   if (appRoute === 'admin-login') {
     return (
       <Suspense
         fallback={
           <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
-            Loading Admin Security Portal...
+            {t('loadingAdminSuite')}
           </div>
         }
       >
@@ -1231,7 +1231,7 @@ export default function App() {
     if (authChecking) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
-          Verifying Admin Access...
+          {t('verifyingAdminAccess')}
         </div>
       );
     }
@@ -1270,7 +1270,7 @@ export default function App() {
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
               >
-                Admin Login
+                {t('adminLogin')}
               </button>
             </div>
           </div>
@@ -1284,7 +1284,7 @@ export default function App() {
         <Suspense
           fallback={
             <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
-              Loading Admin Security Portal...
+              {t('loadingAdminSuite')}
             </div>
           }
         >
@@ -1319,7 +1319,7 @@ export default function App() {
           globalSearchQuery={adminSearchQuery}
           onGlobalSearchChange={setAdminSearchQuery}
           onLogout={async () => {
-            showToast('Administrator session closed safely.', 'info');
+            showToast('{t('adminSessionClosed')}', 'info');
             clearAdminSession();
             sessionStorage.removeItem('quickhire_admin_preview_citizen');
             try {
@@ -2074,14 +2074,14 @@ export default function App() {
               )
             )}
 
-            {/* Worker Profile Button - non-admin users */}
+            {/* {t('workerProfile')} Button - non-admin users */}
             {user && userRole !== 'admin' && (
               <button
                 onClick={() => setIsWorkerProfileOpen(true)}
                 className="hidden sm:flex px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 hover:bg-emerald-100 text-[#138808] border border-emerald-300 transition-colors items-center gap-1.5 whitespace-nowrap"
               >
                 <UserCheck className="w-3.5 h-3.5 text-[#138808]" />
-                <span className="hidden md:inline">Worker Profile</span>
+                <span className="hidden md:inline">{t('workerProfile')}</span>
                 <span className="md:hidden">Profile</span>
               </button>
             )}
