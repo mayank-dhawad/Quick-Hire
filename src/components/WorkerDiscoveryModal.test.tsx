@@ -111,7 +111,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
         skills: ['Masonry', 'Plastering'],
         experience_years: 12,
         daily_wage: 750,
-        average_rating: 4.8,
+        average_rating: null,
         is_available: true,
         village: 'Kalyan',
         city: 'Thane',
@@ -150,6 +150,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
       expect(screen.getByText('Baburao Apte')).toBeInTheDocument();
       expect(screen.getByText('Masonry')).toBeInTheDocument();
       expect(screen.getByText('Plastering')).toBeInTheDocument();
+      expect(screen.getByText('New')).toBeInTheDocument();
     });
   });
 
