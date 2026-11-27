@@ -2004,7 +2004,7 @@ export default function App() {
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-600 font-medium hidden sm:block">
-                Rural Workforce, Skill Discovery & Agricultural Equipment Platform (Independent DPI Initiative)
+                {t('appTagline')}
               </p>
             </div>
           </div>
@@ -2806,27 +2806,35 @@ export default function App() {
             {/* Column 3: Emergency & Labor Helplines */}
             <div>
               <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                 <EmojiIcon name="phone" className="mr-1 inline h-4 w-4" /> Emergency & Labor Helplines
+                 <EmojiIcon name="phone" className="mr-1 inline h-4 w-4" /> {t('publicSafetyTitle')}
               </span>
               <div className="space-y-2.5 text-xs text-slate-300">
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="alert" className="mr-1 h-4 w-4" /> {t('publicSafetyTitle')}:</span>
+                  <span> <EmojiIcon name="alert" className="mr-1 h-4 w-4" /> {t('sos112Title')}:</span>
                   <a href="tel:112" className="font-bold text-white hover:text-amber-300">112</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
                   <span> <EmojiIcon name="ambulance" className="mr-1 h-4 w-4" /> {t('publicAmbulance102')}:</span>
-                  <a href="tel:108" className="font-bold text-white hover:text-amber-300">108</a>
+                  <a href="tel:102" className="font-bold text-white hover:text-amber-300">102 / 108</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
                   <span> <EmojiIcon name="sprout" className="mr-1 h-4 w-4" /> {t('publicKisanCallCenter')}:</span>
                   <a href="tel:18001801551" className="font-bold text-amber-300 hover:text-white">1800-180-1551</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="hardHat" className="mr-1 h-4 w-4" /> National Labor Helpline:</span>
-                  <a href="tel:14434" className="font-bold text-white hover:text-amber-300">14434</a>
+                  <span> <EmojiIcon name="shield" className="mr-1 h-4 w-4" /> {t('publicWomen181')}:</span>
+                  <a href="tel:181" className="font-bold text-white hover:text-amber-300">181</a>
+                </div>
+                <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
+                  <span><EmojiIcon name="alert" className="mr-1 h-4 w-4" /> {t('publicChild1098')}:</span>
+                  <a href="tel:1098" className="font-bold text-white hover:text-amber-300">1098</a>
+                </div>
+                <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
+                  <span><EmojiIcon name="shield" className="mr-1 h-4 w-4" /> {t('publicCyber1930')}:</span>
+                  <a href="tel:1930" className="font-bold text-white hover:text-amber-300">1930</a>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span><EmojiIcon name="shield" className="mr-1 h-4 w-4" /> Women Safety Helpline:</span>
+                  <span><EmojiIcon name="shield" className="mr-1 h-4 w-4" /> {t('sos1091Title')}:</span>
                   <a href="tel:1091" className="font-bold text-white hover:text-amber-300">1091</a>
                 </div>
               </div>
@@ -2835,10 +2843,10 @@ export default function App() {
             {/* Column 4: Supported Regional Languages */}
             <div className="space-y-3">
               <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                 <EmojiIcon name="globe" className="mr-1 inline h-4 w-4" /> Multilingual Audio Guidance
+                 <EmojiIcon name="globe" className="mr-1 inline h-4 w-4" /> {t('voiceHelper')}
               </span>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Full voice guidance enabled across 5 regional languages with instant text-to-speech feedback.
+                {t('statVoiceNav')}
               </p>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {languages.map((lang) => (
@@ -2865,9 +2873,9 @@ export default function App() {
           </div>
 
           <div className="pt-4 border-t border-slate-800/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-            <span>Designed for Rural Digital Empowerment • Accessible Voice-Enabled Interface • 0% Commission Direct Settlement</span>
+            <span>{t('appTagline')} · {t('voiceHelper')} · {t('publicCommissionBadge')}</span>
             <div className="flex items-center gap-4">
-              <span>© {new Date().getFullYear()} QuickHire Rural DPI Initiative. All Rights Reserved.</span>
+              <span>© {new Date().getFullYear()} {t('publicPlatformName')}. {t('allRightsReserved')}</span>
               <a
                 href="/admin/login"
                 onClick={(e) => {
@@ -2877,7 +2885,7 @@ export default function App() {
                 }}
                 className="text-slate-400 hover:text-emerald-400 font-bold transition flex items-center gap-1 cursor-pointer"
               >
-                <span>Admin Portal</span>
+                <span>{t('adminRoleLabel')}</span>
               </a>
             </div>
           </div>
