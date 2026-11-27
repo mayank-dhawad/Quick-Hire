@@ -1347,6 +1347,29 @@ export default function App() {
     );
   }
 
+
+  // Public launch experience: no operational listings or private records before login.
+  if (!user) {
+    return (
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-600">Loading QuickHire...</div>}>
+        <Auth
+          isGate
+          currentLang={currentLang}
+          onLangChange={handleLangChange}
+          onLoginSuccess={(loggedInUser, role) => {
+            safeSetUser(loggedInUser);
+            setUserRole(role);
+            fetchUserData(loggedInUser, true);
+            if (role === 'admin') {
+              navigateTo('/admin');
+              setAppRoute('admin-overview');
+            }
+          }}
+        />
+      </Suspense>
+    );
+  }
+
   return (
     <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#0f2942] selection:text-white overflow-x-hidden w-full ${fontSizeZoom === 'larger' ? 'text-base' : fontSizeZoom === 'large' ? 'text-[15px]' : 'text-sm'
       }`}>
