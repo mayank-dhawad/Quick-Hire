@@ -22,7 +22,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
 import { PaymentRecord, UPI_REGEX, IFSC_REGEX } from '../lib/paymentUtils';
 
@@ -947,7 +947,7 @@ export function BankDetailsTab({
                 <span>{t('totalReceived')}</span>
               </div>
               <div className="text-xl sm:text-2xl font-heading font-black text-slate-900">
-                ₹{totalReceived.toLocaleString('en-IN')}
+                {formatLocalizedCurrency(totalReceived, currentLang)}
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">{t('wagesAndRentals')}</p>
             </div>
@@ -958,7 +958,7 @@ export function BankDetailsTab({
                 <span>{t('totalPaidOut')}</span>
               </div>
               <div className="text-xl sm:text-2xl font-heading font-black text-slate-900">
-                ₹{totalSent.toLocaleString('en-IN')}
+                {formatLocalizedCurrency(totalSent, currentLang)}
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">{t('wagesAndMachineRents')}</p>
             </div>
@@ -1076,7 +1076,7 @@ export function BankDetailsTab({
                 {filteredPayments.map((p) => {
                   const isReceived = p.payee_id === user.id;
                   const dateStr = p.created_at
-                    ? new Date(p.created_at).toLocaleDateString('en-IN', {
+                    ? formatLocalizedDate(p.created_at, currentLang, {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',
@@ -1124,7 +1124,7 @@ export function BankDetailsTab({
                             isReceived ? 'text-emerald-700' : 'text-slate-900'
                           }`}
                         >
-                          {isReceived ? '+' : '-'} ₹{Number(p.amount).toLocaleString('en-IN')}
+                          {isReceived ? '+' : '-'} ₹{formatLocalizedNumber(Number(p.amount), currentLang)}
                         </span>
                       </td>
 
