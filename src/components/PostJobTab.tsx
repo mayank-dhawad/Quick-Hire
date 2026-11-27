@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, MapPin } from 'lucide-react';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
-import { getTranslation, getLocalizedSkillsByCategory } from '../lib/translations';
+import { getTranslation, getLocalizedSkillsByCategory, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { WorkerCategory } from './WorkerDiscoveryModal';
 
 interface PostJobTabProps {
@@ -246,7 +246,7 @@ export function PostJobTab({
                     : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
                 }`}
               >
-                ₹{preset}
+                {formatLocalizedCurrency(preset, currentLang)}
               </button>
             ))}
           </div>
