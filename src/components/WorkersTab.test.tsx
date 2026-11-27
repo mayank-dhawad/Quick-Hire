@@ -196,7 +196,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
-        onOpenDirectPayment={vi.fn()}
         onOpenWorkerDiscovery={vi.fn()}
       />
     );
@@ -220,7 +219,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
-        onOpenDirectPayment={vi.fn()}
         onOpenWorkerDiscovery={vi.fn()}
       />
     );
@@ -249,7 +247,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
-        onOpenDirectPayment={vi.fn()}
         onOpenWorkerDiscovery={vi.fn()}
       />
     );
@@ -284,7 +281,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
-        onOpenDirectPayment={vi.fn()}
         onOpenWorkerDiscovery={vi.fn()}
       />
     );
@@ -325,7 +321,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
-        onOpenDirectPayment={vi.fn()}
         onOpenWorkerDiscovery={vi.fn()}
       />
     );
@@ -353,7 +348,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         user={mockUser}
         onRequireLogin={vi.fn()}
         onRegisterSkillProfile={vi.fn()}
-        onOpenDirectPayment={vi.fn()}
         onOpenWorkerDiscovery={vi.fn()}
         onRefreshWorkers={mockRefresh}
       />
@@ -378,7 +372,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -402,7 +395,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -422,7 +414,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -444,7 +435,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -491,7 +481,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -545,7 +534,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -574,7 +562,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -604,7 +591,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -668,7 +654,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -696,7 +681,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={null}
           onRequireLogin={onRequireLogin}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -726,7 +710,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -761,7 +744,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -802,7 +784,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
@@ -847,7 +828,6 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           user={mockUser}
           onRequireLogin={vi.fn()}
           onRegisterSkillProfile={vi.fn()}
-          onOpenDirectPayment={vi.fn()}
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
