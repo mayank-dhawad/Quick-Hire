@@ -19,7 +19,7 @@ import {
   Bell,
   RefreshCw,
   Phone,
-  {t('receipt')},
+  Receipt,
   ShieldCheck,
   X,
   History,
