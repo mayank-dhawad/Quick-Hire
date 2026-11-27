@@ -845,7 +845,7 @@ export function DirectPaymentModal({
                         {isLaunchingIntent ? (
                           <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Launching UPI Intent...</span>
+                            <span>{t('launchingUpiIntent')}</span>
                           </>
                         ) : (
                           <>
@@ -1039,7 +1039,7 @@ export function DirectPaymentModal({
                     }}
                     className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>Transferred via Net Banking? Submit UTR Reference →</span>
+                    <span>{t('transferredViaNetBanking')} →</span>
                   </button>
                 </div>
               )}
@@ -1069,7 +1069,7 @@ export function DirectPaymentModal({
                     className="text-xs font-bold text-emerald-800 underline hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Re-open UPI App</span>
+                    <span>{t('reopenUpiApp')}</span>
                   </button>
                   <span className="text-emerald-400">•</span>
                   <button
@@ -1128,7 +1128,7 @@ export function DirectPaymentModal({
                     className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Reference submitted! Payment logged as Submitted (Awaiting Verification).</span>
+                    <span>{t('referenceSubmittedNotice')}</span>
                   </motion.div>
                 )}
 
