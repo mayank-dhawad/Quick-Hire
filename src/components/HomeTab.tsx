@@ -72,11 +72,11 @@ export function HomeTab({
         <div className="flex items-center gap-2.5">
           <EmojiIcon name="megaphone" className="h-4 w-4 shrink-0" />
           <span className="font-semibold leading-relaxed">
-            <strong className="text-amber-900">{t('officialAdvisory')}:</strong> QuickHire is a 100% Free Direct Employment & Equipment Portal. Never pay middlemen or commission fees. Verify bank details in the Bank & Payouts tab for direct wage transfer.
+            <strong className="text-amber-900">{t('officialAdvisory')}:</strong> {t('officialAdvisoryBody')}
           </span>
         </div>
         <VoiceSpeakerButton
-          text="{t('officialAdvisory')}: QuickHire is a 100% Free Direct Employment and Equipment Portal. Never pay middlemen or commission fees. Verify bank details in the Bank and Payouts tab for direct wage transfer."
+          text={t('officialAdvisorySpeech')}
           lang={currentLang}
           label="Listen to official citizen advisory"
         />
