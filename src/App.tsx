@@ -1319,7 +1319,7 @@ export default function App() {
           globalSearchQuery={adminSearchQuery}
           onGlobalSearchChange={setAdminSearchQuery}
           onLogout={async () => {
-            showToast('{t('adminSessionClosed')}', 'info');
+            showToast(t('adminSessionClosed'), 'info');
             clearAdminSession();
             sessionStorage.removeItem('quickhire_admin_preview_citizen');
             try {
