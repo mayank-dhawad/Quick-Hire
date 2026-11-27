@@ -1205,20 +1205,29 @@ BEGIN
     BEGIN
         -- Auth signup creates a profile for the registering identity.
         PERFORM set_config('request.jwt.claim.sub', v_app_user_id::text, true);
-        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-        VALUES (v_app_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'app.user@quickhire.in', 'pw', now(), now(), now());
+        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+        VALUES (v_app_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'app.user@quickhire.in', 'pw', now(), '{"role":"worker"}'::jsonb, now(), now());
 
-        -- Auth signup trigger creates the profile; update it for this test fixture.
+        -- Auth signup trigger creates the Worker profile; do not mutate its immutable role.
         UPDATE public.profiles
-        SET full_name = 'Application User', role = 'worker',
+        SET full_name = 'Application User',
             phone_number = '+919876543288', is_assisted_profile = false, account_status = 'active'
         WHERE id = v_app_user_id;
 
         INSERT INTO public.workers (id, category, skills) VALUES (v_app_user_id, 'Construction', ARRAY['Masonry']);
 
+        -- Seed this historical completed assignment through the trusted service-role
+        -- path; a worker cannot directly create a completed assignment.
+        PERFORM set_config('role', 'service_role', true);
+        PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+        PERFORM set_config('request.jwt.claim.sub', '', true);
         INSERT INTO public.job_records (id, job_id, worker_id, status)
         VALUES (v_record_id, v_job_alt_id, v_app_user_id, 'completed');
 
+        -- Restore the same authenticated worker identity for self-service deletion.
+        PERFORM set_config('role', 'postgres', true);
+        PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_app_user_id::text, true);
         DELETE FROM auth.users WHERE id = v_app_user_id;
 
         SELECT EXISTS(SELECT 1 FROM public.job_records WHERE id = v_record_id) INTO v_record_still_exists;
