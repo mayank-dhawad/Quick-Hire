@@ -17,7 +17,7 @@ import {
   Send
 } from 'lucide-react';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { getJobSpeechText } from '../lib/speech';
 
 export interface JobItem {
@@ -401,7 +401,7 @@ export function HomeTab({
                         label="Listen to job details"
                       />
                       <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                        ₹{job.offered_wages} / day
+                        {formatLocalizedCurrency(job.offered_wages, currentLang)} / day
                       </span>
                     </div>
                   </div>
