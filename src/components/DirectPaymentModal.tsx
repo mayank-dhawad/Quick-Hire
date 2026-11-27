@@ -761,15 +761,15 @@ export function DirectPaymentModal({
               {totalPreviouslyPaid > 0 && (
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Agreed</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block" >{t('totalAgreed')}</span>
                     <span className="font-bold text-slate-800">{formatLocalizedCurrency(defaultAmount, currentLang)}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-emerald-600 font-bold uppercase block">Paid So Far</span>
+                    <span className="text-[10px] text-emerald-600 font-bold uppercase block" >{t('paidSoFar')}</span>
                     <span className="font-bold text-emerald-700">{formatLocalizedCurrency(totalPreviouslyPaid, currentLang)}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-amber-600 font-bold uppercase block">Remaining Balance</span>
+                    <span className="text-[10px] text-amber-600 font-bold uppercase block" >{t('remainingBalance')}</span>
                     <span className="font-black text-amber-800">{formatLocalizedCurrency(remainingBalance, currentLang)}</span>
                   </div>
                 </div>
@@ -787,7 +787,7 @@ export function DirectPaymentModal({
                         text={
                           hasValidUpi
                             ? `Recipient UPI ID is ${cleanUpiId}. Amount is ${formatLocalizedCurrency(amount, currentLang)}. Tap Proceed to open your UPI payment app.`
-                            : '{t('workerUpiNotAdded')}'
+                            : t('workerUpiNotAdded')
                         }
                         lang={currentLang}
                         label="Listen to UPI details"
