@@ -1358,7 +1358,12 @@ export function Auth({
                 <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
               <a href="tel:102" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">102 / 108</span>
+                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">102</span>
+                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicAmbulance102')}</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
+              </a>
+              <a href="tel:108" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
+                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">108</span>
                 <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicAmbulance102')}</span>
                 <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
