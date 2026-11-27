@@ -10,8 +10,6 @@ import {
   Globe2,
   Building2,
   Users,
-  Scale,
-  Landmark,
   PhoneCall,
   ShieldCheck,
   Mail,
