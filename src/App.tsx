@@ -137,7 +137,7 @@ interface PostedJobItem {
   job_records?: JobRecordItem[];
 }
 
-import { matchesSkillSearch, getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from './lib/translations';
+import { matchesSkillSearch, getTranslation, formatLocalizedCurrency } from './lib/translations';
 
 
 

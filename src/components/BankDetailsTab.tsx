@@ -22,7 +22,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
 import { PaymentRecord, UPI_REGEX, IFSC_REGEX } from '../lib/paymentUtils';
 

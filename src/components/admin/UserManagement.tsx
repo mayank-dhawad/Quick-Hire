@@ -142,7 +142,7 @@ export function UserManagement({ currentLang = 'English' }: { currentLang?: stri
     setLoading(true);
     setFetchError(null);
     try {
-      let data: any[] | null = null;
+      let data: ProfileRecord[] | null = null;
       let error: { message: string; code?: string } | null = null;
       const profileQuery = await supabase
         .from('profiles')
@@ -155,7 +155,7 @@ export function UserManagement({ currentLang = 'English' }: { currentLang?: stri
         `)
         .order('created_at', { ascending: false });
 
-      data = profileQuery.data as any[] | null;
+      data = profileQuery.data as ProfileRecord[] | null;
       error = profileQuery.error;
 
       if (error && /can_manage_rentals|42703/i.test(error.message)) {
@@ -169,7 +169,7 @@ export function UserManagement({ currentLang = 'English' }: { currentLang?: stri
             )
           `)
           .order('created_at', { ascending: false });
-        data = (legacyQuery.data || []).map((profile) => ({ ...profile, can_manage_rentals: false })) as any[];
+        data = (legacyQuery.data || []).map((profile) => ({ ...profile, can_manage_rentals: false })) as ProfileRecord[];
         error = legacyQuery.error;
       }
 

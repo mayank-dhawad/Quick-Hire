@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { CheckCircle2, MapPin } from 'lucide-react';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
-import { getTranslation, getLocalizedSkillsByCategory, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
+import { getTranslation, getLocalizedSkillsByCategory, formatLocalizedCurrency } from '../lib/translations';
 import { WorkerCategory } from './WorkerDiscoveryModal';
 
 interface PostJobTabProps {

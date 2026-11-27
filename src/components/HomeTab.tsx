@@ -17,7 +17,7 @@ import {
   Send
 } from 'lucide-react';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency } from '../lib/translations';
 import { getJobSpeechText } from '../lib/speech';
 
 export interface JobItem {

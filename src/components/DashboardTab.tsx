@@ -35,7 +35,6 @@ import { supabase } from '../lib/supabase';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { RateWorkerModal } from './RateWorkerModal';
 import { PaymentReceiptModal, PaymentReceiptData } from './PaymentReceiptModal';
-import { speakText } from '../lib/speech';
 import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
 

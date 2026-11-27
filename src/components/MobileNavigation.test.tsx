@@ -111,7 +111,7 @@ describe('Mobile Navigation, Account Drawer & Responsiveness', () => {
     });
 
     vi.mocked(supabase.from).mockImplementation((table: string) => {
-      const queryBuilder: Record<string, any> = {
+      const queryBuilder: Record<string, ReturnType<typeof vi.fn>> = {
         select: vi.fn(() => queryBuilder),
         eq: vi.fn(() => queryBuilder),
         in: vi.fn(() => queryBuilder),

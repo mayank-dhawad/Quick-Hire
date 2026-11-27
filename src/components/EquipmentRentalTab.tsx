@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { EquipmentItem } from './PostEquipmentModal';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency } from '../lib/translations';
 
 interface EquipmentRentalTabProps {
   canManageRentals?: boolean;

@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Award,
   Phone,
-  Landmark,
   Sparkles,
   MapPin,
   IndianRupee,
@@ -40,7 +39,7 @@ import {
 } from '../lib/geocoding';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
-import { getTranslation, getSuggestedSkillTags, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
+import { getTranslation, getSuggestedSkillTags, formatLocalizedCurrency, formatLocalizedNumber } from '../lib/translations';
 import { PostCallDirectHireModal, DirectHireWorkerInfo } from './PostCallDirectHireModal';
 import { getIndianTelUri } from '../lib/phone';
 

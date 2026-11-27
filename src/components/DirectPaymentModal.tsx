@@ -21,7 +21,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { speakText } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate } from '../lib/translations';
 import { PaymentRecord, UPI_REGEX } from '../lib/paymentUtils';
 import { extractErrorMessage } from '../lib/errorHandler';
 
