@@ -293,6 +293,7 @@ export function DashboardTab({
   const [claimProfileError, setClaimProfileError] = useState<string | null>(null);
   const [claimSecrets, setClaimSecrets] = useState<Record<string, string>>({});
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
+  const [completionTimestampOverrides, setCompletionTimestampOverrides] = useState<Record<string, string>>({});
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceiptData | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [overtimeInputs, setOvertimeInputs] = useState<Record<string, string>>({});
@@ -398,18 +399,18 @@ export function DashboardTab({
     overtimeHours: number = 0,
     baseShiftHours: number = 8
   ) => {
+    if (!user || userRole !== 'employer') return;
     try {
       const hourlyRate = baseWage > 0 ? baseWage / 8 : 62.5;
       const overtimeWage = Math.round(overtimeHours * hourlyRate);
       const totalPayable = Math.round(baseWage + overtimeWage);
       const netWorkingHours = baseShiftHours + overtimeHours;
+      const completedAt = new Date().toISOString();
 
-      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'completed' }));
-
-      await supabase.from('job_records')
+      const { error } = await supabase.from('job_records')
         .update({
           status: 'completed',
-          work_completed_at: new Date().toISOString(),
+          work_completed_at: completedAt,
           overtime_hours: overtimeHours,
           total_working_hours: netWorkingHours,
           agreed_wage: baseWage,
@@ -417,6 +418,10 @@ export function DashboardTab({
           payment_status: 'pending',
         })
         .eq('id', recordId);
+
+      if (error) throw error;
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'completed' }));
+      setCompletionTimestampOverrides((prev) => ({ ...prev, [recordId]: completedAt }));
     } catch (err) {
       console.warn('Error completing work:', err);
     }
@@ -1984,7 +1989,8 @@ export function DashboardTab({
                                         )}
                                       </button>
 
-                                      <button
+                                      {userRole === 'employer' && (
+<button
                                         type="button"
                                         onClick={() => handleCompleteWork(job.id, rec.id, rec.agreed_wage || job.offered_wages || 500, Number(overtimeInputs[rec.id] || 0))}
                                         className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
@@ -1992,12 +1998,13 @@ export function DashboardTab({
                                         <CheckCircle2 className="w-3.5 h-3.5" />
                                         <span>Complete Work</span>
                                       </button>
+)}
                                     </div>
                                   </div>
                                 )}
 
                                 {/* SETTLEMENT, RECEIPTS & REVIEWS (Requirement G, H) */}
-                                {(job.status === 'completed' || currentStatus === 'completed' || currentStatus === 'hired') && (
+                                {((currentStatus === 'completed' || currentStatus === 'work_completed') && Boolean(rec.work_completed_at || completionTimestampOverrides[rec.id])) && (
                                   <div className="pt-2 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
                                     <div className="text-xs">
                                       <div className="flex items-center gap-2">
