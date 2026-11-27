@@ -87,7 +87,7 @@ export const translations: Record<string, Record<string, string>> = {
     "locationNotSpecified": "Location not specified",
     "loadingVerifiedWorkers": "Loading verified workers...",
     "recentLabel": "Recent",
-    "findNearby": "Find nearby",
+    "findNearby": "Find Nearby",
     "noOpenJobsForWorkers": "There are no active job listings right now. Employers can post jobs in seconds.",
     "exploreWorkers": "Explore workers",
     "browseFullDirectory": "Browse full directory",
