@@ -1913,7 +1913,7 @@ export default function App() {
               <span className="w-2 h-2 rounded-full bg-[#138808]" />
             </span>
             <span className="font-semibold text-slate-200 truncate">
-              ग्रामीण रोजगार एवं श्रम कल्याण पोर्टल | Rural Employment & Workforce Welfare Initiative — Direct 0% Commission Platform
+              {t('appTagline')} · {t('publicCommissionBadge')}
             </span>
           </div>
 
@@ -1971,7 +1971,7 @@ export default function App() {
               className="flex items-center gap-1 text-amber-300 hover:text-amber-200 font-bold tracking-wide"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Toll-Free: 1800-180-1551</span>
+              <span className="hidden sm:inline">{t('publicKisanCallCenter')}: 1800-180-1551</span>
               <span className="sm:hidden">1800-180-1551</span>
             </a>
           </div>
@@ -1988,7 +1988,7 @@ export default function App() {
           >
             <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#0f2942] to-[#1a3d60] text-white flex flex-col items-center justify-center shadow-md border-2 border-[#FF9933]/60 group-hover:scale-105 transition-transform shrink-0">
               <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
-              <span className="text-[7px] font-black tracking-widest uppercase text-emerald-300">DPI</span>
+              <span className="text-[7px] font-black tracking-widest uppercase text-emerald-300">QH</span>
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
@@ -2064,12 +2064,12 @@ export default function App() {
               ) : userRole === 'employer' ? (
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 whitespace-nowrap">
                   <Building2 className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Employer / नियोक्ता</span>
+                  <span>{t('roleEmployer')}</span>
                 </span>
               ) : (
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 whitespace-nowrap">
                   <UserCheck className="w-3.5 h-3.5 text-[#138808]" />
-                  <span>Worker / कामगार</span>
+                  <span>{t('roleWorker')}</span>
                 </span>
               )
             )}
@@ -2810,15 +2810,15 @@ export default function App() {
               </span>
               <div className="space-y-2.5 text-xs text-slate-300">
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="alert" className="mr-1 h-4 w-4" /> All-in-One Emergency:</span>
+                  <span> <EmojiIcon name="alert" className="mr-1 h-4 w-4" /> {t('publicSafetyTitle')}:</span>
                   <a href="tel:112" className="font-bold text-white hover:text-amber-300">112</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="ambulance" className="mr-1 h-4 w-4" /> Medical Ambulance:</span>
+                  <span> <EmojiIcon name="ambulance" className="mr-1 h-4 w-4" /> {t('publicAmbulance102')}:</span>
                   <a href="tel:108" className="font-bold text-white hover:text-amber-300">108</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="sprout" className="mr-1 h-4 w-4" /> Kisan Call Center:</span>
+                  <span> <EmojiIcon name="sprout" className="mr-1 h-4 w-4" /> {t('publicKisanCallCenter')}:</span>
                   <a href="tel:18001801551" className="font-bold text-amber-300 hover:text-white">1800-180-1551</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
@@ -2860,7 +2860,7 @@ export default function App() {
           {/* GIGW 3.0 Statutory Public Service Disclaimer */}
           <div className="pt-6 pb-2 text-[11px] text-slate-400 border-t border-slate-800/80 leading-relaxed text-center sm:text-left">
             <p>
-              <strong className="text-slate-300">Public Service Disclaimer:</strong> QuickHire is an independent, non-governmental rural digital public infrastructure platform connecting citizens for livelihood and agricultural equipment rental opportunities. It is not affiliated with, operated by, or endorsed by the Government of India or any state government ministry. All helpline numbers (112, 108, 1091, 14434, 1800-180-1551) are provided as public safety references for direct citizen access.
+              {t('publicDisclaimer')}
             </p>
           </div>
 
