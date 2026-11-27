@@ -16,6 +16,8 @@ BEGIN
 
   SELECT pg_get_functiondef('public.enforce_employer_work_completion()'::regprocedure) INTO v_completion;
   IF v_completion NOT ILIKE '%v_actor_role%'
+     OR v_completion NOT ILIKE '%v_actor_status%'
+     OR v_completion NOT ILIKE '%account_status%'
      OR v_completion NOT ILIKE '%employer%'
      OR v_completion NOT ILIKE '%j.employer_id%'
      OR v_completion NOT ILIKE '%request.jwt.claim.role%' THEN
@@ -24,6 +26,7 @@ BEGIN
 
   SELECT pg_get_functiondef('public.get_payment_recipient_details(uuid,uuid)'::regprocedure) INTO v_recipient;
   IF v_recipient NOT ILIKE '%caller_profile.role = ''employer''%'
+     OR v_recipient NOT ILIKE '%account_status%'
      OR v_recipient NOT ILIKE '%jr.worker_id%'
      OR v_recipient NOT ILIKE '%profile_private_details%'
      OR v_recipient NOT ILIKE '%is_admin%' THEN
@@ -32,6 +35,8 @@ BEGIN
 
   SELECT pg_get_functiondef('public.record_direct_payment(text,uuid,uuid,uuid,numeric,text,text,text,text)'::regprocedure) INTO v_payment;
   IF v_payment NOT ILIKE '%v_actor_role%'
+     OR v_payment NOT ILIKE '%v_actor_status%'
+     OR v_payment NOT ILIKE '%account_status%'
      OR v_payment NOT ILIKE '%employer%'
      OR v_payment NOT ILIKE '%p_idempotency_key%'
      OR v_payment NOT ILIKE '%trim(p_idempotency_key) <> trim(p_payment_reference)%'
@@ -41,6 +46,8 @@ BEGIN
 
   SELECT pg_get_functiondef('public.enforce_worker_wage_payment_insert()'::regprocedure) INTO v_insert_guard;
   IF v_insert_guard NOT ILIKE '%NEW.payer_id%'
+     OR v_insert_guard NOT ILIKE '%v_actor_status%'
+     OR v_insert_guard NOT ILIKE '%account_status%'
      OR v_insert_guard NOT ILIKE '%NEW.assignment_id%'
      OR v_insert_guard NOT ILIKE '%work_completed_at%'
      OR v_insert_guard NOT ILIKE '%employer%' THEN
