@@ -19,6 +19,17 @@ import {
   Eye,
   EyeOff,
   KeyRound,
+  ArrowRight,
+  BriefcaseBusiness,
+  ClipboardList,
+  Wallet,
+  CalendarCheck,
+  Tractor,
+  Smartphone,
+  Search,
+  X,
+  Headset,
+  Info,
 } from 'lucide-react';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
@@ -73,6 +84,7 @@ export function Auth({
   const [fullName, setFullName] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [isSignUp, setIsSignUp] = useState(false);
+  const [isPublicAuthOpen, setIsPublicAuthOpen] = useState(false);
   const [showForgotBox, setShowForgotBox] = useState(false);
   const [resetEmail, setResetEmail] = useState('');
 
@@ -1133,331 +1145,177 @@ export function Auth({
     </div>
   );
 
-  // ================= RENDER A: FULL-SCREEN AUTHENTICATION GATE =================
+  // ================= RENDER A: PUBLIC QUICKHIRE LANDING PAGE =================
   if (isGate) {
+    const openPublicAuth = (register: boolean) => {
+      setIsSignUp(register);
+      setAuthError('');
+      setAuthNotice('');
+      setShowForgotBox(false);
+      setIsPublicAuthOpen(true);
+    };
+    const closePublicAuth = () => {
+      setIsPublicAuthOpen(false);
+      setStep('request');
+      setAuthError('');
+      setAuthNotice('');
+      setOtp('');
+      setPassword('');
+      setConfirmPassword('');
+      setFullName('');
+      setShowForgotBox(false);
+      setResendCooldown(0);
+    };
+
     return (
-      <div className="min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col justify-between font-sans selection:bg-[#0f2942] selection:text-white overflow-x-hidden w-full">
-        {/* LAYER 1: TOP TRICOLOR & GIGW ACCESSIBILITY STRIP */}
-        <div className="bg-slate-900 text-white text-xs py-1.5 border-t-4 border-t-[#FF9933] shadow-xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-            <div className="flex items-center gap-2 text-[11px] sm:text-xs">
-              <span className="flex items-center gap-1">
-                <span className="w-2 h-2 rounded-full bg-[#FF9933]" />
-                <span className="w-2 h-2 rounded-full bg-[#FFFFFF]" />
-                <span className="w-2 h-2 rounded-full bg-[#138808]" />
-              </span>
-              <span className="font-semibold text-slate-200">
-                {t('platformOverview')} — {t('publicCommissionBadge')}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-3 text-[11px] shrink-0">
-              <VoiceAssistanceToggle currentLang={currentLang} />
-              <a
-                href="tel:18001801551"
-                className="flex items-center gap-1 text-amber-300 hover:text-amber-200 font-bold tracking-wide"
-              >
-                <PhoneCall className="w-3.5 h-3.5" />
-                <span>{t('sosKisanTitle')}: 1551</span>
-              </a>
-            </div>
-          </div>
-        </div>
-
-        {/* LAYER 2: INSTITUTIONAL BRANDING BAR */}
-        <div className="bg-white border-b border-slate-200 py-3.5 w-full shadow-2xs">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-4">
-            {/* Left: Formal Emblem & Title */}
-            <div className="flex items-center gap-3 shrink-0">
-              <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#0f2942] to-[#1a3d60] text-white flex flex-col items-center justify-center shadow-md border-2 border-[#FF9933]/60">
-                <Landmark className="w-5 h-5 text-amber-300" />
-                <span className="text-[7px] font-black tracking-widest uppercase text-emerald-300">QH</span>
+      <div className="min-h-screen bg-[#fbfcf8] text-[#182b3a] font-sans overflow-x-hidden">
+        <div className="h-1 w-full bg-gradient-to-r from-[#f28c28] via-white to-[#138808]" />
+        <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-[#d9e2ec]">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[76px] flex items-center justify-between gap-4">
+            <a href="#public-home" className="flex items-center gap-3 shrink-0" aria-label="QuickHire home">
+              <div className="h-11 w-11 rounded-xl bg-[#102a43] text-white flex items-center justify-center border-b-2 border-[#f28c28]">
+                <BriefcaseBusiness className="h-6 w-6" />
               </div>
               <div>
-                <div className="flex items-center gap-2">
-                  <span className="font-heading font-black text-xl sm:text-2xl tracking-tight text-[#0f2942]">
-                    Quick<span className="text-[#138808]">Hire</span>
-                  </span>
-                  <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-sm bg-[#0f2942] text-white">
-                    {t('publicPortalBadge')}
-                  </span>
-                  <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
-                    <CheckCircle2 className="w-3 h-3 text-[#138808]" />
-                    {t('directBenefitBadge')}
-                  </span>
-                </div>
-                <p className="text-[11px] sm:text-xs text-slate-600 font-medium">
-                  {t('ruralRegistrySub')}
-                </p>
+                <div className="font-heading text-[23px] leading-none font-black tracking-tight text-[#102a43]">Quick<span className="text-[#f28c28]">Hire</span></div>
+                <p className="mt-1 text-[10px] sm:text-[11px] font-semibold tracking-wide text-slate-500">{t('appTagline')}</p>
               </div>
-            </div>
-
-            <nav aria-label="Public navigation" className="hidden lg:flex items-center gap-4 text-xs font-bold text-slate-600">
-              <a href="#public-about" className="hover:text-emerald-700">{t('publicNavAbout')}</a>
-              <a href="#public-how" className="hover:text-emerald-700">{t('publicNavHow')}</a>
-              <a href="#public-features" className="hover:text-emerald-700">{t('publicNavFeatures')}</a>
-              <a href="#public-safety" className="hover:text-emerald-700">{t('publicNavSafety')}</a>
-              <a href="#public-contact" className="hover:text-emerald-700">{t('publicNavContact')}</a>
-              <a href="#public-auth" className="rounded-lg bg-[#0f2942] px-3 py-2 text-white hover:bg-[#183b56]">{t('publicNavAccess')}</a>
+            </a>
+            <nav aria-label="Public navigation" className="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
+              <a href="#public-about" className="hover:text-[#138808]">{t('publicNavAbout')}</a>
+              <a href="#public-how" className="hover:text-[#138808]">{t('publicNavHow')}</a>
+              <a href="#public-features" className="hover:text-[#138808]">{t('publicNavFeatures')}</a>
+              <a href="#public-safety" className="hover:text-[#138808]">{t('publicNavSafety')}</a>
+              <a href="#public-contact" className="hover:text-[#138808]">{t('publicNavContact')}</a>
             </nav>
-
-            {/* Right: Language Selector */}
-            <div className="relative shrink-0">
-              <button
-                onClick={() => setLangMenuOpen(!langMenuOpen)}
-                className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 transition-colors shadow-2xs"
-              >
-                <Globe2 className="w-4 h-4 text-[#0f2942]" />
-                <span>{currentLang}</span>
-              </button>
-
-              <AnimatePresence>
-                {langMenuOpen && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 8, scale: 0.95 }}
-                    animate={{ opacity: 1, y: 0, scale: 1 }}
-                    exit={{ opacity: 0, y: 8, scale: 0.95 }}
-                    className="absolute right-0 mt-2 w-56 bg-white border border-slate-200 rounded-2xl shadow-xl p-1.5 z-50 overflow-hidden text-slate-800"
-                  >
-                    <div className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-wider text-slate-400 border-b border-slate-100 mb-1">
-                      {t('chooseLanguage')}
-                    </div>
-                    {SUPPORTED_LANGUAGES.map((lang) => (
-                      <button
-                        key={lang}
-                        onClick={() => {
-                          if (onLangChange) onLangChange(lang);
-                          setLangMenuOpen(false);
-                        }}
-                        className={`w-full flex items-center justify-between px-3.5 py-2.5 text-xs sm:text-sm rounded-xl text-left transition-colors ${
-                          currentLang === lang
-                            ? 'bg-emerald-50 text-[#138808] font-bold'
-                            : 'text-slate-700 hover:bg-slate-50'
-                        }`}
-                      >
-                        <span>{lang}</span>
-                        {currentLang === lang && <Check className="w-4 h-4 text-[#138808] stroke-[3]" />}
-                      </button>
-                    ))}
-                  </motion.div>
-                )}
-              </AnimatePresence>
+            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+              <div className="relative hidden sm:block">
+                <button type="button" aria-expanded={langMenuOpen} onClick={() => setLangMenuOpen(!langMenuOpen)} className="inline-flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                  <Globe2 className="h-4 w-4 text-[#102a43]" />
+                  <span className="hidden md:inline">{currentLang}</span>
+                  <span className="md:hidden">{normalizeLanguage(currentLang)}</span>
+                </button>
+                <AnimatePresence>
+                  {langMenuOpen && (
+                    <motion.div initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 6 }} className="absolute right-0 top-full mt-2 w-56 rounded-xl border border-[#d9e2ec] bg-white p-1.5 shadow-lg">
+                      {SUPPORTED_LANGUAGES.map((lang) => (
+                        <button type="button" key={lang} onClick={() => { onLangChange?.(lang); setLangMenuOpen(false); }} className={currentLang === lang ? 'w-full rounded-lg px-3 py-2.5 text-left text-sm bg-emerald-50 text-[#138808] font-bold' : 'w-full rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50'}>{lang}</button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </div>
+              <button type="button" onClick={() => openPublicAuth(true)} className="rounded-lg border border-[#102a43] bg-white px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold text-[#102a43] hover:bg-slate-50">{t('authRegisterTab')}</button>
+              <button type="button" onClick={() => openPublicAuth(false)} className="rounded-lg bg-[#102a43] px-3 sm:px-4 py-2.5 text-xs sm:text-sm font-bold text-white hover:bg-[#183b56]">{t('authLoginTab')}</button>
             </div>
           </div>
-        </div>
+          <div className="sm:hidden border-t border-slate-100 px-4 py-2 flex items-center justify-between gap-3">
+            <nav aria-label="Mobile public navigation" className="flex items-center gap-4 overflow-x-auto whitespace-nowrap text-xs font-semibold text-slate-600">
+              <a href="#public-about">{t('publicNavAbout')}</a><a href="#public-how">{t('publicNavHow')}</a><a href="#public-features">{t('publicNavFeatures')}</a><a href="#public-safety">{t('publicNavSafety')}</a>
+            </nav>
+            <button type="button" onClick={() => setLangMenuOpen(!langMenuOpen)} className="shrink-0 text-xs font-semibold text-[#102a43]"><Globe2 className="inline h-3.5 w-3.5 mr-1" />{normalizeLanguage(currentLang)}</button>
+          </div>
+          {langMenuOpen && (
+            <div className="sm:hidden absolute right-4 top-[118px] z-50 w-56 rounded-xl border border-[#d9e2ec] bg-white p-1.5 shadow-lg">
+              {SUPPORTED_LANGUAGES.map((lang) => <button type="button" key={lang} onClick={() => { onLangChange?.(lang); setLangMenuOpen(false); }} className="block w-full rounded-lg px-3 py-2.5 text-left text-sm text-slate-700 hover:bg-slate-50">{lang}</button>)}
+            </div>
+          )}
+        </header>
 
-        {/* MAIN FULL-SCREEN GATE CONTENT */}
-        <main className="flex-1 flex items-center justify-center p-4 sm:p-8">
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.3 }}
-            id="public-auth" className="w-full max-w-xl bg-white rounded-3xl border border-slate-300 shadow-xl p-6 sm:p-10 space-y-6 relative overflow-hidden"
-          >
-            {/* Top decorative tricolor line */}
-            <div className="absolute top-0 left-0 right-0 h-1.5 bg-gradient-to-r from-[#FF9933] via-white to-[#138808]" />
-
-            {/* BRANDING & HEADER */}
-            <div className="text-center space-y-3 pt-2">
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-[#0f2942] border border-slate-300 text-xs font-bold">
-                <ShieldCheck className="w-4 h-4 text-[#138808]" />
-                <span>{t('publicAboutTitle')}</span>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-center gap-2">
-                  <h1 className="font-heading font-black text-2xl sm:text-3xl text-[#0f2942]">
-                    {t('loginGateTitle')}
-                  </h1>
-                  <VoiceSpeakerButton
-                    text={`${t('loginGateTitle')}. ${t('loginGateSub')}`}
-                    lang={currentLang}
-                    label="Listen to welcome and login instructions"
-                  />
+        <main id="public-home">
+          <section className="border-b border-[#d9e2ec] bg-white">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-14 sm:py-20 grid grid-cols-1 lg:grid-cols-[1.15fr_0.85fr] items-center gap-10">
+              <div className="max-w-3xl">
+                <div className="inline-flex items-center gap-2 border-l-2 border-[#f28c28] pl-3 text-xs sm:text-sm font-bold uppercase tracking-wider text-[#138808]">{t('publicPlatformName')}</div>
+                <h1 className="mt-5 font-heading text-4xl sm:text-5xl lg:text-[58px] leading-[1.08] font-black tracking-tight text-[#102a43]">{t('publicHeroTitle')}</h1>
+                <p className="mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-slate-600">{t('publicHeroBody')}</p>
+                <div className="mt-8 flex flex-wrap gap-3">
+                  <a href="#public-about" className="inline-flex items-center gap-2 rounded-lg bg-[#102a43] px-5 py-3 text-sm font-bold text-white hover:bg-[#183b56]">{t('publicExplore')} <ArrowRight className="h-4 w-4" /></a>
+                  <a href="#public-how" className="inline-flex items-center gap-2 rounded-lg border border-[#102a43] px-5 py-3 text-sm font-bold text-[#102a43] hover:bg-slate-50">{t('publicNavHow')}</a>
                 </div>
-                <p className="text-xs sm:text-sm text-slate-600 max-w-md mx-auto mt-1 leading-relaxed">
-                  {t('loginGateSub')}
-                </p>
+              </div>
+              <div className="w-full max-w-xl lg:justify-self-end">
+                <div className="rounded-2xl border border-[#d9e2ec] bg-[#f5f8fa] p-5 sm:p-7">
+                  <div className="flex items-center gap-3 border-b border-[#d9e2ec] pb-5">
+                    <div className="h-11 w-11 rounded-xl bg-white border border-[#d9e2ec] flex items-center justify-center text-[#102a43]"><Users className="h-6 w-6" /></div>
+                    <div><p className="text-xs font-bold uppercase tracking-wider text-[#138808]">{t('publicWorkerTitle')}</p><p className="mt-0.5 font-heading text-lg font-extrabold text-[#102a43]">{t('publicWorkerShort')}</p></div>
+                  </div>
+                  <div className="flex items-center gap-3 border-b border-[#d9e2ec] py-5">
+                    <div className="h-11 w-11 rounded-xl bg-white border border-[#d9e2ec] flex items-center justify-center text-[#102a43]"><Building2 className="h-6 w-6" /></div>
+                    <div><p className="text-xs font-bold uppercase tracking-wider text-[#f28c28]">{t('publicEmployerTitle')}</p><p className="mt-0.5 font-heading text-lg font-extrabold text-[#102a43]">{t('publicEmployerShort')}</p></div>
+                  </div>
+                  <div className="pt-5 flex items-start gap-3"><ShieldCheck className="h-5 w-5 shrink-0 text-[#138808]" /><p className="text-sm leading-relaxed text-slate-600">{t('publicTrustSummary')}</p></div>
+                </div>
+                <div className="mt-3 flex items-center justify-end gap-2 text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-400"><span className="h-1 w-7 rounded-full bg-[#f28c28]" /><span className="h-1 w-7 rounded-full bg-white border border-slate-200" /><span className="h-1 w-7 rounded-full bg-[#138808]" /></div>
               </div>
             </div>
+          </section>
 
-            {/* INNER AUTH FORM */}
-            <div className="pt-2">
-              {formContent}
+          <section id="public-about" className="py-12 sm:py-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[0.9fr_1.1fr] gap-8 lg:gap-14 items-start">
+              <div><p className="text-xs font-bold uppercase tracking-[0.16em] text-[#138808]">QuickHire</p><h2 className="mt-2 font-heading text-3xl font-black text-[#102a43]">{t('publicAboutTitle')}</h2><p className="mt-4 text-base leading-relaxed text-slate-600">{t('publicAboutBody')}</p></div>
+              <div className="rounded-2xl border border-[#d9e2ec] bg-white p-6 sm:p-8"><div className="flex items-center gap-2 text-[#102a43]"><Info className="h-5 w-5 text-[#f28c28]" /><h3 className="font-heading text-xl font-extrabold">{t('publicProblemTitle')}</h3></div><p className="mt-3 text-sm sm:text-base leading-relaxed text-slate-600">{t('publicProblemBody')}</p></div>
             </div>
+          </section>
 
-            {/* TRUST & ACCESSIBILITY BADGES */}
-            <div className="pt-6 border-t border-slate-200 grid grid-cols-3 gap-2 text-center text-[11px] text-slate-600">
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                <Scale className="w-4 h-4 text-[#0f2942] mx-auto mb-1" />
-                <span className="font-bold text-slate-900 block">{t('statZeroFee')}</span>
-                <span>{t('statDirectWages')}</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                <Landmark className="w-4 h-4 text-[#138808] mx-auto mb-1" />
-                <span className="font-bold text-slate-900 block">{t('statDbtPayouts')}</span>
-                <span>{t('statDirectBank')}</span>
-              </div>
-              <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-200">
-                <Sparkles className="w-4 h-4 text-amber-600 mx-auto mb-1" />
-                <span className="font-bold text-slate-900 block">{t('statFiveLangs')}</span>
-                <span>{t('statVoiceNav')}</span>
+          <section id="public-how" className="border-y border-[#d9e2ec] bg-white py-12 sm:py-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="max-w-2xl mb-7"><p className="text-xs font-bold uppercase tracking-[0.16em] text-[#138808]">{t('publicNavHow')}</p><h2 className="mt-2 font-heading text-3xl font-black text-[#102a43]">{t('publicHowTitle')}</h2></div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                <article className="rounded-2xl border border-[#d9e2ec] bg-[#f7faf7] p-6 sm:p-7"><div className="flex items-center gap-3 text-[#102a43]"><Users className="h-6 w-6 text-[#138808]" /><h3 className="font-heading text-xl font-extrabold">{t('publicWorkerTitle')}</h3></div><p className="mt-4 text-sm sm:text-base leading-relaxed text-slate-600">{t('publicWorkerBody')}</p></article>
+                <article className="rounded-2xl border border-[#d9e2ec] bg-[#fbf7f1] p-6 sm:p-7"><div className="flex items-center gap-3 text-[#102a43]"><BriefcaseBusiness className="h-6 w-6 text-[#f28c28]" /><h3 className="font-heading text-xl font-extrabold">{t('publicEmployerTitle')}</h3></div><p className="mt-4 text-sm sm:text-base leading-relaxed text-slate-600">{t('publicEmployerBody')}</p></article>
               </div>
             </div>
-          </motion.div>
+          </section>
+
+          <section id="public-features" className="py-12 sm:py-16">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+              <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3 mb-7"><div><p className="text-xs font-bold uppercase tracking-[0.16em] text-[#138808]">{t('publicNavFeatures')}</p><h2 className="mt-2 font-heading text-3xl font-black text-[#102a43]">{t('publicFeaturesTitle')}</h2></div><p className="max-w-xl text-sm leading-relaxed text-slate-500">{t('publicFeaturesBody')}</p></div>
+              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+                {[
+                  { icon: Search, label: t('publicFeatureJobs') },
+                  { icon: Users, label: t('publicFeatureProfiles') },
+                  { icon: ClipboardList, label: t('publicFeatureWorkforce') },
+                  { icon: CalendarCheck, label: t('publicFeatureAttendance') },
+                  { icon: Wallet, label: t('publicFeatureWages') },
+                  { icon: Tractor, label: t('publicFeatureEquipment') },
+                ].map(({ icon: Icon, label }) => <div key={label} className="min-h-[116px] rounded-xl border border-[#d9e2ec] bg-white p-4 flex flex-col items-center justify-center gap-3 text-center"><Icon className="h-6 w-6 text-[#102a43]" /><span className="text-xs sm:text-sm font-semibold leading-snug text-slate-700">{label}</span></div>)}
+              </div>
+              <div className="mt-3 flex items-center gap-3 rounded-xl border border-[#d9e2ec] bg-[#f5f8fa] px-4 py-4"><Smartphone className="h-6 w-6 shrink-0 text-[#138808]" /><p className="text-sm text-slate-600">{t('publicMobileAndLanguage')}</p></div>
+            </div>
+          </section>
+
+          <section id="public-safety" className="border-y border-[#d9e2ec] bg-white py-12 sm:py-14">
+            <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
+              <div className="rounded-2xl border border-[#d9e2ec] bg-[#f5f8fa] p-6 sm:p-8"><div className="flex items-center gap-3"><ShieldCheck className="h-7 w-7 text-[#138808]" /><h2 className="font-heading text-2xl font-black text-[#102a43]">{t('publicSafetyTitle')}</h2></div><p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">{t('publicFraudBody')}</p><p className="mt-3 text-sm font-semibold text-slate-700">{t('publicWomenSafetyBody')}</p><p className="mt-4 text-xs text-slate-500">{t('publicEmergencyNote')}</p><a href="https://www.india.gov.in/directory/helpline" target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-bold text-[#138808] underline underline-offset-4">{t('publicHelplineDirectory')}</a></div>
+              <div className="rounded-2xl border border-[#d9e2ec] bg-white p-6 sm:p-8 flex flex-col justify-between"><div><div className="flex items-center gap-3 text-[#102a43]"><Headset className="h-6 w-6 text-[#f28c28]" /><h3 className="font-heading text-xl font-extrabold">{t('publicContactTitle')}</h3></div><p className="mt-3 text-sm leading-relaxed text-slate-600">{t('publicContactBody')}</p></div><p className="mt-6 border-t border-[#d9e2ec] pt-4 text-xs leading-relaxed text-slate-500">{t('publicDisclaimer')}</p></div>
+            </div>
+          </section>
         </main>
-        {/* PUBLIC INFORMATION — no operational listings or private records */}
-        <section id="public-about" className="w-full bg-white py-12 sm:py-16 border-y border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="space-y-3">
-              <span className="text-xs font-black uppercase tracking-wider text-emerald-700">QuickHire</span>
-              <h2 className="font-heading text-2xl sm:text-3xl font-black text-slate-900">{t('publicAboutTitle')}</h2>
-              <p className="text-sm sm:text-base leading-relaxed text-slate-600">{t('publicAboutBody')}</p>
-            </div>
-            <div className="rounded-3xl bg-slate-50 border border-slate-200 p-6 sm:p-8">
-              <h3 className="font-heading text-xl font-extrabold text-slate-900">{t('publicProblemTitle')}</h3>
-              <p className="mt-3 text-sm leading-relaxed text-slate-600">{t('publicProblemBody')}</p>
-            </div>
+
+        <footer id="public-contact" className="bg-[#102a43] text-white">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
+            <div><div className="font-heading text-xl font-black">Quick<span className="text-[#f28c28]">Hire</span></div><p className="mt-1 text-xs text-slate-300">{t('appTagline')}</p></div>
+            <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-200"><a href="#public-about">{t('publicNavAbout')}</a><a href="#public-features">{t('publicNavFeatures')}</a><a href="#public-safety">{t('publicNavSafety')}</a><a href="#public-contact">{t('publicNavContact')}</a></nav>
+            <p className="max-w-sm text-[11px] leading-relaxed text-slate-300">{t('publicDisclaimer')}</p>
           </div>
-        </section>
-
-        <section id="public-how" className="w-full py-12 sm:py-16">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-            <h2 className="font-heading text-2xl sm:text-3xl font-black text-slate-900">{t('publicHowTitle')}</h2>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <div className="rounded-3xl border border-emerald-200 bg-emerald-50/60 p-6">
-                <div className="flex items-center gap-2 text-emerald-800"><Users className="h-5 w-5" /><h3 className="font-bold">{t('publicWorkerTitle')}</h3></div>
-                <p className="mt-3 text-sm leading-relaxed text-slate-700">{t('publicWorkerBody')}</p>
-              </div>
-              <div className="rounded-3xl border border-amber-200 bg-amber-50/60 p-6">
-                <div className="flex items-center gap-2 text-amber-800"><Building2 className="h-5 w-5" /><h3 className="font-bold">{t('publicEmployerTitle')}</h3></div>
-                <p className="mt-3 text-sm leading-relaxed text-slate-700">{t('publicEmployerBody')}</p>
-              </div>
-            </div>
-          </div>
-        </section>
-
-        <section id="public-features" className="w-full bg-white py-12 sm:py-16 border-y border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="font-heading text-2xl sm:text-3xl font-black text-slate-900">{t('publicFeaturesTitle')}</h2>
-            <p className="mt-3 max-w-4xl text-sm sm:text-base leading-relaxed text-slate-600">{t('publicFeaturesBody')}</p>
-          </div>
-        </section>
-
-        <section id="public-safety" className="w-full py-12 sm:py-16 bg-slate-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 space-y-8">
-            <div className="max-w-3xl">
-              <div className="flex items-center gap-2 text-emerald-800"><ShieldCheck className="h-5 w-5" /><span className="text-xs font-black uppercase tracking-wider">{t('publicNavSafety')}</span></div>
-              <h2 className="mt-2 font-heading text-2xl sm:text-3xl font-black text-slate-900">{t('publicSafetyTitle')}</h2>
-              <p className="mt-2 text-sm text-slate-600">{t('publicSafetyIntro')}</p>
-            </div>
-            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 sm:gap-4">
-              <a href="tel:112" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">112</span>
-                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('sos112Title')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
-              </a>
-              <a href="tel:102" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">102</span>
-                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicAmbulance102')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
-              </a>
-              <a href="tel:108" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">108</span>
-                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicAmbulance102')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
-              </a>
-              <a href="tel:181" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">181</span>
-                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicWomen181')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
-              </a>
-              <a href="tel:1091" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">1091</span>
-                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('sos1091Title')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
-              </a>
-              <a href="tel:1098" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">1098</span>
-                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicChild1098')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
-              </a>
-              <a href="tel:1930" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">1930</span>
-                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicCyber1930')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
-              </a>
-              <a href="tel:1551" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
-                <span className="block text-2xl font-black tracking-tight text-[#0f2942]">1551</span>
-                <span className="mt-1 block text-xs font-semibold text-slate-600">{t('sosKisanTitle')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
-              </a>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5">
-                <h3 className="font-bold text-amber-950">{t('publicFraudTitle')}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-amber-900">{t('publicFraudBody')}</p>
-              </div>
-              <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5">
-                <h3 className="font-bold text-rose-950">{t('publicWomenSafetyTitle')}</h3>
-                <p className="mt-2 text-sm leading-relaxed text-rose-900">{t('publicWomenSafetyBody')}</p>
-              </div>
-            </div>
-            <p className="text-xs font-semibold text-slate-600">{t('publicEmergencyNote')}</p>
-            <a href="https://www.india.gov.in/directory/helpline" target="_blank" rel="noreferrer" className="inline-flex text-xs font-bold text-emerald-700 underline underline-offset-4">{t('publicHelplineDirectory')}</a>
-          </div>
-        </section>
-
-        <section id="public-contact" className="w-full bg-white py-10 border-t border-slate-200">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <h2 className="font-heading text-xl font-black text-slate-900">{t('publicContactTitle')}</h2>
-            <p className="mt-2 max-w-3xl text-sm text-slate-600">{t('publicContactBody')}</p>
-            <p className="mt-4 text-xs text-slate-500">{t('publicDisclaimer')}</p>
-          </div>
-        </section>
-
-
-        {/* PUBLIC QUICKHIRE FOOTER */}
-        <footer className="mt-auto w-full bg-[#0f2942] text-white py-8 border-t border-slate-800">
-          <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-300">
-              <div>
-                <span className="font-bold text-white uppercase tracking-wider block mb-2">
-                  {t('publicPlatformName')}
-                </span>
-                <p className="text-slate-400 leading-relaxed">
-                  {t('publicAboutBody')}
-                </p>
-              </div>
-
-              <div>
-                <span className="font-bold text-white uppercase tracking-wider block mb-2">
-                  {t('publicSafetyTitle')}
-                </span>
-                <div className="space-y-1 text-slate-400">
-                  <p>112 · 102/108 · 181 · 1091 · 1098 · 1930 · 1551</p>
-                </div>
-              </div>
-
-              <div>
-                <span className="font-bold text-white uppercase tracking-wider block mb-2">
-                  Multilingual Citizen Inclusion
-                </span>
-                <p className="text-slate-400 leading-relaxed">
-                  Supported in English, हिंदी, मराठी, বাংলা, and తెలుగు with real-time text-to-speech audio guidance.
-                </p>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
-              <span>{t('publicDisclaimer')}</span>
-              <span>© {new Date().getFullYear()} {t('publicPlatformName')}</span>
-            </div>
-          </div>
+          <div className="border-t border-white/15 py-3 text-center text-[11px] text-slate-400">© {new Date().getFullYear()} QuickHire · {t('allRightsReserved')}</div>
         </footer>
 
-        {/* FLOATING ACCESSIBLE VOICE HELPER */}
+        <div className="fixed bottom-4 right-4 z-30"><VoiceAssistanceToggle currentLang={currentLang} /></div>
         <AccessibleVoiceBar activeTab="authGate" currentLang={currentLang} />
+
+        <AnimatePresence>
+          {isPublicAuthOpen && (
+            <div className="fixed inset-0 z-[100] flex items-center justify-center p-3 sm:p-5" role="presentation">
+              <motion.button type="button" aria-label="Close authentication dialog" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={closePublicAuth} className="absolute inset-0 bg-[#102a43]/55 backdrop-blur-[2px]" />
+              <motion.section role="dialog" aria-modal="true" aria-labelledby="public-auth-title" initial={{ opacity: 0, y: 12, scale: 0.98 }} animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: 12, scale: 0.98 }} className="relative z-10 w-full max-w-lg max-h-[92vh] overflow-y-auto rounded-2xl border border-[#d9e2ec] bg-white p-5 sm:p-7 shadow-2xl">
+                <button type="button" onClick={closePublicAuth} aria-label="Close" className="absolute right-4 top-4 rounded-lg p-2 text-slate-500 hover:bg-slate-100"><X className="h-5 w-5" /></button>
+                <div className="mb-5 pr-10"><p className="text-xs font-bold uppercase tracking-[0.16em] text-[#138808]">QuickHire</p><h2 id="public-auth-title" className="mt-1 font-heading text-2xl font-black text-[#102a43]">{isSignUp ? t('authRegisterTab') : t('authLoginTab')}</h2><p className="mt-1 text-sm text-slate-500">{t('publicAuthDialogIntro')}</p></div>
+                {formContent}
+              </motion.section>
+            </div>
+          )}
+        </AnimatePresence>
       </div>
     );
   }
