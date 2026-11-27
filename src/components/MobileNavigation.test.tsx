@@ -15,6 +15,7 @@ vi.mock('../lib/supabase', () => ({
     },
     from: vi.fn().mockReturnValue({
       select: vi.fn().mockReturnThis(),
+      in: vi.fn().mockReturnThis(),
       eq: vi.fn().mockReturnThis(),
       order: vi.fn().mockReturnThis(),
       single: vi.fn().mockResolvedValue({ data: null, error: null }),
@@ -35,22 +36,12 @@ describe('Mobile Navigation, Account Drawer & Responsiveness', () => {
     window.history.pushState(null, '', '/');
   });
 
-  it('renders hamburger menu toggle and opens guest account card with Login/Register button', async () => {
+  it('renders the public launch page instead of the authenticated mobile drawer for guests', async () => {
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.queryByText(/Verifying authentication/i)).not.toBeInTheDocument();
-    });
-
-    const hamburgerBtn = screen.getByLabelText(/Toggle navigation menu/i);
-    expect(hamburgerBtn).toBeInTheDocument();
-
-    // Click to open mobile drawer
-    fireEvent.click(hamburgerBtn);
-
-    // Guest card should display in mobile drawer
-    expect(screen.getByText(/अतिथि नागरिक \/ Guest Citizen/i)).toBeInTheDocument();
-    expect(screen.getByText(/Login \/ Register Account/i)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /^Login$/i })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: /Register/i })).toBeInTheDocument();
+    expect(screen.queryByLabelText(/Toggle navigation menu/i)).not.toBeInTheDocument();
   });
 
   it('renders authenticated user profile card with role badge in mobile drawer when logged in', async () => {
@@ -103,29 +94,52 @@ describe('Mobile Navigation, Account Drawer & Responsiveness', () => {
     });
   });
 
-  it('renders fixed mobile bottom navigation bar with 5 primary thumb tabs', async () => {
-    render(<App />);
-
-    await waitFor(() => {
-      expect(screen.queryByText(/Verifying authentication/i)).not.toBeInTheDocument();
+  it('renders employer mobile navigation with role-authorized tabs', async () => {
+    vi.mocked(supabase.auth.getSession).mockResolvedValueOnce({
+      data: {
+        session: {
+          user: {
+            id: 'employer-user-456',
+            email: 'employer@example.com',
+            user_metadata: { full_name: 'Sita Employer' },
+          },
+        } as unknown as import('@supabase/supabase-js').Session,
+      },
+      error: null,
     });
 
-    const mobileNav = screen.getByRole('navigation', { name: /Mobile Navigation/i });
-    expect(mobileNav).toBeInTheDocument();
+    vi.mocked(supabase.from).mockImplementation((table: string) => {
+      const queryBuilder: Record<string, any> = {
+        select: vi.fn(() => queryBuilder),
+        eq: vi.fn(() => queryBuilder),
+        in: vi.fn(() => queryBuilder),
+        order: vi.fn(() => queryBuilder),
+        maybeSingle: vi.fn().mockResolvedValue({
+          data: table === 'profiles'
+            ? { id: 'employer-user-456', role: 'employer', account_status: 'active', can_manage_rentals: false }
+            : null,
+          error: null,
+        }),
+        single: vi.fn().mockResolvedValue({ data: null, error: null }),
+        insert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: vi.fn().mockResolvedValue({ data: null, error: null }),
+        update: vi.fn(() => queryBuilder),
+      };
+      return queryBuilder as unknown as ReturnType<typeof supabase.from>;
+    });
 
-    // Verify 5 tabs in bottom navigation
+    render(<App />);
+
+    const mobileNav = await screen.findByRole('navigation', { name: /Mobile Navigation/i });
+    expect(mobileNav).toBeInTheDocument();
     expect(mobileNav).toHaveTextContent(/Home/i);
     expect(mobileNav).toHaveTextContent(/Workers/i);
     expect(mobileNav).toHaveTextContent(/Equipment/i);
     expect(mobileNav).toHaveTextContent(/Post Job/i);
     expect(mobileNav).toHaveTextContent(/Dashboard/i);
 
-    // Click Workers in bottom navigation bar
-    const workersTabBtn = within(mobileNav).getByRole('button', { name: /Workers/i });
-    fireEvent.click(workersTabBtn);
-
+    fireEvent.click(within(mobileNav).getByRole('button', { name: /Workers/i }));
     await waitFor(() => {
-      // Content should show workers directory
       expect(screen.getAllByText(/Workers Directory/i).length).toBeGreaterThan(0);
     });
   });
