@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
+import { getTranslation } from '../../lib/translations';
 import { logAdminAction, getStoredAdminSession } from '../../lib/adminAuth';
 import {
   Search,
@@ -46,7 +47,8 @@ interface ProfileRecord {
   } | null;
 }
 
-export function UserManagement() {
+export function UserManagement({ currentLang = 'English' }: { currentLang?: string }) {
+  const t = (key: string) => getTranslation(currentLang, key);
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -795,7 +797,7 @@ export function UserManagement() {
               <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                 <div>
                   <span className={`font-bold ${selectedProfile.can_manage_rentals ? 'text-emerald-400' : 'text-slate-300'}`}>
-                    {selectedProfile.can_manage_rentals ? 'Approved provider' : 'Not approved'}
+                    {selectedProfile.can_manage_rentals ? t('approvedProvider') : t('notApproved')}
                   </span>
                   <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
                     This separate permission controls publishing, editing and deleting rental listings. It does not change the user’s Worker or Employer role.
@@ -807,7 +809,7 @@ export function UserManagement() {
                   onClick={toggleRentalProviderAccess}
                   className={`shrink-0 rounded-lg px-3 py-2 text-[11px] font-bold transition-colors disabled:opacity-50 ${selectedProfile.can_manage_rentals ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'}`}
                 >
-                  {rentalPermissionBusy ? 'Saving…' : selectedProfile.can_manage_rentals ? 'Revoke access' : 'Approve provider'}
+                  {rentalPermissionBusy ? t('saving') : selectedProfile.can_manage_rentals ? t('revokeAccess') : t('approveProvider')}
                 </button>
               </div>
             </div>
