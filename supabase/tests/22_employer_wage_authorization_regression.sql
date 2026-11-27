@@ -107,6 +107,13 @@ BEGIN
     v_job_id, v_assigned_worker, 'direct_phone', 'employer_reported_verbal_agreement', 'hired', 100, 100
   ) RETURNING id INTO v_assignment_id;
 
+  -- Move the assignment to a valid pre-completion lifecycle state while the
+  -- account is still a legitimate Employer. The later completion attempt must
+  -- fail specifically because the profile has become a Worker.
+  UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_assignment_id;
+  UPDATE public.job_records SET status = 'arrived' WHERE id = v_assignment_id;
+  UPDATE public.job_records SET status = 'in_progress' WHERE id = v_assignment_id;
+
   -- Trusted backend repair must be able to provision and then set the role.
   PERFORM set_config('role', 'service_role', true);
   PERFORM set_config('request.jwt.claim.role', 'service_role', true);
