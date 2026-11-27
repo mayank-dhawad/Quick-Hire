@@ -770,7 +770,7 @@ export function DashboardTab({
           const key = `${r.job_id}_${r.reviewed_profile_id}`;
           revMap[key] = {
             id: r.id,
-            rating: Number(r.rating) || 5,
+            rating: Number(r.rating),
             comment: r.comment,
           };
         });
@@ -919,6 +919,12 @@ export function DashboardTab({
   const completedJobsCount = appliedJobs.filter(
     (j) => j.status === 'completed' || j.jobs?.status === 'completed'
   ).length;
+  const validReviewRatings = reviews
+    .map((review) => Number(review.rating))
+    .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+  const averageReviewRating = validReviewRatings.length > 0
+    ? validReviewRatings.reduce((total, rating) => total + rating, 0) / validReviewRatings.length
+    : null;
 
   return (
     <motion.div
@@ -1200,10 +1206,14 @@ export function DashboardTab({
                 Reviews & Ratings
               </span>
               <span className="font-heading font-black text-xl sm:text-3xl text-yellow-600 flex items-center gap-1">
-                <Star className="w-4 h-4 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
-                {reviews.length > 0
-                  ? formatLocalizedNumber(reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.length, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-                  : formatLocalizedNumber(5, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                {averageReviewRating !== null ? (
+                  <>
+                    <Star className="w-4 h-4 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
+                    {formatLocalizedNumber(averageReviewRating, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                  </>
+                ) : (
+                  <span className="text-slate-500">{t('newRating')}</span>
+                )}
               </span>
             </div>
           </div>
@@ -1582,7 +1592,7 @@ export function DashboardTab({
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
                             key={star}
-                            className={`w-3.5 h-3.5 ${star <= (rev.rating || 5)
+                            className={`w-3.5 h-3.5 ${star <= rev.rating
                                 ? 'fill-yellow-400 text-yellow-500'
                                 : 'text-slate-200'
                               }`}
