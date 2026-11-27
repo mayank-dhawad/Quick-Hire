@@ -14,6 +14,7 @@ interface VoiceSpeakerButtonProps {
 
 export function VoiceSpeakerButton({
   text,
+  label,
   lang = 'English',
     className = '',
   size = 'sm',
@@ -21,8 +22,10 @@ export function VoiceSpeakerButton({
 }: VoiceSpeakerButtonProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(() => getVoiceAssistanceEnabled());
-  const listenLabel = getTranslation(lang, 'voiceListen');
-  const playingLabel = getTranslation(lang, 'voicePlaying');
+  const translatedListenLabel = getTranslation(lang, 'voiceListen');
+  const translatedPlayingLabel = getTranslation(lang, 'voicePlaying');
+  const listenLabel = label || (translatedListenLabel === 'voiceListen' ? 'Listen' : translatedListenLabel);
+  const playingLabel = translatedPlayingLabel === 'voicePlaying' ? 'Playing' : translatedPlayingLabel;
 
   useEffect(() => {
     return subscribeToVoiceAssistance(setVoiceEnabled);
