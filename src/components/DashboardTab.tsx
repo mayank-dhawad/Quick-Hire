@@ -17,7 +17,7 @@ import {
   Tractor,
   Star,
   Bell,
-  {t('refresh')}Cw,
+  RefreshCw,
   Phone,
   {t('receipt')},
   ShieldCheck,
@@ -34,7 +34,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { RateWorkerModal } from './RateWorkerModal';
-import { Payment{t('receipt')}Modal, Payment{t('receipt')}Data } from './Payment{t('receipt')}Modal';
+import { PaymentReceiptModal, PaymentReceiptData } from './PaymentReceiptModal';
 import { speakText } from '../lib/speech';
 import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
@@ -149,7 +149,7 @@ export interface WorkerProfileState {
   [key: string]: unknown;
 }
 
-export interface {t('receipt')}JobInput {
+export interface ReceiptJobInput {
   id?: string;
   title?: string;
   offered_wages?: number;
@@ -158,7 +158,7 @@ export interface {t('receipt')}JobInput {
   profiles?: { full_name?: string | null; phone_number?: string | null } | null;
 }
 
-export interface {t('receipt')}RecordInput {
+export interface ReceiptRecordInput {
   id?: string;
   agreed_wage?: number | null;
   total_payable?: number | null;
@@ -170,7 +170,7 @@ export interface {t('receipt')}RecordInput {
   workers?: { profiles?: { full_name?: string | null; phone_number?: string | null } | null } | null;
 }
 
-export interface {t('receipt')}PaymentInput {
+export interface ReceiptPaymentInput {
   id?: string;
   receipt_number?: string;
   amount?: number;
@@ -286,8 +286,8 @@ export function DashboardTab({
   const [claimSecrets, setClaimSecrets] = useState<Record<string, string>>({});
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
   const [completionTimestampOverrides, setCompletionTimestampOverrides] = useState<Record<string, string>>({});
-  const [selected{t('receipt')}, setSelected{t('receipt')}] = useState<Payment{t('receipt')}Data | null>(null);
-  const [is{t('receipt')}Open, setIs{t('receipt')}Open] = useState(false);
+  const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceiptData | null>(null);
+  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [overtimeInputs, setOvertimeInputs] = useState<Record<string, string>>({});
 
   const handleUpdateApplicantStatus = async (recordId: string, newStatus: string) => {
@@ -422,10 +422,10 @@ export function DashboardTab({
   };
 
   // Helper to open receipt
-  const handleOpen{t('receipt')} = (
-    job?: {t('receipt')}JobInput | null,
-    rec?: {t('receipt')}RecordInput | null,
-    payment?: {t('receipt')}PaymentInput | null
+  const handleOpenReceipt = (
+    job?: ReceiptJobInput | null,
+    rec?: ReceiptRecordInput | null,
+    payment?: ReceiptPaymentInput | null
   ) => {
     const receiptNum = (payment?.receipt_number as string) ||
       `QH-RCP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${rec?.id ? String(rec.id).slice(0, 4).toUpperCase() : '0001'}`;
@@ -435,7 +435,7 @@ export function DashboardTab({
     const paid = Number(payment?.amount) || Number(rec?.total_paid) || payable;
     const remaining = Math.max(0, payable - (Number(rec?.total_paid) || paid));
 
-    setSelected{t('receipt')}({
+    setSelectedReceipt({
       receiptNumber: receiptNum,
       paymentId: payment?.id,
       jobId: job?.id,
@@ -453,12 +453,12 @@ export function DashboardTab({
       amountPaid: paid,
       remainingBalance: remaining,
       paymentMethod: payment?.payment_method || 'Direct Cash / Settlement',
-      payment{t('dateLabel')}: payment?.created_at || new Date().toISOString(),
+      paymentDate: payment?.created_at || new Date().toISOString(),
       transactionRef: payment?.transaction_ref,
       recordedByName: user?.user_metadata?.full_name || 'QuickHire Employer',
       isUserReported: true,
     });
-    setIs{t('receipt')}Open(true);
+    setIsReceiptOpen(true);
   };
 
   // Fetch comprehensive worker history
@@ -732,7 +732,7 @@ export function DashboardTab({
     skills: string[];
     averageRating: number | null;
     lastJobTitle: string;
-    lastHired{t('dateLabel')}: string;
+    lastHiredDate: string;
     hiresCount: number;
     dailyWage: number | null;
   }[]>([]);
@@ -806,7 +806,7 @@ export function DashboardTab({
       const workerHistoryMap = new Map<string, {
         workerId: string;
         lastJobTitle: string;
-        lastHired{t('dateLabel')}: string;
+        lastHiredDate: string;
         hiresCount: number;
         category: string;
       }>();
@@ -835,7 +835,7 @@ export function DashboardTab({
               workerHistoryMap.set(r.worker_id, {
                 workerId: r.worker_id,
                 lastJobTitle: j.title || 'General Work',
-                lastHired{t('dateLabel')}: r.created_at || j.created_at,
+                lastHiredDate: r.created_at || j.created_at,
                 hiresCount: 1,
                 category: j.category || 'Daily work',
               });
@@ -888,7 +888,7 @@ export function DashboardTab({
           skills: wrk?.skills || [],
           averageRating: wrk?.average_rating !== null && wrk?.average_rating !== undefined ? Number(wrk.average_rating) : null,
           lastJobTitle: hist.lastJobTitle,
-          lastHired{t('dateLabel')}: hist.lastHiredDate,
+          lastHiredDate: hist.lastHiredDate,
           hiresCount: hist.hiresCount,
           dailyWage: prof?.daily_wage ? Number(prof.daily_wage) : ((wrk as { daily_wage?: number | null })?.daily_wage ? Number((wrk as { daily_wage?: number | null }).daily_wage) : null),
         };
@@ -1140,9 +1140,9 @@ export function DashboardTab({
                   onClick={fetchWorkerHistory}
                   disabled={loadingWorkerData}
                   className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 transition-colors shadow-2xs cursor-pointer shrink-0"
-                  title="{t('refresh')} activity history"
+                  title={t('refresh')}
                 >
-                  <{t('refresh')}Cw className={`w-4 h-4 ${loadingWorkerData ? 'animate-spin text-brand-600' : ''}`} />
+                  <RefreshCw className={`w-4 h-4 ${loadingWorkerData ? 'animate-spin text-brand-600' : ''}`} />
                 </button>
               </div>
             </div>
@@ -1435,11 +1435,11 @@ export function DashboardTab({
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleOpen{t('receipt')}(job, rec)}
+                            onClick={() => handleOpenReceipt(job, rec)}
                             className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
-                            <{t('receipt')} className="w-3.5 h-3.5" />
-                            <span>{t('view{t('receipt')}')}</span>
+                            <Receipt className="w-3.5 h-3.5" />
+                            <span>{t('viewReceipt')}</span>
                           </button>
                         </div>
                       )}
@@ -1455,7 +1455,7 @@ export function DashboardTab({
             <div className="flex items-center gap-2">
               <Landmark className="w-5 h-5 text-emerald-600" />
               <h3 className="font-heading font-extrabold text-lg text-slate-900">
-                Direct Wage Settlements & {t('receipt')}s
+                Direct Wage Settlements & Receipts
               </h3>
             </div>
 
@@ -2013,10 +2013,10 @@ export function DashboardTab({
 
                                       <button
                                         type="button"
-                                        onClick={() => handleOpen{t('receipt')}(job, rec)}
+                                        onClick={() => handleOpenReceipt(job, rec)}
                                         className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
                                       >
-                                        <{t('receipt')} className="w-3.5 h-3.5 text-brand-600" />
+                                        <Receipt className="w-3.5 h-3.5 text-brand-600" />
                                         <span>{t('receipt')}</span>
                                       </button>
 
@@ -2083,7 +2083,7 @@ export function DashboardTab({
                 onClick={fetchPreviouslyHiredWorkers}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
               >
-                <{t('refresh')}Cw className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3.5 h-3.5" />
                 <span>{t('refresh')}</span>
               </button>
             </div>
@@ -2219,7 +2219,7 @@ export function DashboardTab({
                 onClick={fetchEmployerPayments}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
               >
-                <{t('refresh')}Cw className="w-3.5 h-3.5" />
+                <RefreshCw className="w-3.5 h-3.5" />
                 <span>{t('refresh')}</span>
               </button>
             </div>
@@ -2230,7 +2230,7 @@ export function DashboardTab({
               </div>
             ) : employerPayments.length === 0 ? (
               <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500 space-y-1">
-                <{t('receipt')} className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                 <p className="font-bold text-slate-700">{t('noPaymentAttempts')}</p>
                 <p className="text-slate-400">
                   When you settle daily wages using &quot;Pay Wage to Bank&quot;, records of your UPI attempts and submitted references will appear here.
@@ -2291,10 +2291,10 @@ export function DashboardTab({
       )}
 
       {/* PAYMENT RECEIPT MODAL */}
-      <Payment{t('receipt')}Modal
-        isOpen={is{t('receipt')}Open}
-        onClose={() => setIs{t('receipt')}Open(false)}
-        receipt={selected{t('receipt')}}
+      <PaymentReceiptModal
+        isOpen={isReceiptOpen}
+        onClose={() => setIsReceiptOpen(false)}
+        receipt={selectedReceipt}
       />
 
       {/* RATE WORKER MODAL */}
@@ -2315,7 +2315,7 @@ export function DashboardTab({
               ...prev,
               [key]: updatedReview,
             }));
-            // {t('refresh')} previously hired worker average ratings
+            // Refresh previously hired worker average ratings
             fetchPreviouslyHiredWorkers();
           }}
         />
