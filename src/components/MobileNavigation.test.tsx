@@ -63,6 +63,7 @@ describe('Mobile Navigation, Account Drawer & Responsiveness', () => {
         return {
           select: vi.fn().mockReturnThis(),
           eq: vi.fn().mockReturnThis(),
+          in: vi.fn().mockReturnThis(),
           maybeSingle: vi.fn().mockResolvedValue({
             data: { id: 'worker-user-123', role: 'worker', account_status: 'active' },
             error: null,
@@ -72,6 +73,7 @@ describe('Mobile Navigation, Account Drawer & Responsiveness', () => {
       return {
         select: vi.fn().mockReturnThis(),
         eq: vi.fn().mockReturnThis(),
+        in: vi.fn().mockReturnThis(),
         order: vi.fn().mockReturnThis(),
         maybeSingle: vi.fn().mockResolvedValue({ data: null, error: null }),
       } as unknown as ReturnType<typeof supabase.from>;
