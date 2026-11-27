@@ -2140,7 +2140,7 @@ export default function App() {
             </button>
 
 {(userRole === 'employer' || userRole === 'admin') && (
-            {/* Tab 2: Workers Directory */}
+
             <button
               onClick={() => setActiveTab('workers')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
@@ -2167,7 +2167,7 @@ export default function App() {
             </button>
 
 {(userRole === 'employer' || userRole === 'admin') && (
-            {/* Tab 4: Post Employment */}
+
             <button
               onClick={() => setActiveTab('post-job')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
@@ -2879,7 +2879,7 @@ export default function App() {
           </button>
 
           {(userRole === 'employer' || userRole === 'admin') && (
-          {/* 2. Workers */}
+
           <button
             type="button"
             onClick={() => setActiveTab('workers')}
@@ -2906,7 +2906,7 @@ export default function App() {
           </button>
 
           {(userRole === 'employer' || userRole === 'admin') ? (
-          {/* 4. Post Job */}
+
           <button
             type="button"
             onClick={() => setActiveTab('post-job')}
