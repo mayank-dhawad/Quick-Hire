@@ -26,6 +26,7 @@ DECLARE
     v_is_service_role boolean := COALESCE(current_setting('request.jwt.claim.role', true), '') = 'service_role';
     v_is_admin boolean := COALESCE(public.is_admin(auth.uid()), false);
     v_actor_role text;
+    v_actor_status text;
 BEGIN
     IF (
         (NEW.status IS DISTINCT FROM OLD.status
@@ -39,11 +40,12 @@ BEGIN
               USING ERRCODE = '42501';
           END IF;
 
-          SELECT role INTO v_actor_role
+          SELECT role, account_status INTO v_actor_role, v_actor_status
           FROM public.profiles
           WHERE id = v_actor_id;
 
           IF v_actor_role IS DISTINCT FROM 'employer'
+             OR (v_actor_status IS NOT NULL AND v_actor_status <> 'active')
              OR NOT EXISTS (
                SELECT 1 FROM public.jobs j
                WHERE j.id = NEW.job_id AND j.employer_id = v_actor_id
@@ -72,11 +74,23 @@ CREATE OR REPLACE FUNCTION public.get_payment_recipient_details(p_recipient_id u
 AS $function$
 DECLARE
     v_caller_id uuid;
+    v_caller_status text;
     v_is_authorized boolean := false;
 BEGIN
     v_caller_id := auth.uid();
     IF v_caller_id IS NULL THEN
         RAISE EXCEPTION 'Authentication required.' USING ERRCODE = '42501';
+    END IF;
+
+    SELECT account_status INTO v_caller_status
+    FROM public.profiles
+    WHERE id = v_caller_id;
+
+    IF v_caller_status IS NOT NULL
+       AND v_caller_status <> 'active'
+       AND NOT public.is_admin(v_caller_id) THEN
+        RAISE EXCEPTION 'Your account is suspended or deactivated.'
+          USING ERRCODE = '42501';
     END IF;
 
     -- Self lookup or administrator lookup.
@@ -90,6 +104,12 @@ BEGIN
         WHERE id = p_recipient_id
           AND is_assisted_profile = true
           AND created_by = v_caller_id
+          AND EXISTS (
+            SELECT 1 FROM public.profiles manager
+            WHERE manager.id = v_caller_id
+              AND manager.role = 'employer'
+              AND (manager.account_status IS NULL OR manager.account_status = 'active')
+          )
     ) THEN
         v_is_authorized := true;
 
@@ -102,7 +122,12 @@ BEGIN
             JOIN public.job_records jr ON jr.job_id = j.id
             WHERE j.id = p_job_id
               AND j.employer_id = v_caller_id
-              AND EXISTS (SELECT 1 FROM public.profiles caller_profile WHERE caller_profile.id = v_caller_id AND caller_profile.role = 'employer')
+              AND EXISTS (
+                SELECT 1 FROM public.profiles caller_profile
+                WHERE caller_profile.id = v_caller_id
+                  AND caller_profile.role = 'employer'
+                  AND (caller_profile.account_status IS NULL OR caller_profile.account_status = 'active')
+              )
               AND jr.worker_id = p_recipient_id
               AND jr.status IN ('completed', 'work_completed')
               AND jr.work_completed_at IS NOT NULL
@@ -114,7 +139,9 @@ BEGIN
     ELSE
         IF EXISTS (
             SELECT 1 FROM public.profiles caller_profile
-            WHERE caller_profile.id = v_caller_id AND caller_profile.role = 'employer'
+            WHERE caller_profile.id = v_caller_id
+              AND caller_profile.role = 'employer'
+              AND (caller_profile.account_status IS NULL OR caller_profile.account_status = 'active')
         ) AND (
             EXISTS (
                 SELECT 1
@@ -169,6 +196,7 @@ DECLARE
     v_clean_utr text;
     v_duplicate_utr_payment_id uuid;
     v_actor_role text;
+    v_actor_status text;
 BEGIN
     v_caller_id := auth.uid();
     IF v_caller_id IS NULL THEN
@@ -179,8 +207,10 @@ BEGIN
     -- Only current Employer accounts may settle wages. Admins retain their
     -- explicit oversight exception; service-role writes remain trusted backend work.
     IF NOT public.is_admin(v_caller_id) THEN
-        SELECT role INTO v_actor_role FROM public.profiles WHERE id = v_caller_id;
-        IF v_actor_role IS DISTINCT FROM 'employer' THEN
+        SELECT role, account_status INTO v_actor_role, v_actor_status
+        FROM public.profiles WHERE id = v_caller_id;
+        IF v_actor_role IS DISTINCT FROM 'employer'
+           OR (v_actor_status IS NOT NULL AND v_actor_status <> 'active') THEN
             RAISE EXCEPTION 'Only an Employer account may record worker wage payments.'
                 USING ERRCODE = '42501';
         END IF;
@@ -472,6 +502,7 @@ DECLARE
   v_is_service_role boolean := COALESCE(current_setting('request.jwt.claim.role', true), '') = 'service_role';
   v_is_admin boolean := COALESCE(public.is_admin(auth.uid()), false);
   v_actor_role text;
+  v_actor_status text;
   v_assignment record;
 BEGIN
   IF NEW.payment_for_type <> 'worker_wage' THEN
@@ -498,8 +529,10 @@ BEGIN
   END IF;
 
   IF NOT v_is_admin THEN
-    SELECT role INTO v_actor_role FROM public.profiles WHERE id = v_actor_id;
-    IF v_actor_role IS DISTINCT FROM 'employer' THEN
+    SELECT role, account_status INTO v_actor_role, v_actor_status
+    FROM public.profiles WHERE id = v_actor_id;
+    IF v_actor_role IS DISTINCT FROM 'employer'
+       OR (v_actor_status IS NOT NULL AND v_actor_status <> 'active') THEN
       RAISE EXCEPTION 'Only an Employer account may record worker wage payments.'
         USING ERRCODE = '42501';
     END IF;
