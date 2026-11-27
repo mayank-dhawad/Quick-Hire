@@ -269,10 +269,10 @@ BEGIN
 
     INSERT INTO public.payments (
         id, payer_id, payee_id, payment_for_type, reference_id, assignment_id, amount,
-        payment_method, status, verification_status, recorded_by
+        payment_method, payment_reference, status, verification_status, recorded_by
     ) VALUES (
         v_historical_payment_id, v_contractor_id, v_assisted_worker_id, 'worker_wage', v_historical_job_id,
-        v_historical_assignment_id, 500, 'Cash', 'completed', 'user_reported', v_contractor_id
+        v_historical_assignment_id, 500, 'Cash', 'QH-HISTORICAL-' || v_historical_payment_id::text, 'completed', 'user_reported', v_contractor_id
     );
 
     UPDATE public.jobs SET status = 'completed' WHERE id = v_historical_job_id;
@@ -1133,6 +1133,12 @@ BEGIN
             bank_account_no = EXCLUDED.bank_account_no,
             bank_ifsc = EXCLUDED.bank_ifsc,
             upi_id = EXCLUDED.upi_id;
+
+        -- Insert a historical ledger fixture through the trusted service-role
+        -- path. This intentionally has no assignment because it models legacy data.
+        PERFORM set_config('role', 'service_role', true);
+        PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+        PERFORM set_config('request.jwt.claim.sub', '', true);
 
         -- Insert immutable payment ledger row where fin_user is payee
         INSERT INTO public.payments (
