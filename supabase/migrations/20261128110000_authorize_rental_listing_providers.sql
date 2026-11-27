@@ -13,8 +13,13 @@ LANGUAGE plpgsql
 SET search_path TO 'public', 'pg_temp'
 AS $function$
 BEGIN
-  IF NEW.can_manage_rentals IS DISTINCT FROM OLD.can_manage_rentals
-     AND NOT COALESCE(public.is_admin(auth.uid()), false) THEN
+  IF (
+    (TG_OP = 'INSERT' AND NEW.can_manage_rentals IS TRUE)
+    OR (
+      TG_OP = 'UPDATE'
+      AND NEW.can_manage_rentals IS DISTINCT FROM OLD.can_manage_rentals
+    )
+  ) AND NOT COALESCE(public.is_admin(auth.uid()), false) THEN
     RAISE EXCEPTION 'Only an authorized QuickHire administrator can grant or revoke rental-provider access.'
       USING ERRCODE = '42501';
   END IF;
@@ -24,39 +29,17 @@ $function$;
 
 DROP TRIGGER IF EXISTS trg_prevent_self_grant_rental_management ON public.profiles;
 CREATE TRIGGER trg_prevent_self_grant_rental_management
-BEFORE UPDATE OF can_manage_rentals ON public.profiles
+BEFORE INSERT OR UPDATE OF can_manage_rentals ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.prevent_self_grant_rental_management();
 
-CREATE OR REPLACE FUNCTION public.set_rental_provider_permission(
-  p_user_id uuid,
-  p_can_manage boolean
-)
-RETURNS void
-LANGUAGE plpgsql
-SECURITY DEFINER
-SET search_path TO 'public', 'pg_temp'
-AS $function$
-BEGIN
-  IF auth.uid() IS NULL OR NOT COALESCE(public.is_admin(auth.uid()), false) THEN
-    RAISE EXCEPTION 'Administrator permission is required to manage rental-provider access.'
-      USING ERRCODE = '42501';
-  END IF;
-
-  UPDATE public.profiles
-  SET can_manage_rentals = p_can_manage,
-      updated_at = now()
-  WHERE id = p_user_id;
-
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'QuickHire profile not found for rental-provider permission update.'
-      USING ERRCODE = 'P0002';
-  END IF;
-END;
-$function$;
-
-REVOKE ALL ON FUNCTION public.set_rental_provider_permission(uuid, boolean) FROM PUBLIC;
-GRANT EXECUTE ON FUNCTION public.set_rental_provider_permission(uuid, boolean) TO authenticated;
+DROP POLICY IF EXISTS "Admins can manage rental provider permissions" ON public.profiles;
+CREATE POLICY "Admins can manage rental provider permissions"
+ON public.profiles
+FOR UPDATE
+TO authenticated
+USING (COALESCE(public.is_admin(auth.uid()), false))
+WITH CHECK (COALESCE(public.is_admin(auth.uid()), false));
 
 DROP POLICY IF EXISTS "Users can insert their own equipment" ON public.equipment;
 CREATE POLICY "Approved rental providers can insert equipment"
