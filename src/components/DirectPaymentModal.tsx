@@ -226,23 +226,23 @@ export function DirectPaymentModal({
     }
 
     if (paymentForType === 'machine_rental') {
-      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      setErrorMsg(t('machineRentalDisabled'));
       return;
     }
 
     const effectiveJobId = jobId || referenceId || null;
     if (!effectiveJobId) {
-      setErrorMsg('A valid job reference is required to record wage payments.');
+      setErrorMsg(t('validJobReference'));
       return;
     }
 
     if (!assignmentId) {
-      setErrorMsg('A valid worker assignment reference (job_records.id) is required to record wage payments.');
+      setErrorMsg(t('validAssignmentReference'));
       return;
     }
 
     if (!recipientId) {
-      setErrorMsg('Recipient information is missing.');
+      setErrorMsg(t('recipientMissing'));
       return;
     }
 
@@ -345,23 +345,23 @@ export function DirectPaymentModal({
     }
 
     if (paymentForType === 'machine_rental') {
-      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      setErrorMsg(t('machineRentalDisabled'));
       return;
     }
 
     const effectiveJobId = jobId || referenceId || null;
     if (!effectiveJobId) {
-      setErrorMsg('A valid job reference is required to initiate wage payments.');
+      setErrorMsg(t('validJobReference'));
       return;
     }
 
     if (!assignmentId) {
-      setErrorMsg('A valid worker assignment reference (job_records.id) is required to initiate wage payments.');
+      setErrorMsg(t('validAssignmentReference'));
       return;
     }
 
     if (!recipientId) {
-      setErrorMsg('Recipient information is missing.');
+      setErrorMsg(t('recipientMissing'));
       return;
     }
 
@@ -382,7 +382,7 @@ export function DirectPaymentModal({
       return;
     }
     if (remainingBalance <= 0 && totalPreviouslyPaid > 0) {
-      setErrorMsg('This assignment is already fully paid.');
+      setErrorMsg(t('assignmentFullyPaid'));
       return;
     }
 
@@ -427,23 +427,23 @@ export function DirectPaymentModal({
     }
 
     if (paymentForType === 'machine_rental') {
-      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      setErrorMsg(t('machineRentalDisabled'));
       return;
     }
 
     const effectiveJobId = jobId || referenceId || null;
     if (!effectiveJobId) {
-      setErrorMsg('A valid job reference is required to record wage payments.');
+      setErrorMsg(t('validJobReference'));
       return;
     }
 
     if (!assignmentId) {
-      setErrorMsg('A valid worker assignment reference (job_records.id) is required to record wage payments.');
+      setErrorMsg(t('validAssignmentReference'));
       return;
     }
 
     if (!recipientId) {
-      setErrorMsg('Recipient information is missing.');
+      setErrorMsg(t('recipientMissing'));
       return;
     }
 
@@ -454,7 +454,7 @@ export function DirectPaymentModal({
     }
 
     if (cleanUtr.length < 6) {
-      setErrorMsg('UPI Reference / UTR number is usually 12 digits. Please check your payment receipt.');
+      setErrorMsg(t('utrFormatReminder'));
       return;
     }
 
