@@ -137,7 +137,7 @@ interface PostedJobItem {
   job_records?: JobRecordItem[];
 }
 
-import { matchesSkillSearch, getTranslation } from './lib/translations';
+import { matchesSkillSearch, getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from './lib/translations';
 
 
 
@@ -1815,7 +1815,7 @@ export default function App() {
                                 <span className="font-bold text-slate-900 text-sm">{job.title}</span>
                               </div>
                               <span className="text-xs font-extrabold text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-                                ₹{job.offered_wages} / day
+                                {formatLocalizedCurrency(job.offered_wages, currentLang)} / day
                               </span>
                             </div>
                             <div className="pt-2 border-t border-slate-200 space-y-2">
