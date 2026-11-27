@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
 import { speakText, stopSpeaking, subscribeToSpeech, getVoiceAssistanceEnabled, subscribeToVoiceAssistance } from '../lib/speech';
+import { getTranslation } from '../lib/translations';
 
 interface VoiceSpeakerButtonProps {
   text: string;
@@ -21,6 +22,8 @@ export function VoiceSpeakerButton({
 }: VoiceSpeakerButtonProps) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [voiceEnabled, setVoiceEnabled] = useState(() => getVoiceAssistanceEnabled());
+  const listenLabel = getTranslation(lang, 'voiceListen');
+  const playingLabel = getTranslation(lang, 'voicePlaying');
 
   useEffect(() => {
     return subscribeToVoiceAssistance(setVoiceEnabled);
@@ -65,8 +68,8 @@ export function VoiceSpeakerButton({
       type="button"
       onClick={handleSpeak}
       disabled={!voiceEnabled}
-      title={label || 'Listen aloud'}
-      aria-label={label || 'Listen aloud in audio'}
+      title={listenLabel}
+      aria-label={listenLabel}
       className={`inline-flex items-center justify-center rounded-lg transition-all focus:outline-hidden disabled:opacity-40 disabled:cursor-not-allowed ${sizeClasses[size]} ${
         isPlaying
           ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-400 scale-105 shadow-xs'
@@ -82,12 +85,12 @@ export function VoiceSpeakerButton({
             <span className="w-0.5 h-3 bg-amber-700 animate-bounce rounded-full" />
             <span className="w-0.5 h-1.5 bg-amber-600 animate-pulse rounded-full" />
           </span>
-          {showLabel && <span className="font-bold text-[10px] text-amber-800">Playing</span>}
+          {showLabel && <span className="font-bold text-[10px] text-amber-800">{playingLabel}</span>}
         </span>
       ) : (
         <span className="flex items-center gap-1">
           <Volume2 className={iconSizes[size]} />
-          {showLabel && <span className="text-[11px] font-medium">Listen</span>}
+          {showLabel && <span className="text-[11px] font-medium">{listenLabel}</span>}
         </span>
       )}
     </button>
