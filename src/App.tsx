@@ -1355,7 +1355,7 @@ export default function App() {
           }}
         >
           {currentAdminNav === 'admin-overview' && <AdminOverview />}
-          {currentAdminNav === 'admin-users' && <UserManagement />}
+          {currentAdminNav === 'admin-users' && <UserManagement currentLang={currentLang} />}
           {currentAdminNav === 'admin-jobs' && <JobManagement />}
           {currentAdminNav === 'admin-equipment' && <EquipmentManagement />}
           {currentAdminNav === 'admin-payments' && <PaymentManagement />}
