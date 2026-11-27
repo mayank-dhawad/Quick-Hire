@@ -8,6 +8,8 @@ import {
   getTabSummarySpeechText,
   getGlobalSpeechRate,
   setGlobalSpeechRate,
+  getVoiceAssistanceEnabled,
+  subscribeToVoiceAssistance,
   getLocaleForLanguage,
   normalizeLanguageKey,
 } from '../lib/speech';
@@ -19,8 +21,11 @@ interface AccessibleVoiceBarProps {
 
 export function AccessibleVoiceBar({ activeTab, currentLang }: AccessibleVoiceBarProps) {
   const [isSpeaking, setIsSpeaking] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => getVoiceAssistanceEnabled());
   const [speechRate, setSpeechRate] = useState<number>(() => getGlobalSpeechRate());
   const [isExpanded, setIsExpanded] = useState(true);
+
+  useEffect(() => subscribeToVoiceAssistance(setVoiceEnabled), []);
 
   useEffect(() => {
     const unsubscribe = subscribeToSpeech((speakingText) => {
@@ -38,6 +43,7 @@ export function AccessibleVoiceBar({ activeTab, currentLang }: AccessibleVoiceBa
     const summaryText = getTabSummarySpeechText(activeTab, currentLang);
     speakText(summaryText, currentLang, {
       rate: speechRate,
+      userInitiated: true,
     });
   };
 
@@ -58,6 +64,8 @@ export function AccessibleVoiceBar({ activeTab, currentLang }: AccessibleVoiceBa
   const normalizedLang = normalizeLanguageKey(currentLang);
   const buttonText = readLabels[normalizedLang] || readLabels[currentLang] || readLabels['English'];
   const locale = getLocaleForLanguage(currentLang);
+
+  if (!voiceEnabled) return null;
 
   return (
     <aside
