@@ -1203,7 +1203,7 @@ export function DashboardTab({
               <span className="font-heading font-black text-xl sm:text-3xl text-yellow-600 flex items-center gap-1">
                 <Star className="w-4 h-4 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
                 {reviews.length > 0
-                  ? (reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.length).toFixed(1)
+                  ? (reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.lengthformatLocalizedNumber((reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.length), currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
                   : '5.0'}
               </span>
             </div>
@@ -2119,7 +2119,7 @@ export function DashboardTab({
                         </div>
                         <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span>{w.averageRating ? w.averageRating.toFixed(1) : '5.0'}</span>
+                          <span>{formatLocalizedNumber(w.averageRating || 5, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
                         </span>
                       </div>
 
