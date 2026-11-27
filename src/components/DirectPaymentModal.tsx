@@ -248,7 +248,7 @@ export function DirectPaymentModal({
 
     const parsedAmount = Number(amount);
     if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setErrorMsg('Please enter a valid cash amount.');
+      setErrorMsg(t('validPaymentAmount').replace('{amount}', formatLocalizedCurrency(1, currentLang)));
       return;
     }
     if (remainingBalance > 0 && parsedAmount > remainingBalance) {
@@ -256,7 +256,7 @@ export function DirectPaymentModal({
       return;
     }
     if (remainingBalance <= 0 && totalPreviouslyPaid > 0) {
-      setErrorMsg('This assignment is already fully paid.');
+      setErrorMsg(t('assignmentFullyPaid'));
       return;
     }
 
@@ -378,7 +378,7 @@ export function DirectPaymentModal({
     }
 
     if (remainingBalance > 0 && parsedAmount > remainingBalance) {
-      setErrorMsg(`Payment amount (₹${parsedAmount}) cannot exceed remaining balance (₹${remainingBalance}).`);
+      setErrorMsg(t('paymentAmountExceedsRemaining').replace('{amount}', formatLocalizedCurrency(parsedAmount, currentLang)).replace('{balance}', formatLocalizedCurrency(remainingBalance, currentLang)));
       return;
     }
     if (remainingBalance <= 0 && totalPreviouslyPaid > 0) {
@@ -449,7 +449,7 @@ export function DirectPaymentModal({
 
     const cleanUtr = utrNumber.trim();
     if (!cleanUtr) {
-      setErrorMsg('Please enter the 12-digit UPI Reference / UTR Number from your payment receipt.');
+      setErrorMsg(t('submitUtrPrompt'));
       return;
     }
 
@@ -460,7 +460,7 @@ export function DirectPaymentModal({
 
     const parsedAmount = Number(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setErrorMsg('Please enter a valid payment amount (minimum ₹1).');
+      setErrorMsg(t('validPaymentAmount').replace('{amount}', formatLocalizedCurrency(1, currentLang)));
       return;
     }
 
@@ -927,7 +927,7 @@ export function DirectPaymentModal({
                       className="w-full py-4 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-amber-600/30 transition-all hover:scale-[1.01] disabled:opacity-50 cursor-pointer"
                     >
                       <Check className="w-5 h-5" />
-                      <span>{isRecordingCash ? t('recordingCashSettlement') : `${t('recordCashBtn')} (₹${amount})`}</span>
+                      <span>{isRecordingCash ? t('recordingCashSettlement') : `${t('recordCashBtn')} (${formatLocalizedCurrency(amount, currentLang)})`}</span>
                     </button>
                   </div>
 
@@ -1112,7 +1112,7 @@ export function DirectPaymentModal({
                 </div>
 
                 <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-[11px] text-amber-900 leading-relaxed">
-                  <strong>Important:</strong> QuickHire does not mark payments as paid merely because you returned to the site. Please enter your 12-digit UPI Reference / UTR Number from your UPI app receipt to submit the payment for verification.
+                  {t('unverifiedPaymentDisclaimer')} {t('submitUtrPrompt')}
                 </div>
 
                 {errorMsg && (
