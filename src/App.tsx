@@ -1225,7 +1225,7 @@ export default function App() {
     );
   }
 
-  // Dedicated Admin Dashboard Suite (/admin, /admin/users, /admin/jobs, etc.)
+  // Dedicated {t('adminDashboard')} Suite (/admin, /admin/users, /admin/jobs, etc.)
   if (isAdminPath()) {
     // 1. If auth is still verifying session, render loading screen
     if (authChecking) {
@@ -1247,9 +1247,9 @@ export default function App() {
             <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-heading font-black text-white">403 — Unauthorized Access</h2>
+            <h2 className="text-xl font-heading font-black text-white">{t('unauthorizedAccessTitle')}</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Your current session ({user.email || 'Citizen'}) is authorized as a <strong>{userRole || 'standard user'}</strong>. Administrator authorization in <code className="text-rose-300 font-mono">admin_users</code> is required to open the security governance suite.
+              {t('unauthorizedAccessMessage').replace('{email}', user.email || 'Citizen').replace('{role}', userRole || 'standard user')}
             </p>
             <div className="pt-2 flex items-center gap-3">
               <button
@@ -1310,7 +1310,7 @@ export default function App() {
       <Suspense
         fallback={
           <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
-            Loading Admin Governance Suite...
+            {t('loadingAdminSuite')}
           </div>
         }
       >
@@ -1372,7 +1372,7 @@ export default function App() {
   // Public launch experience: no operational listings or private records before login.
   if (!user) {
     return (
-      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-600">Loading QuickHire...</div>}>
+      <Suspense fallback={<div className="min-h-screen flex items-center justify-center text-slate-600">{t('loadingQuickHire')}</div>}>
         <Auth
           isGate
           currentLang={currentLang}
@@ -1928,7 +1928,7 @@ export default function App() {
 
             {/* Font Size Accessibility Controls */}
             <div className="flex items-center gap-1 bg-slate-800 px-1.5 sm:px-2 py-0.5 rounded border border-slate-700">
-              <span className="text-[10px] text-slate-400 font-semibold mr-1 hidden sm:inline">Font:</span>
+              <span className="text-[10px] text-slate-400 font-semibold mr-1 hidden sm:inline">{t('fontSize')}:</span>
               <button
                 onClick={() => setFontSizeZoom('normal')}
                 className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'normal'
@@ -1963,7 +1963,7 @@ export default function App() {
 
             <span className="hidden md:inline-flex items-center gap-1.5 bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span> Voice Guidance Active</span>
+              <span> {t('voiceGuidanceActive')}</span>
             </span>
 
             <a
@@ -2059,7 +2059,7 @@ export default function App() {
               userRole === 'admin' ? (
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-emerald-400 border border-emerald-500/40 whitespace-nowrap shadow-xs">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Super Admin / मुख्य प्रशासक</span>
+                  <span>{t('adminRoleLabel')}</span>
                 </span>
               ) : userRole === 'employer' ? (
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 whitespace-nowrap">
@@ -2097,7 +2097,7 @@ export default function App() {
                 className="hidden sm:flex px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-white" />
-                <span>Admin Dashboard</span>
+                <span>{t('adminDashboard')}</span>
               </button>
             )}
 
@@ -2109,7 +2109,7 @@ export default function App() {
                 title="Install QuickHire on your device"
               >
                 <Download className="w-3.5 h-3.5 text-slate-900" />
-                <span>Install App</span>
+                <span>{t('installApp')}</span>
               </button>
             )}
 
@@ -2290,7 +2290,7 @@ export default function App() {
                       className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors flex items-center justify-center gap-1.5"
                     >
                       <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Profile</span>
+                      <span>{t('profileButton')}</span>
                     </button>
                     <button
                       onClick={() => {
@@ -2306,9 +2306,9 @@ export default function App() {
               ) : (
                 <div className="bg-gradient-to-r from-slate-800 to-slate-800/90 rounded-2xl p-3.5 border border-slate-700/80 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-200">अतिथि नागरिक / Guest Citizen</span>
+                    <span className="text-xs font-bold text-slate-200">{t('guestCitizen')}</span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      Not Signed In
+                      {t('notSignedIn')}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400">
@@ -2322,7 +2322,7 @@ export default function App() {
                     className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FF9933] to-[#e68a2e] text-slate-900 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Phone className="w-3.5 h-3.5 text-slate-900" />
-                    <span>Login / Register Account</span>
+                    <span>{t('loginRegisterAccount')}</span>
                   </button>
                 </div>
               )}
@@ -2477,7 +2477,7 @@ export default function App() {
         <Suspense
           fallback={
             <div className="flex justify-center items-center h-64 text-emerald-600 font-medium">
-              Loading QuickHire...
+              {t('loadingQuickHire')}
             </div>
           }
         >
@@ -2713,7 +2713,7 @@ export default function App() {
               </p>
               <div className="flex items-center gap-2 text-[11px] text-emerald-300 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>0% Commission · 100% Direct Citizen Transfer</span>
+                <span>{t('publicCommissionBadge')} · {t('directCitizenTransfer')}</span>
               </div>
             </div>
 
