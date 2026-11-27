@@ -139,7 +139,7 @@ describe('Voice & Accessibility Helper Module', () => {
     });
 
     it('invokes window.speechSynthesis.speak with proper locale and rate', () => {
-      speakText('नमस्ते QuickHire', 'हिंदी (Hindi)');
+      speakText('नमस्ते QuickHire', 'हिंदी (Hindi)', { userInitiated: true });
 
       expect(window.speechSynthesis.cancel).toHaveBeenCalled();
       expect(window.speechSynthesis.speak).toHaveBeenCalled();
