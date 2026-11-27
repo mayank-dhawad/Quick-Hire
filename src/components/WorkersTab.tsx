@@ -40,7 +40,7 @@ import {
 } from '../lib/geocoding';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
-import { getTranslation, getSuggestedSkillTags } from '../lib/translations';
+import { getTranslation, getSuggestedSkillTags, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { PostCallDirectHireModal, DirectHireWorkerInfo } from './PostCallDirectHireModal';
 import { getIndianTelUri } from '../lib/phone';
 
@@ -1003,7 +1003,7 @@ export function WorkersTab({
             const isAssisted = worker.profiles?.is_assisted_profile;
             const wage = worker.daily_wage || 500;
             const expYears = worker.experience_years || 1;
-            const rating = worker.average_rating ? Number(worker.average_rating).toFixed(1) : '5.0';
+            const rating = worker.average_rating ? formatLocalizedNumber(Number(worker.average_rating), currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : formatLocalizedNumber(5, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
             const distance = worker.distance_km;
             const isSelected = selectedWorkerId === worker.id;
 
@@ -1050,7 +1050,7 @@ export function WorkersTab({
                           Daily Wage
                         </span>
                         <span className="font-extrabold text-slate-800">
-                          ₹{wage} / day
+                          {formatLocalizedCurrency(wage, currentLang)} / day
                         </span>
                       </div>
                     </div>
