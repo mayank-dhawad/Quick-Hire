@@ -972,16 +972,16 @@ export function DashboardTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <span className="text-xs font-bold text-brand-600 uppercase tracking-wider block mb-1">
-            {viewMode === 'worker' ? 'Citizen Account & Work History' : t('workforceManagement')}
+            {viewMode === 'worker' ? t('workerDashboardEyebrow') : t('workforceManagement')}
           </span>
           <div className="flex items-center gap-2">
             <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-slate-900">
-              {viewMode === 'worker' ? 'Worker Dashboard & Activity' : t('dashboardTitle')}
+              {viewMode === 'worker' ? t('workerDashboardTitle') : t('dashboardTitle')}
             </h1>
             <VoiceSpeakerButton
               text={
                 viewMode === 'worker'
-                  ? 'Worker dashboard. View your persistent profile, applied jobs, wages received, equipment rentals, and reviews.'
+                  ? t('workerDashboardSpeech')
                   : `${t('dashboardTitle')}. ${t('dashboardSub')}`
               }
               lang={currentLang}
@@ -990,7 +990,7 @@ export function DashboardTab({
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             {viewMode === 'worker'
-              ? '100% persistent history across logins and devices. Direct settlements and verified ratings.'
+              ? t('workerDashboardDescription')
               : t('dashboardSub')}
           </p>
         </div>
@@ -1916,7 +1916,7 @@ export function DashboardTab({
                                     <div className="flex items-center gap-2">
                                       <span className="text-[11px] font-bold text-brand-800 flex items-center gap-1">
                                         <Clock className="w-3.5 h-3.5 text-brand-600" />
-                                        <span>{currentStatus === 'on_break' ? 'Worker on break' : 'Work in progress'}</span>
+                                        <span>{currentStatus === 'on_break' ? t('workerOnBreak') : t('workInProgressLabel')}</span>
                                       </span>
                                       {currentStatus === 'in_progress' && (
                                         <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
