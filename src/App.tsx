@@ -2815,7 +2815,7 @@ export default function App() {
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
                   <span> <EmojiIcon name="ambulance" className="mr-1 h-4 w-4" /> {t('publicAmbulance102')}:</span>
-                  <a href="tel:102" className="font-bold text-white hover:text-amber-300">102 / 108</a>
+                  <span className="font-bold text-white"><a href="tel:102" className="hover:text-amber-300">102</a> / <a href="tel:108" className="hover:text-amber-300">108</a></span>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
                   <span> <EmojiIcon name="sprout" className="mr-1 h-4 w-4" /> {t('publicKisanCallCenter')}:</span>
