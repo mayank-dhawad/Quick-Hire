@@ -2899,7 +2899,7 @@ export default function App() {
             }`}
           >
             <EmojiIcon name="landmark" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Home</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabHome')}</span>
           </button>
 
           {(userRole === 'employer' || userRole === 'admin') && (
@@ -2912,7 +2912,7 @@ export default function App() {
             }`}
           >
             <EmojiIcon name="users" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Workers</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabWorkers')}</span>
           </button>
 
           )}
@@ -2926,7 +2926,7 @@ export default function App() {
             }`}
           >
             <EmojiIcon name="tractor" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Equipment</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabEquipment')}</span>
           </button>
 
           {(userRole === 'employer' || userRole === 'admin') ? (
@@ -2939,7 +2939,7 @@ export default function App() {
             }`}
           >
             <EmojiIcon name="clipboard" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Post Job</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabPostJob')}</span>
           </button>
 
           ) : (
@@ -2966,7 +2966,7 @@ export default function App() {
             }`}
           >
             <EmojiIcon name="chart" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Dashboard</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabDashboard')}</span>
             {myPostedJobs.length > 0 && (
               <span className="absolute top-2 right-3 w-4 h-4 rounded-full bg-[#FF9933] text-slate-900 text-[9px] font-black flex items-center justify-center">
                 {myPostedJobs.length}
