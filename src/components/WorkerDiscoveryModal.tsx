@@ -546,9 +546,13 @@ export function WorkerDiscoveryModal({
                           />
                         </div>
                       </div>
-                      <span className="flex items-center gap-1 text-xs font-bold text-amber-700 bg-amber-50 px-2 py-1 rounded-lg">
-                        <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                        {worker.average_rating || '4.5'}
+                      <span className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-lg ${worker.average_rating !== null && worker.average_rating !== undefined && Number.isFinite(Number(worker.average_rating)) && Number(worker.average_rating) >= 1 && Number(worker.average_rating) <= 5 ? 'text-amber-700 bg-amber-50' : 'text-slate-600 bg-slate-100'}`}>
+                        {worker.average_rating !== null && worker.average_rating !== undefined && Number.isFinite(Number(worker.average_rating)) && Number(worker.average_rating) >= 1 && Number(worker.average_rating) <= 5 ? (
+                          <>
+                            <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
+                            {Number(worker.average_rating).toFixed(1)}
+                          </>
+                        ) : t('newRating')}
                       </span>
                     </div>
 
