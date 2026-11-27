@@ -19,7 +19,7 @@ assert.match(app, /profile\.account_status === 'suspended'/, 'Restored suspended
 assert.match(auth, /existingProfile\?\.account_status === 'suspended'/, 'Suspended users must be blocked during sign-in');
 assert.match(auth, /t\(['\"]authSuspendedAccount['\"]\)/, 'Suspension must use the localized account-status message');
 assert.equal(
-  (translations.match(/\"authSuspendedAccount\"\\s*:/g) || []).length,
+  translations.split('\"authSuspendedAccount\":').length - 1,
   5,
   'The suspended-account message must be translated in all five supported languages'
 );
