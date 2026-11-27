@@ -2928,6 +2928,66 @@ export function getTranslation(lang: string = 'English', key: string): string {
   return translations[norm]?.[key] || translations['English']?.[key] || RAW_KEY_FALLBACKS[key] || key;
 }
 
+const LOCALE_FORMATS: Record<string, { locale: string; numberingSystem: string }> = {
+  English: { locale: 'en-IN', numberingSystem: 'latn' },
+  'हिंदी (Hindi)': { locale: 'hi-IN', numberingSystem: 'deva' },
+  'मराठी (Marathi)': { locale: 'mr-IN', numberingSystem: 'deva' },
+  'বাংলা (Bengali)': { locale: 'bn-IN', numberingSystem: 'beng' },
+  'తెలుగు (Telugu)': { locale: 'te-IN', numberingSystem: 'telu' },
+};
+
+/** Format ordinary UI numbers using the selected language's locale and numeral system.
+ * Keep phone numbers, OTPs, UTRs, bank identifiers and emergency helpline numbers unchanged.
+ */
+export function formatLocalizedNumber(
+  value: number | string | null | undefined,
+  lang = 'English',
+  options: Intl.NumberFormatOptions = {}
+): string {
+  if (value === null || value === undefined || value === '') return '';
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numericValue)) return String(value);
+  const normalized = normalizeLanguage(lang);
+  const format = LOCALE_FORMATS[normalized] || LOCALE_FORMATS.English;
+  return new Intl.NumberFormat(format.locale, {
+    numberingSystem: format.numberingSystem,
+    ...options,
+  }).format(numericValue);
+}
+
+export function formatLocalizedCurrency(
+  value: number | string | null | undefined,
+  lang = 'English'
+): string {
+  if (value === null || value === undefined || value === '') return '';
+  const numericValue = typeof value === 'number' ? value : Number(value);
+  if (!Number.isFinite(numericValue)) return String(value);
+  const normalized = normalizeLanguage(lang);
+  const format = LOCALE_FORMATS[normalized] || LOCALE_FORMATS.English;
+  return new Intl.NumberFormat(format.locale, {
+    style: 'currency',
+    currency: 'INR',
+    maximumFractionDigits: 0,
+    numberingSystem: format.numberingSystem,
+  }).format(numericValue);
+}
+
+export function formatLocalizedDate(
+  value: string | number | Date | null | undefined,
+  lang = 'English',
+  options: Intl.DateTimeFormatOptions = { day: 'numeric', month: 'short', year: 'numeric' }
+): string {
+  if (value === null || value === undefined || value === '') return '';
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return '';
+  const normalized = normalizeLanguage(lang);
+  const format = LOCALE_FORMATS[normalized] || LOCALE_FORMATS.English;
+  return new Intl.DateTimeFormat(format.locale, {
+    numberingSystem: format.numberingSystem,
+    ...options,
+  }).format(date);
+}
+
 export const SUPPORTED_LANGUAGES = [
   'English',
   'हिंदी (Hindi)',
