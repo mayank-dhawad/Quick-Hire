@@ -483,7 +483,7 @@ export function Auth({
     }
 
     if (isSignUp && confirmPassword && cleanPassword !== confirmPassword.trim()) {
-      const errMsg = '{t('authPasswordMismatch')}';
+      const errMsg = t('authPasswordMismatch');
       setAuthError(errMsg);
       speakText(errMsg, currentLang);
       return;
