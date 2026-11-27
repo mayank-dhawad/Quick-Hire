@@ -16,6 +16,7 @@ import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation } from '../lib/translations';
 
 interface EquipmentRentalTabProps {
+  canManageRentals?: boolean;
   equipmentList: EquipmentItem[];
   equipmentLoading: boolean;
   selectedCategory: string;
@@ -32,6 +33,7 @@ interface EquipmentRentalTabProps {
 }
 
 export function EquipmentRentalTab({
+  canManageRentals = false,
   equipmentList,
   equipmentLoading,
   selectedCategory,
@@ -90,15 +92,19 @@ export function EquipmentRentalTab({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          {canManageRentals ? (
+            <button
             onClick={onPostEquipmentClick}
             className="px-5 py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-sm flex items-center gap-2 shrink-0"
           >
             <PlusCircle className="w-4 h-4" />
             <span>{t('listEquipmentBtn')}</span>
           </button>
+          ) : (
+            <span className="max-w-xs text-right text-[11px] leading-relaxed text-slate-500">{t('rentalProviderApprovalRequired')}</span>
+          )}
         </div>
-      </div>
+      </div>v>
 
       {/* CATEGORY FILTER CHIPS */}
       <div className="flex flex-wrap items-center gap-2">
@@ -208,7 +214,7 @@ export function EquipmentRentalTab({
                       <span className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-200">
                         {item.category}
                       </span>
-                      {currentUserId && item.owner_id === currentUserId && (
+                      {canManageRentals && currentUserId && item.owner_id === currentUserId && (
                         <button
                           type="button"
                           onClick={() => onEditEquipmentClick?.(item)}
