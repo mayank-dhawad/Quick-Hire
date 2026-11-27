@@ -171,7 +171,7 @@ export function Auth({
         existingProfile = data;
 
         if (existingProfile?.account_status === 'suspended') {
-          throw new Error('Your QuickHire account is suspended. Please contact support.');
+          throw new Error(t('authSuspendedAccount'));
         }
 
         const normalizedPhone = authUser.phone || (phone ? `${countryCode}${phone.replace(/\D/g, '')}` : null);
@@ -483,7 +483,7 @@ export function Auth({
     }
 
     if (isSignUp && confirmPassword && cleanPassword !== confirmPassword.trim()) {
-      const errMsg = 'Passwords do not match. Please verify.';
+      const errMsg = '{t('authPasswordMismatch')}';
       setAuthError(errMsg);
       speakText(errMsg, currentLang);
       return;
@@ -549,7 +549,7 @@ export function Auth({
       }
     } catch (err: unknown) {
       setLoading(false);
-      const msg = err instanceof Error ? err.message : 'System error during authentication.';
+      const msg = err instanceof Error ? err.message : t('authSystemError');
       setAuthError(msg);
     }
   };
@@ -576,11 +576,11 @@ export function Auth({
         setAuthError(error.message);
         speakText(error.message, currentLang);
       } else {
-        setAuthNotice('Password reset link sent to your email. Please check your inbox.');
+        setAuthNotice(t('authPasswordResetSent'));
         setShowForgotBox(false);
       }
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'Error requesting password reset.';
+      const msg = err instanceof Error ? err.message : t('authPasswordResetError');
       setAuthError(msg);
     } finally {
       setLoading(false);
@@ -919,7 +919,7 @@ export function Auth({
           <div className="flex items-center justify-between">
             <span className="text-xs font-bold text-blue-900 flex items-center gap-1.5">
               <KeyRound className="w-3.5 h-3.5 text-blue-600" />
-              <span>Reset Your Password</span>
+              <span>{t('authResetPasswordTitle')}</span>
             </span>
             <button
               type="button"
@@ -948,7 +948,7 @@ export function Auth({
             disabled={loading}
             className="w-full py-3 rounded-xl text-xs sm:text-sm font-bold bg-[#0f2942] hover:bg-[#1a3d60] text-white transition-all shadow-md shadow-[#0f2942]/20 disabled:opacity-70 flex items-center justify-center gap-2 cursor-pointer"
           >
-            {loading ? <span>Dispatching recovery link...</span> : <span>Send Password Recovery Link</span>}
+            {loading ? <span>{t('authSendingRecovery')}</span> : <span>{t('authSendRecoveryLink')}</span>}
           </button>
           <div className="text-center pt-1">
             <button
@@ -967,7 +967,7 @@ export function Auth({
           {isSignUp && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                Full Name
+                {t('authFullName')}
               </label>
               <div className="flex items-center border border-slate-300 rounded-xl px-4 py-3.5 focus-within:border-brand-500 shadow-2xs bg-white">
                 <input
@@ -975,7 +975,7 @@ export function Auth({
                   required
                   value={fullName}
                   onChange={(e) => setFullName(e.target.value)}
-                  placeholder="Enter your full name"
+                  placeholder={t('authFullNamePlaceholder')}
                   className="w-full outline-none text-sm font-medium text-slate-900 bg-transparent"
                 />
               </div>
@@ -1025,7 +1025,7 @@ export function Auth({
                     }}
                     className="text-[11px] text-blue-600 hover:underline font-semibold cursor-pointer"
                   >
-                    Forgot password?
+                    {t('authForgotPassword')}
                   </button>
                 )}
                 <VoiceSpeakerButton
@@ -1066,7 +1066,7 @@ export function Auth({
           {isSignUp && (
             <div className="space-y-1.5">
               <label className="text-xs font-bold text-slate-700 uppercase tracking-wider block">
-                Confirm Password
+                {t('authConfirmPassword')}
               </label>
               <div className="relative flex items-center border border-slate-300 rounded-xl px-4 py-3.5 focus-within:border-brand-500 shadow-2xs bg-white">
                 <Lock className="w-4 h-4 text-slate-400 mr-2.5 shrink-0" />
@@ -1147,7 +1147,7 @@ export function Auth({
                 <span className="w-2 h-2 rounded-full bg-[#138808]" />
               </span>
               <span className="font-semibold text-slate-200">
-                {t('platformOverview')} — 0% Commission
+                {t('platformOverview')} — {t('publicCommissionBadge')}
               </span>
             </div>
 
@@ -1179,7 +1179,7 @@ export function Auth({
                     Quick<span className="text-[#138808]">Hire</span>
                   </span>
                   <span className="text-[10px] uppercase font-extrabold tracking-wider px-2 py-0.5 rounded-sm bg-[#0f2942] text-white">
-                    Portal
+                    {t('publicPortalBadge')}
                   </span>
                   <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
                     <CheckCircle2 className="w-3 h-3 text-[#138808]" />
@@ -1197,6 +1197,7 @@ export function Auth({
               <a href="#public-how" className="hover:text-emerald-700">{t('publicNavHow')}</a>
               <a href="#public-features" className="hover:text-emerald-700">{t('publicNavFeatures')}</a>
               <a href="#public-safety" className="hover:text-emerald-700">{t('publicNavSafety')}</a>
+              <a href="#public-contact" className="hover:text-emerald-700">{t('publicNavContact')}</a>
               <a href="#public-auth" className="rounded-lg bg-[#0f2942] px-3 py-2 text-white hover:bg-[#183b56]">{t('publicNavAccess')}</a>
             </nav>
 
@@ -1354,37 +1355,37 @@ export function Auth({
               <a href="tel:112" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
                 <span className="block text-2xl font-black tracking-tight text-[#0f2942]">112</span>
                 <span className="mt-1 block text-xs font-semibold text-slate-600">{t('sos112Title')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> Call</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
               <a href="tel:102" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
                 <span className="block text-2xl font-black tracking-tight text-[#0f2942]">102 / 108</span>
                 <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicAmbulance102')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> Call</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
               <a href="tel:181" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
                 <span className="block text-2xl font-black tracking-tight text-[#0f2942]">181</span>
                 <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicWomen181')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> Call</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
               <a href="tel:1091" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
                 <span className="block text-2xl font-black tracking-tight text-[#0f2942]">1091</span>
                 <span className="mt-1 block text-xs font-semibold text-slate-600">{t('sos1091Title')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> Call</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
               <a href="tel:1098" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
                 <span className="block text-2xl font-black tracking-tight text-[#0f2942]">1098</span>
                 <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicChild1098')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> Call</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
               <a href="tel:1930" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
                 <span className="block text-2xl font-black tracking-tight text-[#0f2942]">1930</span>
                 <span className="mt-1 block text-xs font-semibold text-slate-600">{t('publicCyber1930')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> Call</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
               <a href="tel:1551" className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm hover:border-emerald-300 hover:shadow-md transition-all">
                 <span className="block text-2xl font-black tracking-tight text-[#0f2942]">1551</span>
                 <span className="mt-1 block text-xs font-semibold text-slate-600">{t('sosKisanTitle')}</span>
-                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> Call</span>
+                <span className="mt-3 inline-flex items-center gap-1 text-[11px] font-bold text-emerald-700"><PhoneCall className="h-3.5 w-3.5" /> {t('publicCallAction')}</span>
               </a>
             </div>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1398,7 +1399,7 @@ export function Auth({
               </div>
             </div>
             <p className="text-xs font-semibold text-slate-600">{t('publicEmergencyNote')}</p>
-            <a href="https://www.india.gov.in/directory/helpline" target="_blank" rel="noreferrer" className="inline-flex text-xs font-bold text-emerald-700 underline underline-offset-4">Government of India helpline directory</a>
+            <a href="https://www.india.gov.in/directory/helpline" target="_blank" rel="noreferrer" className="inline-flex text-xs font-bold text-emerald-700 underline underline-offset-4">{t('publicHelplineDirectory')}</a>
           </div>
         </section>
 
@@ -1417,7 +1418,7 @@ export function Auth({
             <div className="grid grid-cols-1 md:grid-cols-3 gap-6 text-xs text-slate-300">
               <div>
                 <span className="font-bold text-white uppercase tracking-wider block mb-2">
-                  QuickHire Rural Employment Platform
+                  {t('publicPlatformName')}
                 </span>
                 <p className="text-slate-400 leading-relaxed">
                   {t('publicAboutBody')}
@@ -1445,7 +1446,7 @@ export function Auth({
 
             <div className="pt-4 border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 text-[11px] text-slate-400">
               <span>{t('publicDisclaimer')}</span>
-              <span>© {new Date().getFullYear()} QuickHire Rural Employment Platform</span>
+              <span>© {new Date().getFullYear()} {t('publicPlatformName')}</span>
             </div>
           </div>
         </footer>
