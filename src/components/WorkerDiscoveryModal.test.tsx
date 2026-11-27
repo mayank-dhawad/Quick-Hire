@@ -8,6 +8,9 @@ import type { User, Session } from '@supabase/supabase-js';
 // Mock speech
 vi.mock('../lib/speech', () => ({
   speakText: vi.fn(),
+  stopSpeaking: vi.fn(),
+  getVoiceAssistanceEnabled: vi.fn(() => true),
+  subscribeToVoiceAssistance: vi.fn(() => () => {}),
   getVoiceGuidance: vi.fn(() => 'voice instructions'),
   getWorkerSpeechText: vi.fn(() => 'worker details'),
   subscribeToSpeech: vi.fn(() => () => {}),
