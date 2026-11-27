@@ -442,6 +442,7 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
         />
       );
 
+      expect(screen.getByText('4.9')).toBeInTheDocument();
       // Directory summary bar shows total workers found
       expect(screen.getByText('3 workers found')).toBeInTheDocument();
       // Status displays plotted on map count
