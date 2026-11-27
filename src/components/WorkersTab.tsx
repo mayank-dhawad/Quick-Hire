@@ -675,7 +675,7 @@ export function WorkersTab({
                 )}
               </button>
 
-              {/* Find Nearby (Geocoding) Button */}
+              {/* {t('findNearby')} (Geocoding) Button */}
               <button
                 type="submit"
                 disabled={isLocating}
@@ -689,7 +689,7 @@ export function WorkersTab({
                 ) : (
                   <>
                     <Navigation className="w-4 h-4" />
-                    <span>Find Nearby</span>
+                    <span>{t('findNearby')}</span>
                   </>
                 )}
               </button>
@@ -716,7 +716,7 @@ export function WorkersTab({
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs no-scrollbar">
               <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 shrink-0">
                 <History className="w-3 h-3 text-slate-400" />
-                <span>Recent:</span>
+                <span>{t('recentLabel')}:</span>
               </span>
               {recentLocations.slice(0, 6).map((loc, idx) => (
                 <button
@@ -974,7 +974,7 @@ export function WorkersTab({
       {workersLoading ? (
         <div className="text-center py-20 text-slate-400 text-sm">
           <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <span>Loading verified workers...</span>
+          <span>{t('loadingVerifiedWorkers')}</span>
         </div>
       ) : processedWorkers.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 space-y-4">
@@ -1090,14 +1090,14 @@ export function WorkersTab({
                       ) : (
                         <span className="inline-flex items-center gap-1 text-slate-400 text-xs italic">
                           <MapPin className="w-3 h-3 text-slate-300 shrink-0" />
-                          <span>Location not specified</span>
+                          <span>{t('locationNotSpecified')}</span>
                         </span>
                       )}
 
                       {/* Explicit indicator when genuine coordinates are missing */}
                       {(worker.latitude === null || worker.longitude === null) && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                          <span>Map location not set</span>
+                          <span>{t('mapLocationNotSet')}</span>
                         </span>
                       )}
                       {isAssisted && (
@@ -1144,7 +1144,7 @@ export function WorkersTab({
                     {callingWorkerId === worker.id ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Connecting...</span>
+                        <span>{t('connecting')}</span>
                       </>
                     ) : (
                       <>
