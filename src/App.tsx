@@ -747,12 +747,28 @@ export default function App() {
       } else {
         clearAdminSession();
 
-        const { data: profile, error: profileLookupError } = await supabase
+        let profileResult = await supabase
           .from('profiles')
           .select('id, role, account_status, can_manage_rentals')
           .eq('id', activeUser.id)
           .maybeSingle();
 
+        // Keep preview builds compatible with production until the reviewed
+        // capability migration has been applied to the target database.
+        if (profileResult.error && /can_manage_rentals|42703/i.test(profileResult.error.message)) {
+          const legacyProfileResult = await supabase
+            .from('profiles')
+            .select('id, role, account_status')
+            .eq('id', activeUser.id)
+            .maybeSingle();
+          profileResult = {
+            ...legacyProfileResult,
+            data: legacyProfileResult.data as typeof profileResult.data,
+          };
+          setCanManageRentals(false);
+        }
+
+        const { data: profile, error: profileLookupError } = profileResult;
         if (profileLookupError) throw profileLookupError;
         if (!profile) {
           // An Auth session without its matching QuickHire profile is not a
