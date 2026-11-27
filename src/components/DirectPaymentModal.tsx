@@ -623,7 +623,7 @@ export function DirectPaymentModal({
                 <span>{t('duplicatePaymentWarning')}</span>
               </div>
               <p className="text-[11px] text-amber-800">
-                {t('previousPaymentAttempt').replace('{reference}', existingPendingAttempt.payment_reference || existingPendingAttempt.id.slice(0, 8)).replace('{amount}', formatLocalizedCurrency(existingPendingAttempt.amount, currentLang)).replace('{date}', formatLocalizedDate(existingPendingAttempt.created_at, currentLang)).replace('{status}', existingPendingAttempt.status)}
+                {t('previousPaymentAttempt').replace('{reference}', String(existingPendingAttempt.payment_reference ?? existingPendingAttempt.id.slice(0, 8))).replace('{amount}', formatLocalizedCurrency(existingPendingAttempt.amount, currentLang)).replace('{date}', formatLocalizedDate(existingPendingAttempt.created_at, currentLang)).replace('{status}', String(existingPendingAttempt.status ?? ''))}
               </p>
               <button
                 type="button"
