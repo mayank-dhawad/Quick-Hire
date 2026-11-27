@@ -1147,6 +1147,11 @@ BEGIN
             v_payment_id, v_employer_id, v_fin_user_id, 500, 'Direct UPI', 'worker_wage', 'completed', v_job_id::text, 'UTR-TEST-FIN-001'
         );
 
+        -- Return to the normal test actor context for the deletion assertions.
+        PERFORM set_config('role', 'postgres', true);
+        PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_employer_id::text, true);
+
         -- Delete user from auth.users
         DELETE FROM auth.users WHERE id = v_fin_user_id;
 
