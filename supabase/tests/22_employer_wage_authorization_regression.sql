@@ -80,24 +80,26 @@ END;
 $test$;
 
 
--- Exercise the real legacy-data scenario: a profile currently marked Worker
--- still owns an older job. It must not be able to complete work, retrieve the
--- worker's bank details, or settle wages for that legacy job.
+-- Exercise the real legacy-data scenario: create a job as an Employer, then
+-- simulate the existing account being changed to Worker by trusted provisioning.
+-- The account must no longer complete work, retrieve worker bank details, or settle wages.
 BEGIN;
 DO $legacy$
 DECLARE
-  v_worker_owner uuid := '22222222-2222-2222-2222-222222222222';
+  v_legacy_owner uuid := '11111111-1111-1111-1111-111111111111';
   v_assigned_worker uuid := '33333333-3333-3333-3333-333333333333';
   v_job_id uuid := gen_random_uuid();
   v_assignment_id uuid;
   v_denied boolean;
+  v_role text;
 BEGIN
-  PERFORM set_config('role', 'service_role', true);
-  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
-  PERFORM set_config('request.jwt.claim.sub', '', true);
+  -- Create the original job and assignment through the legitimate Employer path.
+  PERFORM set_config('role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', v_legacy_owner::text, true);
 
   INSERT INTO public.jobs (id, employer_id, title, category, offered_wages, workers_needed, status, hiring_source)
-  VALUES (v_job_id, v_worker_owner, 'Legacy worker-owned job regression', 'Agriculture', 100, 1, 'open', 'direct_phone');
+  VALUES (v_job_id, v_legacy_owner, 'Legacy worker-owned job regression', 'Agriculture', 100, 1, 'open', 'direct_phone');
 
   INSERT INTO public.job_records (
     job_id, worker_id, hiring_source, agreement_evidence_type, status, agreed_wage, total_payable
@@ -105,11 +107,27 @@ BEGIN
     v_job_id, v_assigned_worker, 'direct_phone', 'employer_reported_verbal_agreement', 'hired', 100, 100
   ) RETURNING id INTO v_assignment_id;
 
-  -- Simulate an authenticated request by the legacy job owner, but execute the
-  -- UPDATE as postgres so RLS cannot mask whether the database trigger rejects it.
+  -- Trusted backend repair must be able to provision and then set the role.
+  PERFORM set_config('role', 'service_role', true);
+  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+  UPDATE public.profiles SET role = 'admin' WHERE id = v_legacy_owner;
+  SELECT role INTO v_role FROM public.profiles WHERE id = v_legacy_owner;
+  IF v_role IS DISTINCT FROM 'admin' THEN
+    RAISE EXCEPTION 'Trusted service role could not provision an admin profile through the legacy trigger chain.';
+  END IF;
+
+  UPDATE public.profiles SET role = 'worker' WHERE id = v_legacy_owner;
+  SELECT role INTO v_role FROM public.profiles WHERE id = v_legacy_owner;
+  IF v_role IS DISTINCT FROM 'worker' THEN
+    RAISE EXCEPTION 'Trusted service role could not repair the profile back to Worker.';
+  END IF;
+
+  -- Execute as postgres so RLS cannot mask whether the authorization trigger
+  -- itself rejects a Worker who still owns a legacy job.
   PERFORM set_config('role', 'postgres', true);
   PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
-  PERFORM set_config('request.jwt.claim.sub', v_worker_owner::text, true);
+  PERFORM set_config('request.jwt.claim.sub', v_legacy_owner::text, true);
 
   v_denied := false;
   BEGIN
