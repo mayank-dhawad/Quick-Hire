@@ -113,19 +113,23 @@ BEGIN
     -- Without a job ID, retain only an existing job or payment relationship.
     ELSE
         IF EXISTS (
-            SELECT 1
-            FROM public.jobs j
-            JOIN public.job_records jr ON jr.job_id = j.id
-            WHERE j.employer_id = v_caller_id
-              AND EXISTS (SELECT 1 FROM public.profiles caller_profile WHERE caller_profile.id = v_caller_id AND caller_profile.role = 'employer')
-              AND jr.worker_id = p_recipient_id
-              AND jr.status IN ('completed', 'work_completed')
-              AND jr.work_completed_at IS NOT NULL
-        ) OR EXISTS (
-            SELECT 1
-            FROM public.payments pay
-            WHERE pay.payer_id = v_caller_id
-              AND pay.payee_id = p_recipient_id
+            SELECT 1 FROM public.profiles caller_profile
+            WHERE caller_profile.id = v_caller_id AND caller_profile.role = 'employer'
+        ) AND (
+            EXISTS (
+                SELECT 1
+                FROM public.jobs j
+                JOIN public.job_records jr ON jr.job_id = j.id
+                WHERE j.employer_id = v_caller_id
+                  AND jr.worker_id = p_recipient_id
+                  AND jr.status IN ('completed', 'work_completed')
+                  AND jr.work_completed_at IS NOT NULL
+            ) OR EXISTS (
+                SELECT 1
+                FROM public.payments pay
+                WHERE pay.payer_id = v_caller_id
+                  AND pay.payee_id = p_recipient_id
+            )
         ) THEN
             v_is_authorized := true;
         END IF;
