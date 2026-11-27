@@ -218,7 +218,7 @@ BEGIN
     UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_assignment_id;
     UPDATE public.job_records SET status = 'arrived' WHERE id = v_assignment_id;
     UPDATE public.job_records SET status = 'in_progress' WHERE id = v_assignment_id;
-    UPDATE public.job_records SET status = 'completed' WHERE id = v_assignment_id;
+    UPDATE public.job_records SET status = 'completed', work_completed_at = now() WHERE id = v_assignment_id;
 
     UPDATE public.jobs SET status = 'in_progress' WHERE id = v_job_id;
 
@@ -265,7 +265,7 @@ BEGIN
     UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_historical_assignment_id;
     UPDATE public.job_records SET status = 'arrived' WHERE id = v_historical_assignment_id;
     UPDATE public.job_records SET status = 'in_progress' WHERE id = v_historical_assignment_id;
-    UPDATE public.job_records SET status = 'completed' WHERE id = v_historical_assignment_id;
+    UPDATE public.job_records SET status = 'completed', work_completed_at = now() WHERE id = v_historical_assignment_id;
 
     INSERT INTO public.payments (
         id, payer_id, payee_id, payment_for_type, reference_id, assignment_id, amount,
