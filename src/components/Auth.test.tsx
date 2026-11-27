@@ -116,7 +116,7 @@ describe('Auth Component with Supabase Native Phone Authentication', () => {
     await waitFor(() => {
       expect(supabase.auth.signInWithOtp).toHaveBeenCalledWith({
         phone: '+919876543210',
-        options: { channel: 'sms' },
+        options: { channel: 'sms', shouldCreateUser: false },
       });
       // Verifies eligible message
       expect(screen.getByText(/If the number is eligible, a verification code will be sent by SMS/i)).toBeInTheDocument();
