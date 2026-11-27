@@ -91,6 +91,8 @@ vi.mock('../lib/supabase', () => {
 // Mock speech
 vi.mock('../lib/speech', () => ({
   speakText: vi.fn(),
+  getVoiceAssistanceEnabled: vi.fn(() => true),
+  subscribeToVoiceAssistance: vi.fn(() => () => {}),
   getVoiceGuidance: vi.fn(),
   isSpeechSupported: vi.fn(() => true),
   subscribeToSpeech: vi.fn(() => () => {}),
