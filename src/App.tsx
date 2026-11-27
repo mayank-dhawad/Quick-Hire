@@ -1225,7 +1225,7 @@ export default function App() {
     );
   }
 
-  // Dedicated {t('adminDashboard')} Suite (/admin, /admin/users, /admin/jobs, etc.)
+  // Dedicated {t('tabDashboard')} Suite (/admin, /admin/users, /admin/jobs, etc.)
   if (isAdminPath()) {
     // 1. If auth is still verifying session, render loading screen
     if (authChecking) {
@@ -2427,7 +2427,7 @@ export default function App() {
                   className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-600/50 hover:bg-emerald-800/60 transition-colors"
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Admin Governance Suite</span>
+                  <span>{t('adminRoleLabel')}</span>
                 </button>
               )}
 
