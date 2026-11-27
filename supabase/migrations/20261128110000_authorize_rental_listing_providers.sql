@@ -42,6 +42,9 @@ USING (COALESCE(public.is_admin(auth.uid()), false))
 WITH CHECK (COALESCE(public.is_admin(auth.uid()), false));
 
 DROP POLICY IF EXISTS "Users can insert their own equipment" ON public.equipment;
+DROP POLICY IF EXISTS "Approved rental providers can delete equipment" ON public.equipment;
+DROP POLICY IF EXISTS "Approved rental providers can update equipment" ON public.equipment;
+DROP POLICY IF EXISTS "Approved rental providers can insert equipment" ON public.equipment;
 CREATE POLICY "Approved rental providers can insert equipment"
 ON public.equipment
 FOR INSERT
