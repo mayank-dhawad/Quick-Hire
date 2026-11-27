@@ -1455,7 +1455,7 @@ export function DashboardTab({
             <div className="flex items-center gap-2">
               <Landmark className="w-5 h-5 text-emerald-600" />
               <h3 className="font-heading font-extrabold text-lg text-slate-900">
-                Direct Wage Settlements & Receipts
+                {t('wageSettlementsAndReceipts')}
               </h3>
             </div>
 
