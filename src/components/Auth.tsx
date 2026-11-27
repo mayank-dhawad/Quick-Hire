@@ -671,7 +671,6 @@ export function Auth({
       </div>
 
       {isSignUp && (
-      {/* 2. ROLE SELECTION CARDS */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
           <label className="text-xs font-bold text-slate-700 uppercase tracking-wider">
