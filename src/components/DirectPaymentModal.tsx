@@ -934,7 +934,7 @@ export function DirectPaymentModal({
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] leading-relaxed flex items-start gap-2">
                     <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                     <span>
-                      <strong>Notice:</strong> Cash settlements are recorded directly in QuickHire's permanent ledger as user-reported transactions. Both parties can view and print receipts immediately.
+                      <strong>{t('notice')}:</strong> Cash settlements are recorded directly in QuickHire's permanent ledger as user-reported transactions. Both parties can view and print receipts immediately.
                     </span>
                   </div>
                 </div>
