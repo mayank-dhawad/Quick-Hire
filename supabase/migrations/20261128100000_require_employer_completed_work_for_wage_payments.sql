@@ -137,8 +137,7 @@ BEGIN
     LEFT JOIN public.profile_private_details d ON d.profile_id = p.id
     WHERE p.id = p_recipient_id;
 END;
-$function$
-
+$function$;
 
 CREATE OR REPLACE FUNCTION public.record_direct_payment(p_payment_for_type text, p_reference_id uuid, p_assignment_id uuid, p_payee_id uuid, p_amount numeric, p_payment_method text, p_payment_reference text, p_utr_number text DEFAULT NULL::text, p_idempotency_key text DEFAULT NULL::text)
  RETURNS jsonb
@@ -426,7 +425,6 @@ BEGIN
         'receipt_number', v_receipt_number
     );
 END;
-$function$
-
+$function$;
 
 COMMIT;
