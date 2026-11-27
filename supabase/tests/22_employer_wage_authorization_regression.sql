@@ -78,3 +78,74 @@ BEGIN
   END IF;
 END;
 $test$;
+
+
+-- Exercise the real legacy-data scenario: a profile currently marked Worker
+-- still owns an older job. It must not be able to complete work, retrieve the
+-- worker's bank details, or settle wages for that legacy job.
+BEGIN;
+DO $legacy$
+DECLARE
+  v_worker_owner uuid := '22222222-2222-2222-2222-222222222222';
+  v_assigned_worker uuid := '33333333-3333-3333-3333-333333333333';
+  v_job_id uuid := gen_random_uuid();
+  v_assignment_id uuid;
+  v_denied boolean;
+BEGIN
+  PERFORM set_config('role', 'service_role', true);
+  PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+  PERFORM set_config('request.jwt.claim.sub', '', true);
+
+  INSERT INTO public.jobs (id, employer_id, title, category, offered_wages, workers_needed, status, hiring_source)
+  VALUES (v_job_id, v_worker_owner, 'Legacy worker-owned job regression', 'Agriculture', 100, 1, 'open', 'direct_phone');
+
+  INSERT INTO public.job_records (
+    job_id, worker_id, hiring_source, agreement_evidence_type, status, agreed_wage, total_payable
+  ) VALUES (
+    v_job_id, v_assigned_worker, 'direct_phone', 'employer_reported_verbal_agreement', 'hired', 100, 100
+  ) RETURNING id INTO v_assignment_id;
+
+  -- Simulate an authenticated request by the legacy job owner, but execute the
+  -- UPDATE as postgres so RLS cannot mask whether the database trigger rejects it.
+  PERFORM set_config('role', 'postgres', true);
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', v_worker_owner::text, true);
+
+  v_denied := false;
+  BEGIN
+    UPDATE public.job_records
+    SET status = 'completed', work_completed_at = now()
+    WHERE id = v_assignment_id;
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_denied := true;
+  END;
+  IF NOT v_denied THEN
+    RAISE EXCEPTION 'Legacy Worker account completed work on a job it owns.';
+  END IF;
+
+  v_denied := false;
+  BEGIN
+    PERFORM public.get_payment_recipient_details(v_assigned_worker, v_job_id);
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_denied := true;
+  END;
+  IF NOT v_denied THEN
+    RAISE EXCEPTION 'Legacy Worker account retrieved another worker payment details.';
+  END IF;
+
+  v_denied := false;
+  BEGIN
+    PERFORM public.record_direct_payment(
+      'worker_wage', v_job_id, v_assignment_id, v_assigned_worker,
+      100, 'Cash', 'QH-LEGACY-WORKER-ROLE-REGRESSION',
+      NULL, 'QH-LEGACY-WORKER-ROLE-REGRESSION'
+    );
+  EXCEPTION WHEN insufficient_privilege THEN
+    v_denied := true;
+  END;
+  IF NOT v_denied THEN
+    RAISE EXCEPTION 'Legacy Worker account recorded wage payment for its own job.';
+  END IF;
+END;
+$legacy$;
+ROLLBACK;
