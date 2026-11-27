@@ -1011,7 +1011,7 @@ export function DashboardTab({
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
-                <span>Edit Profile</span>
+                <span>{t('editProfile')}</span>
               </button>
             )}
           </div>
@@ -1134,7 +1134,7 @@ export function DashboardTab({
                   className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Edit3 className="w-4 h-4" />
-                  <span>Edit Profile</span>
+                  <span>{t('editProfile')}</span>
                 </button>
                 <button
                   onClick={fetchWorkerHistory}
@@ -1204,7 +1204,7 @@ export function DashboardTab({
                 <Star className="w-4 h-4 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
                 {reviews.length > 0
                   ? formatLocalizedNumber(reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.length, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
-                  : '5.0'}
+                  : formatLocalizedNumber(5, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
               </span>
             </div>
           </div>
@@ -1374,7 +1374,7 @@ export function DashboardTab({
                             className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Navigation className="w-3 h-3" />
-                            <span>Mark On the Way (30m)</span>
+                            <span>{t('markOnTheWay')} ({formatLocalizedNumber(30, currentLang)}m)</span>
                           </button>
                         </div>
                       )}
@@ -1391,7 +1391,7 @@ export function DashboardTab({
                             className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Mark Arrived</span>
+                            <span>{t('markArrived')}</span>
                           </button>
                         </div>
                       )}
@@ -1832,7 +1832,7 @@ export function DashboardTab({
                                           title="Hire / Accept this worker"
                                         >
                                           <CheckCircle2 className="w-3.5 h-3.5" />
-                                          <span>Hire</span>
+                                          <span>{t('hireWorker')}</span>
                                         </button>
 
                                         {currentStatus !== 'rejected' && (
@@ -1890,7 +1890,7 @@ export function DashboardTab({
                                       className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
                                       <CheckCircle2 className="w-3.5 h-3.5" />
-                                      <span>Confirm Attendance</span>
+                                      <span>{t('confirmAttendance')}</span>
                                     </button>
                                   </div>
                                 )}
@@ -1906,7 +1906,7 @@ export function DashboardTab({
                                       className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
                                       <Play className="w-3.5 h-3.5" />
-                                      <span>Start Work</span>
+                                      <span>{t('startWork')}</span>
                                     </button>
                                   </div>
                                 )}
@@ -1920,7 +1920,7 @@ export function DashboardTab({
                                       </span>
                                       {currentStatus === 'in_progress' && (
                                         <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-                                          <span className="text-[10px] text-slate-400 font-bold">OT hrs:</span>
+                                          <span className="text-[10px] text-slate-400 font-bold">{t('overtimeHours')}:</span>
                                           <input
                                             type="number"
                                             min="0"
@@ -1943,7 +1943,7 @@ export function DashboardTab({
                                         {currentStatus === 'on_break' ? (
                                           <>
                                             <Play className="w-3 h-3 text-emerald-600" />
-                                            <span>Resume Work</span>
+                                            <span>{t('resumeWork')}</span>
                                           </>
                                         ) : (
                                           <>
@@ -1960,7 +1960,7 @@ export function DashboardTab({
                                         className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                       >
                                         <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Complete Work</span>
+                                        <span>{t('completeWork')}</span>
                                       </button>
 )}
                                     </div>
