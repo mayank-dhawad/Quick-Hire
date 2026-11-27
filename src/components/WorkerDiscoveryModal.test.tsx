@@ -230,6 +230,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
       expect(supabase.from).toHaveBeenCalledWith('public_worker_directory');
       expect(supabase.from).toHaveBeenCalledWith('workers');
       expect(screen.getByText('Ananda Shinde')).toBeInTheDocument();
+      expect(screen.getByText('4.6')).toBeInTheDocument();
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('WorkerDiscoveryModal: public_worker_directory query failed, falling back:'),
         expect.anything()
