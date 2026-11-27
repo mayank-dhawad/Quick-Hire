@@ -17,9 +17,9 @@ import {
   Tractor,
   Star,
   Bell,
-  RefreshCw,
+  {t('refresh')}Cw,
   Phone,
-  Receipt,
+  {t('receipt')},
   ShieldCheck,
   X,
   History,
@@ -34,7 +34,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { RateWorkerModal } from './RateWorkerModal';
-import { PaymentReceiptModal, PaymentReceiptData } from './PaymentReceiptModal';
+import { Payment{t('receipt')}Modal, Payment{t('receipt')}Data } from './Payment{t('receipt')}Modal';
 import { speakText } from '../lib/speech';
 import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
@@ -149,7 +149,7 @@ export interface WorkerProfileState {
   [key: string]: unknown;
 }
 
-export interface ReceiptJobInput {
+export interface {t('receipt')}JobInput {
   id?: string;
   title?: string;
   offered_wages?: number;
@@ -158,7 +158,7 @@ export interface ReceiptJobInput {
   profiles?: { full_name?: string | null; phone_number?: string | null } | null;
 }
 
-export interface ReceiptRecordInput {
+export interface {t('receipt')}RecordInput {
   id?: string;
   agreed_wage?: number | null;
   total_payable?: number | null;
@@ -170,7 +170,7 @@ export interface ReceiptRecordInput {
   workers?: { profiles?: { full_name?: string | null; phone_number?: string | null } | null } | null;
 }
 
-export interface ReceiptPaymentInput {
+export interface {t('receipt')}PaymentInput {
   id?: string;
   receipt_number?: string;
   amount?: number;
@@ -286,8 +286,8 @@ export function DashboardTab({
   const [claimSecrets, setClaimSecrets] = useState<Record<string, string>>({});
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
   const [completionTimestampOverrides, setCompletionTimestampOverrides] = useState<Record<string, string>>({});
-  const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceiptData | null>(null);
-  const [isReceiptOpen, setIsReceiptOpen] = useState(false);
+  const [selected{t('receipt')}, setSelected{t('receipt')}] = useState<Payment{t('receipt')}Data | null>(null);
+  const [is{t('receipt')}Open, setIs{t('receipt')}Open] = useState(false);
   const [overtimeInputs, setOvertimeInputs] = useState<Record<string, string>>({});
 
   const handleUpdateApplicantStatus = async (recordId: string, newStatus: string) => {
@@ -422,10 +422,10 @@ export function DashboardTab({
   };
 
   // Helper to open receipt
-  const handleOpenReceipt = (
-    job?: ReceiptJobInput | null,
-    rec?: ReceiptRecordInput | null,
-    payment?: ReceiptPaymentInput | null
+  const handleOpen{t('receipt')} = (
+    job?: {t('receipt')}JobInput | null,
+    rec?: {t('receipt')}RecordInput | null,
+    payment?: {t('receipt')}PaymentInput | null
   ) => {
     const receiptNum = (payment?.receipt_number as string) ||
       `QH-RCP-${new Date().toISOString().slice(0, 10).replace(/-/g, '')}-${rec?.id ? String(rec.id).slice(0, 4).toUpperCase() : '0001'}`;
@@ -435,7 +435,7 @@ export function DashboardTab({
     const paid = Number(payment?.amount) || Number(rec?.total_paid) || payable;
     const remaining = Math.max(0, payable - (Number(rec?.total_paid) || paid));
 
-    setSelectedReceipt({
+    setSelected{t('receipt')}({
       receiptNumber: receiptNum,
       paymentId: payment?.id,
       jobId: job?.id,
@@ -453,12 +453,12 @@ export function DashboardTab({
       amountPaid: paid,
       remainingBalance: remaining,
       paymentMethod: payment?.payment_method || 'Direct Cash / Settlement',
-      paymentDate: payment?.created_at || new Date().toISOString(),
+      payment{t('dateLabel')}: payment?.created_at || new Date().toISOString(),
       transactionRef: payment?.transaction_ref,
       recordedByName: user?.user_metadata?.full_name || 'QuickHire Employer',
       isUserReported: true,
     });
-    setIsReceiptOpen(true);
+    setIs{t('receipt')}Open(true);
   };
 
   // Fetch comprehensive worker history
@@ -732,7 +732,7 @@ export function DashboardTab({
     skills: string[];
     averageRating: number | null;
     lastJobTitle: string;
-    lastHiredDate: string;
+    lastHired{t('dateLabel')}: string;
     hiresCount: number;
     dailyWage: number | null;
   }[]>([]);
@@ -806,7 +806,7 @@ export function DashboardTab({
       const workerHistoryMap = new Map<string, {
         workerId: string;
         lastJobTitle: string;
-        lastHiredDate: string;
+        lastHired{t('dateLabel')}: string;
         hiresCount: number;
         category: string;
       }>();
@@ -835,7 +835,7 @@ export function DashboardTab({
               workerHistoryMap.set(r.worker_id, {
                 workerId: r.worker_id,
                 lastJobTitle: j.title || 'General Work',
-                lastHiredDate: r.created_at || j.created_at,
+                lastHired{t('dateLabel')}: r.created_at || j.created_at,
                 hiresCount: 1,
                 category: j.category || 'Daily work',
               });
@@ -888,7 +888,7 @@ export function DashboardTab({
           skills: wrk?.skills || [],
           averageRating: wrk?.average_rating !== null && wrk?.average_rating !== undefined ? Number(wrk.average_rating) : null,
           lastJobTitle: hist.lastJobTitle,
-          lastHiredDate: hist.lastHiredDate,
+          lastHired{t('dateLabel')}: hist.lastHiredDate,
           hiresCount: hist.hiresCount,
           dailyWage: prof?.daily_wage ? Number(prof.daily_wage) : ((wrk as { daily_wage?: number | null })?.daily_wage ? Number((wrk as { daily_wage?: number | null }).daily_wage) : null),
         };
@@ -941,7 +941,7 @@ export function DashboardTab({
                 <span className="text-[11px] uppercase font-black tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   Super Admin Session Active
                 </span>
-                <span className="text-xs text-slate-400 hidden sm:inline">Governance Suite Ready</span>
+                <span className="text-xs text-slate-400 hidden sm:inline">{t('adminSuiteReady')}</span>
               </div>
               <h3 className="font-heading font-black text-base text-white mt-1">
                 National DPI Administration Console
@@ -963,7 +963,7 @@ export function DashboardTab({
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>Launch Admin Suite →</span>
+            <span>{t('launchAdminSuite')}</span>
           </button>
         </div>
       )}
@@ -1140,9 +1140,9 @@ export function DashboardTab({
                   onClick={fetchWorkerHistory}
                   disabled={loadingWorkerData}
                   className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 transition-colors shadow-2xs cursor-pointer shrink-0"
-                  title="Refresh activity history"
+                  title="{t('refresh')} activity history"
                 >
-                  <RefreshCw className={`w-4 h-4 ${loadingWorkerData ? 'animate-spin text-brand-600' : ''}`} />
+                  <{t('refresh')}Cw className={`w-4 h-4 ${loadingWorkerData ? 'animate-spin text-brand-600' : ''}`} />
                 </button>
               </div>
             </div>
@@ -1217,10 +1217,10 @@ export function DashboardTab({
                   <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     Direct Payout Setup
                   </span>
-                  <span className="text-xs text-emerald-400 font-bold">0% Middleman Cut</span>
+                  <span className="text-xs text-emerald-400 font-bold">{t('zeroMiddlemanCut')}</span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-heading font-extrabold text-white flex items-center gap-2">
-                  <span><EmojiIcon name="activity" className="mr-1 h-4 w-4" /> Worker Direct UPI & Bank Account</span>
+                  <span><EmojiIcon name="activity" className="mr-1 h-4 w-4" /> {t('workerDirectBankDetails')}</span>
                 </h3>
                 <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
                   {t('eduUpiNoWithdrawal')}
@@ -1283,7 +1283,7 @@ export function DashboardTab({
                 onClick={() => onNavigateTab('home')}
                 className="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 cursor-pointer"
               >
-                <span>Find More Jobs</span>
+                <span>{t('findMoreJobs')}</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             </div>
@@ -1295,7 +1295,7 @@ export function DashboardTab({
             ) : appliedJobs.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
                 <Briefcase className="w-10 h-10 text-slate-300 mx-auto" />
-                <h4 className="font-bold text-sm text-slate-800">No Job Applications Yet</h4>
+                <h4 className="font-bold text-sm text-slate-800">{t('noJobApplicationsYet')}</h4>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   Browse open job listings and tap &quot;I&apos;m Interested&quot; to apply. Your applications will permanently appear here.
                 </p>
@@ -1345,7 +1345,7 @@ export function DashboardTab({
 
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                         <div className="text-slate-600">
-                          <span>Employer: <strong className="text-slate-800">{employerName}</strong></span>
+                          <span>{t('employerLabel')}: <strong className="text-slate-800">{employerName}</strong></span>
                           <span className="block text-[10px] text-slate-400">
                             Applied: {formatLocalizedDate(rec.created_at, currentLang)}
                           </span>
@@ -1357,7 +1357,7 @@ export function DashboardTab({
                             className="px-3 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors"
                           >
                             <PhoneCall className="w-3.5 h-3.5" />
-                            <span>Call Employer</span>
+                            <span>{t('callEmployer')}</span>
                           </a>
                         )}
                       </div>
@@ -1399,21 +1399,21 @@ export function DashboardTab({
                       {rec.status === 'arrived' && (
                         <div className="pt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Arrived at Site · Awaiting Employer Attendance Confirmation</span>
+                          <span>{t('arrivedAwaitingAttendance')}</span>
                         </div>
                       )}
 
                       {rec.status === 'attendance_confirmed' && (
                         <div className="pt-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Attendance Confirmed · Work Starting Soon</span>
+                          <span>{t('attendanceConfirmedLabel')}</span>
                         </div>
                       )}
 
                       {rec.status === 'in_progress' && (
                         <div className="pt-2 p-2.5 rounded-xl bg-brand-50 border border-brand-200 text-[11px] font-bold text-brand-800 flex items-center gap-1.5">
                           <Clock className="w-4 h-4 text-brand-600 animate-pulse" />
-                          <span>Work in Progress</span>
+                          <span>{t('workInProgressLabel')}</span>
                         </div>
                       )}
 
@@ -1427,7 +1427,7 @@ export function DashboardTab({
                       {rec.status === 'completed' && (
                         <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
                           <div>
-                            <span className="text-[10px] font-extrabold uppercase text-emerald-800 block">Work Completed</span>
+                            <span className="text-[10px] font-extrabold uppercase text-emerald-800 block">{t('workCompletedLabel')}</span>
                             <span className="text-xs font-bold text-slate-800">
                               Total Payable: {formatLocalizedCurrency(rec.total_payable || job?.offered_wages || 500, currentLang)}
                               {rec.total_paid ? ` • Paid: ${formatLocalizedCurrency(rec.total_paid, currentLang)}` : ''}
@@ -1435,11 +1435,11 @@ export function DashboardTab({
                           </div>
                           <button
                             type="button"
-                            onClick={() => handleOpenReceipt(job, rec)}
+                            onClick={() => handleOpen{t('receipt')}(job, rec)}
                             className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
-                            <Receipt className="w-3.5 h-3.5" />
-                            <span>View Receipt</span>
+                            <{t('receipt')} className="w-3.5 h-3.5" />
+                            <span>{t('view{t('receipt')}')}</span>
                           </button>
                         </div>
                       )}
@@ -1455,14 +1455,14 @@ export function DashboardTab({
             <div className="flex items-center gap-2">
               <Landmark className="w-5 h-5 text-emerald-600" />
               <h3 className="font-heading font-extrabold text-lg text-slate-900">
-                Direct Wage Settlements & Receipts
+                Direct Wage Settlements & {t('receipt')}s
               </h3>
             </div>
 
             {wagePayments.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-500 space-y-1">
                 <Landmark className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-bold text-slate-700">No Direct Wage Settlements Recorded</p>
+                <p className="font-bold text-slate-700">{t('noDirectWageSettlements')}</p>
                 <p className="text-slate-400">
                   When employers settle your daily wages via Net Banking (IMPS/NEFT) or Direct UPI, verified payment receipts are permanently recorded here.
                 </p>
@@ -1571,8 +1571,8 @@ export function DashboardTab({
             {reviews.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-500">
                 <Star className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-bold text-slate-700">No Reviews Recorded Yet</p>
-                <p className="text-slate-400">Complete assignments with local employers to receive ratings on your permanent record.</p>
+                <p className="font-bold text-slate-700">{t('noReviewsRecorded')}</p>
+                <p className="text-slate-400">{t('completeAssignmentsForRatings')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1873,7 +1873,7 @@ export function DashboardTab({
                                         className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                       >
                                         <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Mark Worker Arrived</span>
+                                        <span>{t('markWorkerArrived')}</span>
                                       </button>
                                     </div>
                                   </div>
@@ -1948,7 +1948,7 @@ export function DashboardTab({
                                         ) : (
                                           <>
                                             <Pause className="w-3 h-3 text-amber-600" />
-                                            <span>Take Break</span>
+                                            <span>{t('takeBreak')}</span>
                                           </>
                                         )}
                                       </button>
@@ -2013,11 +2013,11 @@ export function DashboardTab({
 
                                       <button
                                         type="button"
-                                        onClick={() => handleOpenReceipt(job, rec)}
+                                        onClick={() => handleOpen{t('receipt')}(job, rec)}
                                         className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
                                       >
-                                        <Receipt className="w-3.5 h-3.5 text-brand-600" />
-                                        <span>Receipt</span>
+                                        <{t('receipt')} className="w-3.5 h-3.5 text-brand-600" />
+                                        <span>{t('receipt')}</span>
                                       </button>
 
                                       {(() => {
@@ -2083,8 +2083,8 @@ export function DashboardTab({
                 onClick={fetchPreviouslyHiredWorkers}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Refresh</span>
+                <{t('refresh')}Cw className="w-3.5 h-3.5" />
+                <span>{t('refresh')}</span>
               </button>
             </div>
 
@@ -2095,7 +2095,7 @@ export function DashboardTab({
             ) : previouslyHiredWorkers.length === 0 ? (
               <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500 space-y-1">
                 <UserCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-bold text-slate-700">No Previously Hired Workers</p>
+                <p className="font-bold text-slate-700">{t('noPreviouslyHiredWorkers')}</p>
                 <p className="text-slate-400">
                   {t('noPreviouslyHired')}
                 </p>
@@ -2131,13 +2131,13 @@ export function DashboardTab({
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400">Date:</span>
+                          <span className="text-slate-400">{t('dateLabel')}:</span>
                           <span className="text-slate-600 font-mono">
                             {formatLocalizedDate(w.lastHiredDate, currentLang)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400">Total engagements:</span>
+                          <span className="text-slate-400">{t('totalEngagements')}:</span>
                           <span className="font-bold text-emerald-700">
                             {w.hiresCount} {t('timesHired')}
                           </span>
@@ -2219,8 +2219,8 @@ export function DashboardTab({
                 onClick={fetchEmployerPayments}
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
               >
-                <RefreshCw className="w-3.5 h-3.5" />
-                <span>Refresh</span>
+                <{t('refresh')}Cw className="w-3.5 h-3.5" />
+                <span>{t('refresh')}</span>
               </button>
             </div>
 
@@ -2230,8 +2230,8 @@ export function DashboardTab({
               </div>
             ) : employerPayments.length === 0 ? (
               <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500 space-y-1">
-                <Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-bold text-slate-700">No Payment Attempts Yet</p>
+                <{t('receipt')} className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                <p className="font-bold text-slate-700">{t('noPaymentAttempts')}</p>
                 <p className="text-slate-400">
                   When you settle daily wages using &quot;Pay Wage to Bank&quot;, records of your UPI attempts and submitted references will appear here.
                 </p>
@@ -2291,10 +2291,10 @@ export function DashboardTab({
       )}
 
       {/* PAYMENT RECEIPT MODAL */}
-      <PaymentReceiptModal
-        isOpen={isReceiptOpen}
-        onClose={() => setIsReceiptOpen(false)}
-        receipt={selectedReceipt}
+      <Payment{t('receipt')}Modal
+        isOpen={is{t('receipt')}Open}
+        onClose={() => setIs{t('receipt')}Open(false)}
+        receipt={selected{t('receipt')}}
       />
 
       {/* RATE WORKER MODAL */}
@@ -2315,7 +2315,7 @@ export function DashboardTab({
               ...prev,
               [key]: updatedReview,
             }));
-            // Refresh previously hired worker average ratings
+            // {t('refresh')} previously hired worker average ratings
             fetchPreviouslyHiredWorkers();
           }}
         />
