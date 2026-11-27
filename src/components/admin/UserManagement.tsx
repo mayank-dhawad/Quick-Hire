@@ -138,7 +138,9 @@ export function UserManagement() {
     setLoading(true);
     setFetchError(null);
     try {
-      const { data, error } = await supabase
+      let data: any[] | null = null;
+      let error: { message: string; code?: string } | null = null;
+      const profileQuery = await supabase
         .from('profiles')
         .select(`
           id, role, full_name, phone_number, email, location, village, district, state,
@@ -148,6 +150,24 @@ export function UserManagement() {
           )
         `)
         .order('created_at', { ascending: false });
+
+      data = profileQuery.data as any[] | null;
+      error = profileQuery.error;
+
+      if (error && /can_manage_rentals|42703/i.test(error.message)) {
+        const legacyQuery = await supabase
+          .from('profiles')
+          .select(`
+            id, role, full_name, phone_number, email, location, village, district, state,
+            account_status, created_at, category, skills, experience_years, daily_wage,
+            workers (
+              category, skills, experience_years, average_rating, is_available
+            )
+          `)
+          .order('created_at', { ascending: false });
+        data = (legacyQuery.data || []).map((profile) => ({ ...profile, can_manage_rentals: false })) as any[];
+        error = legacyQuery.error;
+      }
 
       if (error) {
         console.error('Error fetching profiles:', error);
