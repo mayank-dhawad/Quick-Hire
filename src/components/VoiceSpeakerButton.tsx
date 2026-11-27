@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
-import { speakText, stopSpeaking, subscribeToSpeech } from '../lib/speech';
+import { speakText, stopSpeaking, subscribeToSpeech, getVoiceAssistanceEnabled, subscribeToVoiceAssistance } from '../lib/speech';
 
 interface VoiceSpeakerButtonProps {
   text: string;
@@ -20,6 +20,11 @@ export function VoiceSpeakerButton({
   showLabel = false,
 }: VoiceSpeakerButtonProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => getVoiceAssistanceEnabled());
+
+  useEffect(() => {
+    return subscribeToVoiceAssistance(setVoiceEnabled);
+  }, []);
 
   useEffect(() => {
     const clean = text.trim();
@@ -34,12 +39,13 @@ export function VoiceSpeakerButton({
     e.preventDefault();
     e.stopPropagation();
 
+    if (!voiceEnabled) return;
     if (isPlaying) {
       stopSpeaking();
       return;
     }
 
-    speakText(text, lang);
+    speakText(text, lang, { userInitiated: true });
   };
 
   const sizeClasses = {
@@ -58,9 +64,10 @@ export function VoiceSpeakerButton({
     <button
       type="button"
       onClick={handleSpeak}
+      disabled={!voiceEnabled}
       title={label || 'Listen aloud'}
       aria-label={label || 'Listen aloud in audio'}
-      className={`inline-flex items-center justify-center rounded-lg transition-all focus:outline-hidden ${sizeClasses[size]} ${
+      className={`inline-flex items-center justify-center rounded-lg transition-all focus:outline-hidden disabled:opacity-40 disabled:cursor-not-allowed ${sizeClasses[size]} ${
         isPlaying
           ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-400 scale-105 shadow-xs'
           : 'bg-emerald-50 hover:bg-emerald-100 text-brand-600 hover:text-brand-700'
