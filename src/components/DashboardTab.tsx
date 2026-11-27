@@ -260,16 +260,8 @@ export function DashboardTab({
   const t = (key: string): string => getTranslation(currentLang, key);
 
   // Tab mode: 'worker' or 'employer'
-  const [viewMode, setViewMode] = useState<'worker' | 'employer'>(() => {
-    return userRole === 'employer' ? 'employer' : 'worker';
-  });
-
-  // Synchronize view mode if role arrives after initial mount
-  useEffect(() => {
-    if (userRole) {
-      setViewMode(userRole === 'admin' ? 'employer' : userRole);
-    }
-  }, [userRole]);
+  // The authenticated account role determines the dashboard; users cannot switch roles here.
+  const viewMode: 'worker' | 'employer' = userRole === 'employer' || userRole === 'admin' ? 'employer' : 'worker';
 
   // Worker history state
   const [workerProfile, setWorkerProfile] = useState<WorkerProfileState | null>(null);
@@ -1003,36 +995,6 @@ export function DashboardTab({
 
         {user && (
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
-            {/* View Mode Toggle Pill */}
-            <div className="flex flex-1 sm:flex-initial p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold shadow-2xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('worker');
-                  speakText('Switched to worker dashboard', currentLang);
-                }}
-                className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-lg transition-all text-center cursor-pointer ${viewMode === 'worker'
-                    ? 'bg-white text-emerald-800 shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                  }`}
-              >
-                Worker View
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('employer');
-                  speakText('Switched to employer dashboard', currentLang);
-                }}
-                className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-lg transition-all text-center cursor-pointer ${viewMode === 'employer'
-                    ? 'bg-white text-amber-800 shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                  }`}
-              >
-                Employer View
-              </button>
-            </div>
-
             {viewMode === 'employer' ? (
               <button
                 onClick={() => onNavigateTab('post-job')}
