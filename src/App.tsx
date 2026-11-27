@@ -2139,6 +2139,7 @@ export default function App() {
               <span>{t('tabHome')}</span>
             </button>
 
+{(userRole === 'employer' || userRole === 'admin') && (
             {/* Tab 2: Workers Directory */}
             <button
               onClick={() => setActiveTab('workers')}
@@ -2150,6 +2151,8 @@ export default function App() {
               <EmojiIcon name="users" className="h-4 w-4" />
               <span>{t('tabWorkers')}</span>
             </button>
+
+  )}
 
             {/* Tab 3: Equipment & Tool Bank */}
             <button
@@ -2163,6 +2166,7 @@ export default function App() {
               <span>{t('tabEquipment')}</span>
             </button>
 
+{(userRole === 'employer' || userRole === 'admin') && (
             {/* Tab 4: Post Employment */}
             <button
               onClick={() => setActiveTab('post-job')}
@@ -2174,6 +2178,8 @@ export default function App() {
               <EmojiIcon name="clipboard" className="h-4 w-4" />
               <span>{t('tabPostJob')}</span>
             </button>
+
+  )}
 
             {/* Tab 5: Citizen Dashboard */}
             <button
@@ -2454,7 +2460,7 @@ export default function App() {
             </div>
           }
         >
-          {activeTab === 'home' && (
+          {activeTab === 'home' && userRole !== 'employer' && (
             <HomeTab
               currentLang={currentLang}
               onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
@@ -2486,7 +2492,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'workers' && (
+          {activeTab === 'workers' && (userRole === 'employer' || userRole === 'admin') && (
             <WorkersTab
               currentLang={currentLang}
               workersLoading={workersLoading}
@@ -2564,7 +2570,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'post-job' && (
+          {activeTab === 'post-job' && (userRole === 'employer' || userRole === 'admin') && (
             <PostJobTab
               currentLang={currentLang}
               employerTitle={employerTitle}
@@ -2588,7 +2594,7 @@ export default function App() {
             />
           )}
 
-          {(activeTab === 'dashboard' || activeTab === 'my-jobs') && (
+          {(activeTab === 'dashboard' || activeTab === 'my-jobs' || (activeTab === 'home' && userRole === 'employer')) && (
             <DashboardTab
               currentLang={currentLang}
               user={user}
@@ -2872,6 +2878,7 @@ export default function App() {
             <span className="text-[10px] mt-1 font-medium tracking-tight">Home</span>
           </button>
 
+          {(userRole === 'employer' || userRole === 'admin') && (
           {/* 2. Workers */}
           <button
             type="button"
@@ -2883,6 +2890,8 @@ export default function App() {
             <EmojiIcon name="users" className="h-5 w-5" />
             <span className="text-[10px] mt-1 font-medium tracking-tight">Workers</span>
           </button>
+
+          )}
 
           {/* 3. Equipment */}
           <button
@@ -2896,6 +2905,7 @@ export default function App() {
             <span className="text-[10px] mt-1 font-medium tracking-tight">Equipment</span>
           </button>
 
+          {(userRole === 'employer' || userRole === 'admin') ? (
           {/* 4. Post Job */}
           <button
             type="button"
@@ -2907,6 +2917,19 @@ export default function App() {
             <EmojiIcon name="clipboard" className="h-5 w-5" />
             <span className="text-[10px] mt-1 font-medium tracking-tight">Post Job</span>
           </button>
+
+          ) : (
+            <button type="button" onClick={() => setActiveTab('bank')} className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${activeTab === 'bank' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'}`}>
+              <EmojiIcon name="landmark" className="h-5 w-5" />
+              <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabBank')}</span>
+            </button>
+          )}
+          {userRole !== 'employer' && userRole !== 'admin' && (
+            <button type="button" onClick={() => setActiveTab('safety')} className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${activeTab === 'safety' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'}`}>
+              <EmojiIcon name="shield" className="h-5 w-5" />
+              <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabSafety')}</span>
+            </button>
+          )}
 
           {/* 5. Dashboard / Account */}
           <button
