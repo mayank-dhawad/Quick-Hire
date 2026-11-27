@@ -24,6 +24,7 @@ import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { getTranslation, normalizeLanguage, SUPPORTED_LANGUAGES } from '../lib/translations';
 import { AccessibleVoiceBar } from './AccessibleVoiceBar';
+import { VoiceAssistanceToggle } from './VoiceAssistanceToggle';
 import { verifyAdminStatus, ensureAdminSession } from '../lib/adminAuth';
 import { navigateTo } from '../lib/adminRouter';
 
@@ -1144,10 +1145,7 @@ export function Auth({
             </div>
 
             <div className="flex items-center gap-3 text-[11px] shrink-0">
-              <span className="hidden md:inline-flex items-center gap-1.5 bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-semibold">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span>{t('voiceGuidanceActive')}</span>
-              </span>
+              <VoiceAssistanceToggle currentLang={currentLang} />
               <a
                 href="tel:18001801551"
                 className="flex items-center gap-1 text-amber-300 hover:text-amber-200 font-bold tracking-wide"
