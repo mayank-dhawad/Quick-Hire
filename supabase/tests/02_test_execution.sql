@@ -384,13 +384,19 @@ BEGIN
   -- --------------------------------------------------------------------------
   -- TEST 15C: Non-Admin Escalation Blocked by Trigger
   -- --------------------------------------------------------------------------
-  -- Create a separate eligible unverified payment on v_assign_id (Job 1) as employer/payer
+  -- Create a separate eligible unverified payment on v_assign_id (Job 1).
+  -- The assignment must be completed and the payment must carry a stable reference.
   PERFORM set_config('request.jwt.claim.sub', v_emp_id::text, true);
+  UPDATE public.job_records
+  SET status = 'completed', work_completed_at = now()
+  WHERE id = v_assign_id;
 
   INSERT INTO public.payments (
-    assignment_id, payer_id, payee_id, payment_for_type, amount, payment_method, status, verification_status
+    assignment_id, reference_id, payer_id, payee_id, payment_for_type,
+    amount, payment_method, payment_reference, status, verification_status
   ) VALUES (
-    v_assign_id, v_emp_id, v_wrk_id, 'worker_wage', 100, 'UPI', 'pending', 'unverified'
+    v_assign_id, v_job1_id, v_emp_id, v_wrk_id, 'worker_wage',
+    100, 'UPI', 'QH-TEST-UNVERIFIED-' || v_assign_id::text, 'pending', 'unverified'
   ) RETURNING id INTO v_unverified_pay_id;
 
   -- Non-admin payer attempts to escalate verification_status to 'verified'
