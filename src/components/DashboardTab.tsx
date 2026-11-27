@@ -36,7 +36,7 @@ import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { RateWorkerModal } from './RateWorkerModal';
 import { PaymentReceiptModal, PaymentReceiptData } from './PaymentReceiptModal';
 import { speakText } from '../lib/speech';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
 
 export interface JobRecordItem {
@@ -1061,7 +1061,7 @@ export function DashboardTab({
                     <p className="font-bold text-sm text-slate-900">{profile.full_name || 'Previous worker profile'}</p>
                     {profile.location && <p className="text-xs text-slate-500 mt-0.5">{profile.location}</p>}
                     <p className="text-[11px] text-slate-400 mt-1">
-                      Created {new Date(profile.created_at).toLocaleDateString()}
+                      Created {formatLocalizedDate(profile.created_at, currentLang)}
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:shrink-0">
@@ -1190,7 +1190,7 @@ export function DashboardTab({
               </span>
               <span className="font-heading font-black text-xl sm:text-3xl text-amber-600 flex items-center gap-0.5">
                 <IndianRupee className="w-4 h-4 sm:w-6 sm:h-6" />
-                {totalWagesSum.toLocaleString()}
+                {formatLocalizedNumber(totalWagesSum, currentLang)}
               </span>
             </div>
 
@@ -1331,7 +1331,7 @@ export function DashboardTab({
                           </h4>
                         </div>
                         <span className="font-extrabold text-sm px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                          ₹{job?.offered_wages || 500} / day
+                          {formatLocalizedCurrency(job?.offered_wages || 500, currentLang)} / day
                         </span>
                       </div>
 
@@ -1345,7 +1345,7 @@ export function DashboardTab({
                         <div className="text-slate-600">
                           <span>Employer: <strong className="text-slate-800">{employerName}</strong></span>
                           <span className="block text-[10px] text-slate-400">
-                            Applied: {new Date(rec.created_at).toLocaleDateString()}
+                            Applied: {formatLocalizedDate(rec.created_at, currentLang)}
                           </span>
                         </div>
 
@@ -1427,8 +1427,8 @@ export function DashboardTab({
                           <div>
                             <span className="text-[10px] font-extrabold uppercase text-emerald-800 block">Work Completed</span>
                             <span className="text-xs font-bold text-slate-800">
-                              Total Payable: ₹{rec.total_payable || job?.offered_wages || 500}
-                              {rec.total_paid ? ` • Paid: ₹${rec.total_paid}` : ''}
+                              Total Payable: {formatLocalizedCurrency(rec.total_payable || job?.offered_wages || 500, currentLang)}
+                              {rec.total_paid ? ` • Paid: ${formatLocalizedCurrency(rec.total_paid, currentLang)}` : ''}
                             </span>
                           </div>
                           <button
@@ -1507,12 +1507,12 @@ export function DashboardTab({
                           </div>
                           <span className="text-[11px] text-slate-400 block mt-0.5 font-mono break-all">
                             {pay.payment_reference ? `Ref: ${pay.payment_reference}` : ''}
-                            {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ''} • {new Date(pay.created_at).toLocaleDateString()}
+                            {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ''} • {formatLocalizedDate(pay.created_at, currentLang)}
                           </span>
                         </div>
                       </div>
                       <span className="font-heading font-black text-sm sm:text-base text-emerald-700 self-end sm:self-center">
-                        +₹{pay.amount.toLocaleString()}
+                        +{formatLocalizedCurrency(pay.amount, currentLang)}
                       </span>
                     </div>
                   ))}
@@ -1543,12 +1543,12 @@ export function DashboardTab({
                             Machine Rental Settlement ({rent.payment_method})
                           </span>
                           <span className="text-[11px] text-slate-400 block mt-0.5">
-                            Ref: {rent.transaction_ref || rent.id.slice(0, 8)} • {new Date(rent.created_at).toLocaleDateString()}
+                            Ref: {rent.transaction_ref || rent.id.slice(0, 8)} • {formatLocalizedDate(rent.created_at, currentLang)}
                           </span>
                         </div>
                       </div>
                       <span className="font-heading font-extrabold text-sm text-slate-800">
-                        ₹{rent.amount.toLocaleString()}
+                        {formatLocalizedCurrency(rent.amount, currentLang)}
                       </span>
                     </div>
                   ))}
@@ -1589,7 +1589,7 @@ export function DashboardTab({
                         ))}
                       </div>
                       <span className="text-[10px] text-slate-400">
-                        {new Date(rev.created_at).toLocaleDateString()}
+                        {formatLocalizedDate(rev.created_at, currentLang)}
                       </span>
                     </div>
                     {rev.comment && (
@@ -1621,7 +1621,7 @@ export function DashboardTab({
                         <h5 className="font-bold text-xs text-slate-900">{notif.title}</h5>
                         <p className="text-xs text-slate-600 mt-0.5">{notif.message}</p>
                         <span className="text-[10px] text-slate-400 mt-1 block">
-                          {new Date(notif.created_at).toLocaleString()}
+                          {formatLocalizedDate(notif.created_at, currentLang, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
                         </span>
                       </div>
                     </div>
@@ -1723,7 +1723,7 @@ export function DashboardTab({
 
                       <div className="flex items-center gap-3">
                         <span className="font-extrabold text-sm px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                          ₹{job.offered_wages} / day
+                          {formatLocalizedCurrency(job.offered_wages, currentLang)} / day
                         </span>
                         {job.status === 'open' && (
                           <button
@@ -1802,7 +1802,7 @@ export function DashboardTab({
                                       )}
                                     </div>
                                     <span className="text-[10px] text-slate-500 block mt-0.5">
-                                      Agreed Daily Wage: ₹{rec.agreed_wage || job.offered_wages || 500}
+                                      Agreed Daily Wage: {formatLocalizedCurrency(rec.agreed_wage || job.offered_wages || 500, currentLang)}
                                       {rec.total_working_hours ? ` • ${rec.total_working_hours}h worked` : ''}
                                       {rec.overtime_hours ? ` (+${rec.overtime_hours}h overtime)` : ''}
                                     </span>
@@ -1970,11 +1970,11 @@ export function DashboardTab({
                                   <div className="pt-2 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
                                     <div className="text-xs">
                                       <div className="flex items-center gap-2">
-                                        <span className="font-bold text-slate-800">Total Payable: ₹{totalPayable}</span>
-                                        <span className="font-bold text-emerald-700">Paid: ₹{totalPaid}</span>
+                                        <span className="font-bold text-slate-800">Total Payable: {formatLocalizedCurrency(totalPayable, currentLang)}</span>
+                                        <span className="font-bold text-emerald-700">Paid: {formatLocalizedCurrency(totalPaid, currentLang)}</span>
                                         {remainingBal > 0 ? (
                                           <span className="font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
-                                            Balance: ₹{remainingBal}
+                                            Balance: {formatLocalizedCurrency(remainingBal, currentLang)}
                                           </span>
                                         ) : (
                                           <span className="font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded text-[10px]">
@@ -2005,7 +2005,7 @@ export function DashboardTab({
                                           className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                         >
                                           <Landmark className="w-3.5 h-3.5" />
-                                          <span>Record Settlement (₹{remainingBal})</span>
+                                          <span>Record Settlement ({formatLocalizedCurrency(remainingBal, currentLang)})</span>
                                         </button>
                                       )}
 
@@ -2131,7 +2131,7 @@ export function DashboardTab({
                         <div className="flex items-center justify-between text-[11px]">
                           <span className="text-slate-400">Date:</span>
                           <span className="text-slate-600 font-mono">
-                            {new Date(w.lastHiredDate).toLocaleDateString()}
+                            {formatLocalizedDate(w.lastHiredDate, currentLang)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px]">
@@ -2272,12 +2272,12 @@ export function DashboardTab({
                         </div>
                         <span className="text-[11px] text-slate-500 block font-mono">
                           {pay.payment_reference ? `Ref: ${pay.payment_reference}` : ''}
-                          {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ' • (Awaiting UTR)'} • {new Date(pay.created_at).toLocaleDateString()}
+                          {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ' • (Awaiting UTR)'} • {formatLocalizedDate(pay.created_at, currentLang)}
                         </span>
                       </div>
 
                       <span className="font-heading font-black text-sm sm:text-base text-slate-900 self-end sm:self-center">
-                        -₹{pay.amount.toLocaleString()}
+                        -{formatLocalizedCurrency(pay.amount, currentLang)}
                       </span>
                     </div>
                   ))}
