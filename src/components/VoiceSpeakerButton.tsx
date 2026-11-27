@@ -15,8 +15,7 @@ interface VoiceSpeakerButtonProps {
 export function VoiceSpeakerButton({
   text,
   lang = 'English',
-  label,
-  className = '',
+    className = '',
   size = 'sm',
   showLabel = false,
 }: VoiceSpeakerButtonProps) {
