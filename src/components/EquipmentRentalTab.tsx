@@ -104,7 +104,7 @@ export function EquipmentRentalTab({
             <span className="max-w-xs text-right text-[11px] leading-relaxed text-slate-500">{t('rentalProviderApprovalRequired')}</span>
           )}
         </div>
-      </div>v>
+      </div>
 
       {/* CATEGORY FILTER CHIPS */}
       <div className="flex flex-wrap items-center gap-2">
