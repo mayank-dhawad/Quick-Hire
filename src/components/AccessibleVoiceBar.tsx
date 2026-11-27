@@ -12,7 +12,6 @@ import {
   getVoiceAssistanceEnabled,
   subscribeToVoiceAssistance,
   getLocaleForLanguage,
-  normalizeLanguageKey,
 } from '../lib/speech';
 
 interface AccessibleVoiceBarProps {
