@@ -457,7 +457,7 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           category: 'Agriculture',
           skills: ['Harvesting'],
           experience_years: 4,
-          average_rating: 4.8,
+          average_rating: null,
           is_available: true,
           latitude: null, // missing coords
           longitude: null,
@@ -487,6 +487,8 @@ describe('WorkersTab - Nearby Workers Search Feature', () => {
           onOpenWorkerDiscovery={vi.fn()}
         />
       );
+
+      expect(screen.getByText('New')).toBeInTheDocument();
 
       // Worker should strictly remain visible in directory
       expect(screen.getByText('Rohit Garad')).toBeInTheDocument();
