@@ -169,7 +169,7 @@ export function UserManagement({ currentLang = 'English' }: { currentLang?: stri
             )
           `)
           .order('created_at', { ascending: false });
-        data = (legacyQuery.data || []).map((profile) => ({ ...profile, can_manage_rentals: false })) as ProfileRecord[];
+        data = (legacyQuery.data || []).map((profile) => ({ ...profile, can_manage_rentals: false, has_settlement_details: null })) as ProfileRecord[];
         error = legacyQuery.error;
       }
 
