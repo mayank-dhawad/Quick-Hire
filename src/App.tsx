@@ -2097,7 +2097,7 @@ export default function App() {
                 className="hidden sm:flex px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-white" />
-                <span>{t('adminDashboard')}</span>
+                <span>{t('tabDashboard')}</span>
               </button>
             )}
 
