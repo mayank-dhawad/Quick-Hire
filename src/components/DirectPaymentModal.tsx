@@ -675,7 +675,7 @@ export function DirectPaymentModal({
             <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-2">
               <div className="flex items-center gap-2 font-bold text-amber-950">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Machine Rental Direct Payments Temporarily Disabled</span>
+                <span>{t('machineRentalDisabledTitle')}</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
                 Machinery rental payments via in-app direct settlements are temporarily disabled pending rental booking contract verification. Please arrange rental settlement directly with the equipment owner.
