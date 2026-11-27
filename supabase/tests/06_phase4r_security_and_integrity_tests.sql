@@ -1203,6 +1203,8 @@ BEGIN
         v_record_id uuid := gen_random_uuid();
         v_record_still_exists boolean;
     BEGIN
+        -- Auth signup creates a profile for the registering identity.
+        PERFORM set_config('request.jwt.claim.sub', v_app_user_id::text, true);
         INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
         VALUES (v_app_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'app.user@quickhire.in', 'pw', now(), now(), now());
 
@@ -1236,12 +1238,14 @@ BEGIN
         v_review_id uuid := gen_random_uuid();
         v_review_still_exists boolean;
     BEGIN
-        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-        VALUES (v_rev_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'rev.user@quickhire.in', 'pw', now(), now(), now());
+        -- Register this identity as an Employer instead of mutating its role later.
+        PERFORM set_config('request.jwt.claim.sub', v_rev_user_id::text, true);
+        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+        VALUES (v_rev_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'rev.user@quickhire.in', 'pw', now(), '{"role":"employer"}'::jsonb, now(), now());
 
         -- Auth signup trigger creates the profile; update it for this test fixture.
         UPDATE public.profiles
-        SET full_name = 'Reviewer User', role = 'employer',
+        SET full_name = 'Reviewer User',
             phone_number = '+919876543277', is_assisted_profile = false, account_status = 'active'
         WHERE id = v_rev_user_id;
 
@@ -1267,12 +1271,14 @@ BEGIN
         v_open_job_id uuid := gen_random_uuid();
         v_open_job_status text;
     BEGIN
-        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-        VALUES (v_emp_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'emp.user@quickhire.in', 'pw', now(), now(), now());
+        -- Register this identity as an Employer rather than mutating its role later.
+        PERFORM set_config('request.jwt.claim.sub', v_emp_user_id::text, true);
+        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+        VALUES (v_emp_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'emp.user@quickhire.in', 'pw', now(), '{"role":"employer"}'::jsonb, now(), now());
 
         -- Auth signup trigger creates the profile; update it for this test fixture.
         UPDATE public.profiles
-        SET full_name = 'Employer User', role = 'employer',
+        SET full_name = 'Employer User',
             phone_number = '+919876543266', is_assisted_profile = false, account_status = 'active'
         WHERE id = v_emp_user_id;
 
