@@ -20,15 +20,15 @@ import {
   EyeOff,
   KeyRound,
   ArrowRight,
-  BriefcaseBusiness,
+  Briefcase,
   ClipboardList,
   Wallet,
-  CalendarCheck,
+  CalendarDays,
   Tractor,
   Smartphone,
   Search,
   X,
-  Headset,
+  Headphones,
   Info,
 } from 'lucide-react';
 import { speakText, getVoiceGuidance } from '../lib/speech';
@@ -1174,7 +1174,7 @@ export function Auth({
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[76px] flex items-center justify-between gap-4">
             <a href="#public-home" className="flex items-center gap-3 shrink-0" aria-label="QuickHire home">
               <div className="h-11 w-11 rounded-xl bg-[#102a43] text-white flex items-center justify-center border-b-2 border-[#f28c28]">
-                <BriefcaseBusiness className="h-6 w-6" />
+                <Briefcase className="h-6 w-6" />
               </div>
               <div>
                 <div className="font-heading text-[23px] leading-none font-black tracking-tight text-[#102a43]">Quick<span className="text-[#f28c28]">Hire</span></div>
@@ -1262,7 +1262,7 @@ export function Auth({
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8"><div className="max-w-2xl mb-7"><p className="text-xs font-bold uppercase tracking-[0.16em] text-[#138808]">{t('publicNavHow')}</p><h2 className="mt-2 font-heading text-3xl font-black text-[#102a43]">{t('publicHowTitle')}</h2></div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
                 <article className="rounded-2xl border border-[#d9e2ec] bg-[#f7faf7] p-6 sm:p-7"><div className="flex items-center gap-3 text-[#102a43]"><Users className="h-6 w-6 text-[#138808]" /><h3 className="font-heading text-xl font-extrabold">{t('publicWorkerTitle')}</h3></div><p className="mt-4 text-sm sm:text-base leading-relaxed text-slate-600">{t('publicWorkerBody')}</p></article>
-                <article className="rounded-2xl border border-[#d9e2ec] bg-[#fbf7f1] p-6 sm:p-7"><div className="flex items-center gap-3 text-[#102a43]"><BriefcaseBusiness className="h-6 w-6 text-[#f28c28]" /><h3 className="font-heading text-xl font-extrabold">{t('publicEmployerTitle')}</h3></div><p className="mt-4 text-sm sm:text-base leading-relaxed text-slate-600">{t('publicEmployerBody')}</p></article>
+                <article className="rounded-2xl border border-[#d9e2ec] bg-[#fbf7f1] p-6 sm:p-7"><div className="flex items-center gap-3 text-[#102a43]"><Briefcase className="h-6 w-6 text-[#f28c28]" /><h3 className="font-heading text-xl font-extrabold">{t('publicEmployerTitle')}</h3></div><p className="mt-4 text-sm sm:text-base leading-relaxed text-slate-600">{t('publicEmployerBody')}</p></article>
               </div>
             </div>
           </section>
@@ -1275,7 +1275,7 @@ export function Auth({
                   { icon: Search, label: t('publicFeatureJobs') },
                   { icon: Users, label: t('publicFeatureProfiles') },
                   { icon: ClipboardList, label: t('publicFeatureWorkforce') },
-                  { icon: CalendarCheck, label: t('publicFeatureAttendance') },
+                  { icon: CalendarDays, label: t('publicFeatureAttendance') },
                   { icon: Wallet, label: t('publicFeatureWages') },
                   { icon: Tractor, label: t('publicFeatureEquipment') },
                 ].map(({ icon: Icon, label }) => <div key={label} className="min-h-[116px] rounded-xl border border-[#d9e2ec] bg-white p-4 flex flex-col items-center justify-center gap-3 text-center"><Icon className="h-6 w-6 text-[#102a43]" /><span className="text-xs sm:text-sm font-semibold leading-snug text-slate-700">{label}</span></div>)}
@@ -1287,7 +1287,7 @@ export function Auth({
           <section id="public-safety" className="border-y border-[#d9e2ec] bg-white py-12 sm:py-14">
             <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 grid grid-cols-1 lg:grid-cols-[1.2fr_0.8fr] gap-6">
               <div className="rounded-2xl border border-[#d9e2ec] bg-[#f5f8fa] p-6 sm:p-8"><div className="flex items-center gap-3"><ShieldCheck className="h-7 w-7 text-[#138808]" /><h2 className="font-heading text-2xl font-black text-[#102a43]">{t('publicSafetyTitle')}</h2></div><p className="mt-3 max-w-3xl text-sm leading-relaxed text-slate-600">{t('publicFraudBody')}</p><p className="mt-3 text-sm font-semibold text-slate-700">{t('publicWomenSafetyBody')}</p><p className="mt-4 text-xs text-slate-500">{t('publicEmergencyNote')}</p><a href="https://www.india.gov.in/directory/helpline" target="_blank" rel="noreferrer" className="mt-4 inline-flex text-sm font-bold text-[#138808] underline underline-offset-4">{t('publicHelplineDirectory')}</a></div>
-              <div className="rounded-2xl border border-[#d9e2ec] bg-white p-6 sm:p-8 flex flex-col justify-between"><div><div className="flex items-center gap-3 text-[#102a43]"><Headset className="h-6 w-6 text-[#f28c28]" /><h3 className="font-heading text-xl font-extrabold">{t('publicContactTitle')}</h3></div><p className="mt-3 text-sm leading-relaxed text-slate-600">{t('publicContactBody')}</p></div><p className="mt-6 border-t border-[#d9e2ec] pt-4 text-xs leading-relaxed text-slate-500">{t('publicDisclaimer')}</p></div>
+              <div className="rounded-2xl border border-[#d9e2ec] bg-white p-6 sm:p-8 flex flex-col justify-between"><div><div className="flex items-center gap-3 text-[#102a43]"><Headphones className="h-6 w-6 text-[#f28c28]" /><h3 className="font-heading text-xl font-extrabold">{t('publicContactTitle')}</h3></div><p className="mt-3 text-sm leading-relaxed text-slate-600">{t('publicContactBody')}</p></div><p className="mt-6 border-t border-[#d9e2ec] pt-4 text-xs leading-relaxed text-slate-500">{t('publicDisclaimer')}</p></div>
             </div>
           </section>
         </main>
