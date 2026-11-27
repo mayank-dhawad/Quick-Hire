@@ -33,6 +33,7 @@ vi.mock('../lib/translations', () => ({
       catSkilled: 'Skilled self-employed',
       callWorker: 'Call Worker',
       phoneAvailableToRegistered: 'Contact phone available to verified users',
+      newRating: 'New',
     };
     return map[key] || key;
   }),
