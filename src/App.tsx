@@ -186,6 +186,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [userRole, setUserRole] = useState<'worker' | 'employer' | 'admin' | null>(null);
+  const [canManageRentals, setCanManageRentals] = useState(false);
 
   // Stable refs to prevent circular callback identity thrashing
   const userRef = useRef<User | null>(user);
@@ -195,6 +196,7 @@ export default function App() {
 
   // Safe user state updater that prevents redundant re-renders when identity hasn't changed
   const safeSetUser = useCallback((nextUser: User | null) => {
+    if (!nextUser) setCanManageRentals(false);
     setUser((prev) => {
       if (!prev && !nextUser) return null;
       if (
@@ -734,6 +736,7 @@ export default function App() {
 
       if (adminCheck.isAdmin) {
         setUserRole('admin');
+        setCanManageRentals(true);
         ensureAdminSession(activeUser, adminCheck.role, adminCheck.verifiedEmail, adminCheck.verifiedPhone);
         // Supabase Auth is the only source of truth for authenticated sessions.
         // Do not persist a browser-side user object as a login fallback.
@@ -746,7 +749,7 @@ export default function App() {
 
         const { data: profile, error: profileLookupError } = await supabase
           .from('profiles')
-          .select('id, role, account_status')
+          .select('id, role, account_status, can_manage_rentals')
           .eq('id', activeUser.id)
           .maybeSingle();
 
@@ -766,6 +769,8 @@ export default function App() {
           showToast('Your account is suspended. Please contact QuickHire support.', 'error');
           return;
         }
+
+        setCanManageRentals(Boolean(profile.can_manage_rentals));
 
         if (profile?.role === 'employer') {
           setUserRole('employer');
@@ -2530,6 +2535,7 @@ export default function App() {
 
           {activeTab === 'equipment' && (
             <EquipmentRentalTab
+              canManageRentals={canManageRentals}
               equipmentList={equipmentList}
               equipmentLoading={equipmentLoading}
               selectedCategory={selectedEquipCategory}
@@ -2541,6 +2547,7 @@ export default function App() {
                   setIsLoginOpen(true);
                   return;
                 }
+                if (!canManageRentals) return;
                 setEquipmentToEdit(null);
                 setIsPostEquipModalOpen(true);
               }}
@@ -2549,6 +2556,7 @@ export default function App() {
                   setIsLoginOpen(true);
                   return;
                 }
+                if (!canManageRentals) return;
                 setEquipmentToEdit(item);
                 setIsPostEquipModalOpen(true);
               }}
