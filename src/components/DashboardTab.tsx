@@ -1203,7 +1203,7 @@ export function DashboardTab({
               <span className="font-heading font-black text-xl sm:text-3xl text-yellow-600 flex items-center gap-1">
                 <Star className="w-4 h-4 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
                 {reviews.length > 0
-                  ? (reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.lengthformatLocalizedNumber((reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.length), currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
+                  ? formatLocalizedNumber(reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.length, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })
                   : '5.0'}
               </span>
             </div>
