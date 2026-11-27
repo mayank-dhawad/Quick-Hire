@@ -232,7 +232,7 @@ BEGIN
         -- Global UTR uniqueness check (prevent recycling someone else's banking reference)
         SELECT id INTO v_duplicate_utr_payment_id
         FROM public.payments
-        WHERE transaction_ref = v_clean_utr
+        WHERE lower(btrim(transaction_ref)) = lower(v_clean_utr)
           AND (p_payment_reference IS NULL OR payment_reference <> p_payment_reference)
         LIMIT 1;
 
