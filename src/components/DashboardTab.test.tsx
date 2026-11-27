@@ -167,6 +167,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
 
     // Verify Previously Hired Workers section header is rendered inside employer dashboard
     expect(screen.getByText(/Previously Hired Workers/i)).toBeInTheDocument();
+    expect(screen.getByText('New')).toBeInTheDocument();
 
     // Verify the previously hired worker Ramesh Patel is listed with hire count and rating
     await waitFor(() => {
