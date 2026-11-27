@@ -173,7 +173,7 @@ export function EquipmentRentalTab({
       {equipmentLoading ? (
         <div className="text-center py-16 text-slate-500 text-sm">
           <div className="inline-block animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full mb-3" />
-          <p>Loading available machinery and tools...</p>
+          <p>{t('loadingEquipment')}</p>
         </div>
       ) : filteredEquipment.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 space-y-4">
@@ -305,7 +305,7 @@ export function EquipmentRentalTab({
                   ) : (
                     <div className="w-full py-3 px-3 rounded-xl bg-slate-50 text-slate-600 text-xs flex items-center justify-center gap-2 border border-slate-200 text-center">
                       <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                      <span>Owner phone numbers are private and are not shown in public listings.</span>
+                      <span>{t('ownerPhonePrivate')}</span>
                     </div>
                   )}
 
