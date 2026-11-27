@@ -28,6 +28,8 @@ import { VoiceAssistanceToggle } from './VoiceAssistanceToggle';
 import { verifyAdminStatus, ensureAdminSession } from '../lib/adminAuth';
 import { navigateTo } from '../lib/adminRouter';
 
+const EMAIL_REGEX = /^[A-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?(?:\.[A-Z0-9](?:[A-Z0-9-]{0,61}[A-Z0-9])?)+$/i;
+
 const COUNTRY_CODES = [
   { code: '+91', country: 'India', flag: 'IN' },
   { code: '+1', country: 'US / Canada', flag: 'US' },
@@ -374,6 +376,7 @@ export function Auth({
         phone: e164,
         options: {
           channel: 'sms',
+          shouldCreateUser: isSignUp,
         },
       });
 
@@ -462,10 +465,10 @@ export function Auth({
   // Email & Password: Sign In or Sign Up
   const handleEmailAuth = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
-    const cleanEmail = email.trim();
+    const cleanEmail = email.trim().toLowerCase();
     const cleanPassword = password.trim();
 
-    if (!cleanEmail || !cleanEmail.includes('@')) {
+    if (!EMAIL_REGEX.test(cleanEmail)) {
       const errMsg = t('invalidEmail');
       setAuthError(errMsg);
       speakText(errMsg, currentLang);
@@ -554,8 +557,8 @@ export function Auth({
   // Password Recovery / Reset for Users
   const handleSendUserPasswordReset = async (e: React.FormEvent) => {
     e.preventDefault();
-    const cleanEmail = (resetEmail || email).trim();
-    if (!cleanEmail || !cleanEmail.includes('@')) {
+    const cleanEmail = (resetEmail || email).trim().toLowerCase();
+    if (!EMAIL_REGEX.test(cleanEmail)) {
       const errMsg = t('invalidEmail');
       setAuthError(errMsg);
       speakText(errMsg, currentLang);
@@ -629,7 +632,7 @@ export function Auth({
       </div>
 
       {/* 1. DUAL AUTH METHOD TAB SWITCHER */}
-      <div className="flex p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-2xs">
+      <div className="flex items-center gap-2 p-1 bg-slate-100 rounded-2xl border border-slate-200 shadow-2xs">
         <button
           type="button"
           onClick={() => {
@@ -656,7 +659,7 @@ export function Auth({
             setAuthNotice('');
             speakText(`${t('tabEmailLogin')}. ${emailPrompt}`, currentLang);
           }}
-          className={`flex-1 py-2.5 px-3 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-2 ${
+          className={`shrink-0 py-2.5 px-3 rounded-xl text-[11px] sm:text-xs font-semibold transition-all flex items-center justify-center gap-1.5 ${
             authType === 'email'
               ? 'bg-white text-slate-900 shadow-sm border border-slate-200/80'
               : 'text-slate-500 hover:text-slate-900'
@@ -667,6 +670,7 @@ export function Auth({
         </button>
       </div>
 
+      {isSignUp && (
       {/* 2. ROLE SELECTION CARDS */}
       <div className="space-y-2">
         <div className="flex items-center justify-between">
@@ -738,6 +742,8 @@ export function Auth({
           </button>
         </div>
       </div>
+
+      )}
 
       {authError && (
         <div className="p-3.5 rounded-xl bg-red-50 border border-red-200 text-xs font-semibold text-red-700 flex items-center gap-2">
@@ -993,6 +999,8 @@ export function Auth({
               <input
                 type="email"
                 required
+                maxLength={254}
+                autoComplete="email"
                 value={email}
                 onClick={() => speakText(emailPrompt, currentLang)}
                 onFocus={() => speakText(emailPrompt, currentLang)}
