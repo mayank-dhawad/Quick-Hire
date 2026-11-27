@@ -202,6 +202,9 @@ BEGIN
   -- Mark the direct-hire assignment complete through its owning Employer.
   -- Wage-payment tests below must use the same completed-work rule as production.
   PERFORM set_config('request.jwt.claim.sub', v_emp_id::text, true);
+  UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_assign2_id;
+  UPDATE public.job_records SET status = 'arrived' WHERE id = v_assign2_id;
+  UPDATE public.job_records SET status = 'in_progress' WHERE id = v_assign2_id;
   UPDATE public.job_records
   SET status = 'completed', work_completed_at = now()
   WHERE id = v_assign2_id;
@@ -387,6 +390,9 @@ BEGIN
   -- Create a separate eligible unverified payment on v_assign_id (Job 1).
   -- The assignment must be completed and the payment must carry a stable reference.
   PERFORM set_config('request.jwt.claim.sub', v_emp_id::text, true);
+  UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_assign_id;
+  UPDATE public.job_records SET status = 'arrived' WHERE id = v_assign_id;
+  UPDATE public.job_records SET status = 'in_progress' WHERE id = v_assign_id;
   UPDATE public.job_records
   SET status = 'completed', work_completed_at = now()
   WHERE id = v_assign_id;
