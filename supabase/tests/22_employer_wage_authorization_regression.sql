@@ -35,7 +35,7 @@ BEGIN
      OR v_payment NOT ILIKE '%employer%'
      OR v_payment NOT ILIKE '%p_idempotency_key%'
      OR v_payment NOT ILIKE '%trim(p_idempotency_key) <> trim(p_payment_reference)%'
-     OR v_payment NOT ILIKE '%v_existing_payment.reference_id <> p_reference_id%' THEN
+     OR v_payment NOT ILIKE '%v_existing_payment.reference_id::text <> p_reference_id::text%' THEN
     RAISE EXCEPTION 'Payment RPC is missing Employer-role, idempotency, or UUID-safe comparison checks';
   END IF;
 
