@@ -95,10 +95,12 @@ export function UserManagement() {
     const nextPermission = !selectedProfile.can_manage_rentals;
     setRentalPermissionBusy(true);
     try {
-      const { error } = await supabase.rpc('set_rental_provider_permission', {
-        p_user_id: selectedProfile.id,
-        p_can_manage: nextPermission,
-      });
+      const { error } = await supabase
+        .from('profiles')
+        .update({ can_manage_rentals: nextPermission, updated_at: new Date().toISOString() })
+        .eq('id', selectedProfile.id)
+        .select('id')
+        .single();
       if (error) throw error;
 
       const updatedProfile = { ...selectedProfile, can_manage_rentals: nextPermission };
