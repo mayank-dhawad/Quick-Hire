@@ -9,6 +9,9 @@ import { supabase } from '../lib/supabase';
 // Mock speech and translations
 vi.mock('../lib/speech', () => ({
   speakText: vi.fn(),
+  stopSpeaking: vi.fn(),
+  getVoiceAssistanceEnabled: vi.fn(() => true),
+  subscribeToVoiceAssistance: vi.fn(() => () => {}),
   getVoiceGuidance: vi.fn(() => 'voice instructions'),
   getWorkerSpeechText: vi.fn(() => 'worker details'),
   subscribeToSpeech: vi.fn(() => () => {}),
