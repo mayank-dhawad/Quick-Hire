@@ -168,12 +168,12 @@ export function WorkersTab({
         if (error.code === 'P0001' || (error.message && error.message.toLowerCase().includes('limit'))) {
           setCallError({
             workerId,
-            message: 'Daily contact limit reached (15 calls per 24 hours). Please try again tomorrow.',
+            message: t('workerContactLimit').replace('{limit}', formatLocalizedNumber(15, currentLang)).replace('{hours}', formatLocalizedNumber(24, currentLang)),
           });
         } else if (error.code === 'P0002' || (error.message && error.message.toLowerCase().includes('not available'))) {
           setCallError({
             workerId,
-            message: 'Worker contact number is currently not available.',
+            message: t('workerContactUnavailable'),
           });
         } else {
           // Clean Option 3 authorization message (never leak raw error.message or DB internals)
@@ -745,11 +745,11 @@ export function WorkersTab({
               <div className="flex items-center gap-1.5 text-brand-900 font-semibold truncate">
                 <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                 <span className="truncate">
-                  Active Location: <strong className="font-bold">{searchCoords.label}</strong> ({searchCoords.lat.toFixed(4)}, {searchCoords.lon.toFixed(4)})
+                  {t('workerActiveLocation')}: <strong className="font-bold">{searchCoords.label}</strong> ({formatLocalizedNumber(searchCoords.lat, currentLang, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}, {formatLocalizedNumber(searchCoords.lon, currentLang, { minimumFractionDigits: 4, maximumFractionDigits: 4 })})
                 </span>
                 {selectedRadiusKm && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-200/70 text-brand-800 shrink-0">
-                    {selectedRadiusKm} km radius
+                    {formatLocalizedNumber(selectedRadiusKm, currentLang)} {t('workerRadius')}
                   </span>
                 )}
               </div>
