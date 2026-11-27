@@ -1002,7 +1002,9 @@ export function WorkersTab({
             const isAssisted = worker.profiles?.is_assisted_profile;
             const wage = worker.daily_wage || 500;
             const expYears = worker.experience_years || 1;
-            const rating = worker.average_rating ? formatLocalizedNumber(Number(worker.average_rating), currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : formatLocalizedNumber(5, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 });
+            const numericRating = Number(worker.average_rating);
+            const hasRating = worker.average_rating !== null && worker.average_rating !== undefined && Number.isFinite(numericRating) && numericRating >= 1 && numericRating <= 5;
+            const rating = hasRating ? formatLocalizedNumber(numericRating, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : null;
             const distance = worker.distance_km;
             const isSelected = selectedWorkerId === worker.id;
 
@@ -1034,9 +1036,9 @@ export function WorkersTab({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg shrink-0">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                      <span className="text-xs font-bold text-amber-900">{rating}</span>
+                    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg shrink-0 ${hasRating ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50 border border-slate-200'}`}>
+                      {hasRating && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />}
+                      <span className={`text-xs font-bold ${hasRating ? 'text-amber-900' : 'text-slate-600'}`}>{rating ?? t('newRating')}</span>
                     </div>
                   </div>
 
