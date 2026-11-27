@@ -6,7 +6,6 @@ import {
   ShieldAlert,
   Sparkles,
   CheckCircle2,
-  Check,
   Globe2,
   Building2,
   Users,
