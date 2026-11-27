@@ -264,7 +264,7 @@ BEGIN
             IF v_existing_payment.payer_id <> v_caller_id
                OR v_existing_payment.payee_id <> p_payee_id
                OR v_existing_payment.payment_for_type <> p_payment_for_type
-               OR v_existing_payment.reference_id <> p_reference_id
+               OR v_existing_payment.reference_id::text <> p_reference_id::text
                OR v_existing_payment.assignment_id <> p_assignment_id
                OR v_existing_payment.amount <> p_amount
                OR v_existing_payment.payment_method <> p_payment_method
@@ -523,7 +523,7 @@ BEGIN
   FOR UPDATE OF jr;
 
   IF NOT FOUND
-     OR v_assignment.job_id IS DISTINCT FROM NEW.reference_id
+     OR v_assignment.job_id::text IS DISTINCT FROM NEW.reference_id::text
      OR v_assignment.worker_id IS DISTINCT FROM NEW.payee_id
      OR v_assignment.status NOT IN ('completed', 'work_completed')
      OR v_assignment.work_completed_at IS NULL THEN
