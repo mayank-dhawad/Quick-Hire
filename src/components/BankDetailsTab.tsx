@@ -1124,7 +1124,7 @@ export function BankDetailsTab({
                             isReceived ? 'text-emerald-700' : 'text-slate-900'
                           }`}
                         >
-                          {isReceived ? '+' : '-'} ₹{formatLocalizedNumber(Number(p.amount), currentLang)}
+                          {isReceived ? '+' : '-'} {formatLocalizedCurrency(Number(p.amount), currentLang)}
                         </span>
                       </td>
 
