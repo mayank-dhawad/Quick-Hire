@@ -44,6 +44,40 @@ vi.mock('../lib/supabase', () => {
   };
 });
 
+describe('QuickHire public landing and authentication entry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it('keeps authentication closed until Register or Login is selected', () => {
+    render(<Auth isGate currentLang="English" />);
+
+    expect(screen.getByRole('button', { name: 'Register' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Enter 10-digit mobile number/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Enter 10-digit mobile number/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Register' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close authentication dialog' }));
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+  });
+
+  it('opens the existing sign-in flow from the top Login action', () => {
+    render(<Auth isGate currentLang="English" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Enter 10-digit mobile number/i)).toBeInTheDocument();
+  });
+});
+
 describe('Auth Component with Supabase Native Phone Authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
