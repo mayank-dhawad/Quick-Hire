@@ -227,7 +227,7 @@ export function WorkersTab({
   // Browser Geolocation API ("Use My Location")
   const handleGetCurrentLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      alert(t('geolocationUnsupported'));
       return;
     }
     setIsLocatingGps(true);
