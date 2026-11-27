@@ -13,7 +13,7 @@ import {
 } from 'lucide-react';
 import { EquipmentItem } from './PostEquipmentModal';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 
 interface EquipmentRentalTabProps {
   canManageRentals?: boolean;
@@ -261,7 +261,7 @@ export function EquipmentRentalTab({
                         {t('dailyRent')}
                       </span>
                       <span className="font-heading font-black text-lg text-brand-700">
-                        ₹{dailyRate}
+                        {formatLocalizedCurrency(dailyRate, currentLang)}
                         <span className="text-xs font-normal text-slate-500"> / {t('day')}</span>
                       </span>
                     </div>
@@ -271,7 +271,7 @@ export function EquipmentRentalTab({
                           {t('securityDeposit')}
                         </span>
                         <span className="text-xs font-bold text-slate-700">
-                          ₹{deposit}
+                          {formatLocalizedCurrency(deposit, currentLang)}
                         </span>
                       </div>
                     ) : (
@@ -287,7 +287,7 @@ export function EquipmentRentalTab({
                       Owner: {ownerName}
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      {new Date(item.created_at).toLocaleDateString()}
+                      {formatLocalizedDate(item.created_at, currentLang)}
                     </span>
                   </div>
                 </div>
