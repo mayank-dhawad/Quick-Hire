@@ -909,13 +909,6 @@ export interface Database {
           message?: string
         }
       }
-      set_rental_provider_permission: {
-        Args: {
-          p_user_id: string
-          p_can_manage: boolean
-        }
-        Returns: undefined
-      }
       get_payment_recipient_details: {
         Args: {
           p_recipient_id: string
