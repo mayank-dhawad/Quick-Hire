@@ -409,7 +409,9 @@ export function DashboardTab({
           total_payable: totalPayable,
           payment_status: 'pending',
         })
-        .eq('id', recordId);
+        .eq('id', recordId)
+        .select('id')
+        .single();
 
       if (error) throw error;
       setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'completed' }));
