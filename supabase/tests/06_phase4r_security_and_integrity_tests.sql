@@ -1152,8 +1152,14 @@ BEGIN
         PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
         PERFORM set_config('request.jwt.claim.sub', v_employer_id::text, true);
 
-        -- Delete user from auth.users
+        -- Model a real self-service account deletion: auth.uid() must identify
+        -- the account being deleted. The profile identity guard intentionally
+        -- blocks unrelated authenticated users from changing account_status.
+        PERFORM set_config('request.jwt.claim.sub', v_fin_user_id::text, true);
         DELETE FROM auth.users WHERE id = v_fin_user_id;
+
+        -- Restore the test operator for the follow-up synchronization assertion.
+        PERFORM set_config('request.jwt.claim.sub', v_employer_id::text, true);
 
         -- Assert that payment ledger row was NOT cascade-deleted
         SELECT EXISTS(SELECT 1 FROM public.payments WHERE id = v_payment_id) INTO v_payment_still_exists;
