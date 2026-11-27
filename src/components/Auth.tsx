@@ -608,7 +608,7 @@ export function Auth({
           }`}
         >
           <CheckCircle2 className={`w-3.5 h-3.5 ${!isSignUp ? 'text-emerald-600' : 'text-slate-300'}`} />
-          <span>{t('signInAction')}</span>
+          <span>{t('authLoginTab')}</span>
         </button>
 
         <button
@@ -627,7 +627,7 @@ export function Auth({
           }`}
         >
           <Sparkles className={`w-3.5 h-3.5 ${isSignUp ? 'text-emerald-600' : 'text-slate-400'}`} />
-          <span>{t('createAccountTitle')}</span>
+          <span>{t('authRegisterTab')}</span>
         </button>
       </div>
 
