@@ -25,7 +25,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
     vi.clearAllMocks();
   });
 
-  it('renders "Rate Worker" on completed jobs with hired applicants', async () => {
+  it('renders "Rate Worker" only after the assignment is completed', async () => {
     // Setup supabase mock for reviews & jobs
     vi.mocked(supabase.from).mockImplementation(((table: string) => {
       if (table === 'reviews') {
@@ -53,8 +53,9 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
                     job_records: [
                       {
                         id: 'record-1',
-                        status: 'hired',
+                        status: 'completed',
                         created_at: '2026-10-20T11:00:00Z',
+                        work_completed_at: '2026-10-21T09:00:00Z',
                         worker_id: 'worker-uuid-456',
                       },
                     ],
@@ -132,8 +133,9 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
           {
             id: 'record-1',
             worker_id: 'worker-uuid-456',
-            status: 'hired',
+            status: 'completed',
             created_at: '2026-10-20T11:00:00Z',
+            work_completed_at: '2026-10-21T09:00:00Z',
             profiles: {
               id: 'worker-uuid-456',
               full_name: 'Ramesh Patel',
@@ -353,6 +355,7 @@ describe('DashboardTab - Worker Ratings & Previously Hired Workers Features', ()
     await waitFor(() => {
       expect(tablesQueried).toContain('profile_private_details');
     });
+    expect(screen.getByText('New')).toBeInTheDocument();
 
     // Ensure profiles query selected safe non-private columns only
     const profilesQuery = selectedColumns.join(' ');

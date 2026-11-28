@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { supabase } from '../../lib/supabase';
+import { getTranslation } from '../../lib/translations';
 import { logAdminAction, getStoredAdminSession } from '../../lib/adminAuth';
 import {
   Search,
@@ -30,6 +31,7 @@ interface ProfileRecord {
   district: string | null;
   state: string | null;
   account_status: string | null;
+  can_manage_rentals: boolean;
   created_at: string | null;
   has_settlement_details: boolean | null;
   category?: string | null;
@@ -45,7 +47,8 @@ interface ProfileRecord {
   } | null;
 }
 
-export function UserManagement() {
+export function UserManagement({ currentLang = 'English' }: { currentLang?: string }) {
+  const t = (key: string) => getTranslation(currentLang, key);
   const [profiles, setProfiles] = useState<ProfileRecord[]>([]);
   const [loading, setLoading] = useState(true);
   const [fetchError, setFetchError] = useState<string | null>(null);
@@ -63,6 +66,7 @@ export function UserManagement() {
 
   // Selected User Detail Drawer
   const [selectedProfile, setSelectedProfile] = useState<ProfileRecord | null>(null);
+  const [rentalPermissionBusy, setRentalPermissionBusy] = useState(false);
 
   // Moderation Action Modal state
   const [modModal, setModModal] = useState<{
@@ -88,20 +92,86 @@ export function UserManagement() {
     setTimeout(() => setToast(null), 4000);
   };
 
+  const toggleRentalProviderAccess = async () => {
+    if (!selectedProfile || rentalPermissionBusy) return;
+    const nextPermission = !selectedProfile.can_manage_rentals;
+    setRentalPermissionBusy(true);
+    try {
+      const { error } = await supabase
+        .from('profiles')
+        .update({ can_manage_rentals: nextPermission, updated_at: new Date().toISOString() })
+        .eq('id', selectedProfile.id)
+        .select('id')
+        .single();
+      if (error) throw error;
+
+      const updatedProfile = { ...selectedProfile, can_manage_rentals: nextPermission };
+      setSelectedProfile(updatedProfile);
+      setProfiles((previous) => previous.map((profile) =>
+        profile.id === updatedProfile.id ? { ...profile, can_manage_rentals: nextPermission } : profile
+      ));
+
+      const adminSession = getStoredAdminSession();
+      try {
+        await logAdminAction({
+          adminId: adminSession?.user?.id,
+          adminEmail: adminSession?.user?.email,
+          action: nextPermission ? 'rental_provider_access_granted' : 'rental_provider_access_revoked',
+          targetType: 'profile',
+          targetId: selectedProfile.id,
+          reason: nextPermission ? 'Approved rental provider capability' : 'Revoked rental provider capability',
+          metadata: { name: selectedProfile.full_name, role: selectedProfile.role },
+        });
+      } catch (auditError) {
+        console.warn('Rental provider permission changed, but audit logging failed:', auditError);
+      }
+
+      showToast(nextPermission
+        ? `Rental publishing approved for ${selectedProfile.full_name}.`
+        : `Rental publishing access revoked for ${selectedProfile.full_name}.`
+      );
+    } catch (error) {
+      const message = error instanceof Error ? error.message : 'Unable to update rental-provider access.';
+      showToast(message, 'error');
+    } finally {
+      setRentalPermissionBusy(false);
+    }
+  };
+
   const fetchUsers = useCallback(async () => {
     setLoading(true);
     setFetchError(null);
     try {
-      const { data, error } = await supabase
+      let data: ProfileRecord[] | null = null;
+      let error: { message: string; code?: string } | null = null;
+      const profileQuery = await supabase
         .from('profiles')
         .select(`
           id, role, full_name, phone_number, email, location, village, district, state,
-          account_status, created_at, category, skills, experience_years, daily_wage,
+          account_status, can_manage_rentals, created_at, category, skills, experience_years, daily_wage,
           workers (
             category, skills, experience_years, average_rating, is_available
           )
         `)
         .order('created_at', { ascending: false });
+
+      data = profileQuery.data as ProfileRecord[] | null;
+      error = profileQuery.error;
+
+      if (error && /can_manage_rentals|42703/i.test(error.message)) {
+        const legacyQuery = await supabase
+          .from('profiles')
+          .select(`
+            id, role, full_name, phone_number, email, location, village, district, state,
+            account_status, created_at, category, skills, experience_years, daily_wage,
+            workers (
+              category, skills, experience_years, average_rating, is_available
+            )
+          `)
+          .order('created_at', { ascending: false });
+        data = (legacyQuery.data || []).map((profile) => ({ ...profile, can_manage_rentals: false, has_settlement_details: null })) as ProfileRecord[];
+        error = legacyQuery.error;
+      }
 
       if (error) {
         console.error('Error fetching profiles:', error);
@@ -716,6 +786,31 @@ export function UserManagement() {
                     {selectedProfile.created_at ? new Date(selectedProfile.created_at).toLocaleDateString() : 'N/A'}
                   </span>
                 </div>
+              </div>
+            </div>
+
+            {/* Rental Provider Authorization — independent of account role */}
+            <div className="space-y-3 text-xs">
+              <h4 className="font-bold text-slate-400 uppercase tracking-wider text-[10px]">
+                Rental Provider Authorization
+              </h4>
+              <div className="p-4 rounded-xl bg-slate-950 border border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <span className={`font-bold ${selectedProfile.can_manage_rentals ? 'text-emerald-400' : 'text-slate-300'}`}>
+                    {selectedProfile.can_manage_rentals ? t('approvedProvider') : t('notApproved')}
+                  </span>
+                  <p className="mt-1 text-[11px] text-slate-500 leading-relaxed">
+                    This separate permission controls publishing, editing and deleting rental listings. It does not change the user’s Worker or Employer role.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  disabled={rentalPermissionBusy || selectedProfile.role === 'admin'}
+                  onClick={toggleRentalProviderAccess}
+                  className={`shrink-0 rounded-lg px-3 py-2 text-[11px] font-bold transition-colors disabled:opacity-50 ${selectedProfile.can_manage_rentals ? 'bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25' : 'bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25'}`}
+                >
+                  {rentalPermissionBusy ? t('saving') : selectedProfile.can_manage_rentals ? t('revokeAccess') : t('approveProvider')}
+                </button>
               </div>
             </div>
 

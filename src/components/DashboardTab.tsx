@@ -35,8 +35,7 @@ import { supabase } from '../lib/supabase';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { RateWorkerModal } from './RateWorkerModal';
 import { PaymentReceiptModal, PaymentReceiptData } from './PaymentReceiptModal';
-import { speakText } from '../lib/speech';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate, formatLocalizedNumber } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
 
 export interface JobRecordItem {
@@ -260,16 +259,8 @@ export function DashboardTab({
   const t = (key: string): string => getTranslation(currentLang, key);
 
   // Tab mode: 'worker' or 'employer'
-  const [viewMode, setViewMode] = useState<'worker' | 'employer'>(() => {
-    return userRole === 'employer' ? 'employer' : 'worker';
-  });
-
-  // Synchronize view mode if role arrives after initial mount
-  useEffect(() => {
-    if (userRole) {
-      setViewMode(userRole === 'admin' ? 'employer' : userRole);
-    }
-  }, [userRole]);
+  // The authenticated account role determines the dashboard; users cannot switch roles here.
+  const viewMode: 'worker' | 'employer' = userRole === 'employer' || userRole === 'admin' ? 'employer' : 'worker';
 
   // Worker history state
   const [workerProfile, setWorkerProfile] = useState<WorkerProfileState | null>(null);
@@ -293,6 +284,7 @@ export function DashboardTab({
   const [claimProfileError, setClaimProfileError] = useState<string | null>(null);
   const [claimSecrets, setClaimSecrets] = useState<Record<string, string>>({});
   const [applicantStatusOverrides, setApplicantStatusOverrides] = useState<Record<string, string>>({});
+  const [completionTimestampOverrides, setCompletionTimestampOverrides] = useState<Record<string, string>>({});
   const [selectedReceipt, setSelectedReceipt] = useState<PaymentReceiptData | null>(null);
   const [isReceiptOpen, setIsReceiptOpen] = useState(false);
   const [overtimeInputs, setOvertimeInputs] = useState<Record<string, string>>({});
@@ -398,25 +390,31 @@ export function DashboardTab({
     overtimeHours: number = 0,
     baseShiftHours: number = 8
   ) => {
+    if (!user || userRole !== 'employer') return;
     try {
       const hourlyRate = baseWage > 0 ? baseWage / 8 : 62.5;
       const overtimeWage = Math.round(overtimeHours * hourlyRate);
       const totalPayable = Math.round(baseWage + overtimeWage);
       const netWorkingHours = baseShiftHours + overtimeHours;
+      const completedAt = new Date().toISOString();
 
-      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'completed' }));
-
-      await supabase.from('job_records')
+      const { error } = await supabase.from('job_records')
         .update({
           status: 'completed',
-          work_completed_at: new Date().toISOString(),
+          work_completed_at: completedAt,
           overtime_hours: overtimeHours,
           total_working_hours: netWorkingHours,
           agreed_wage: baseWage,
           total_payable: totalPayable,
           payment_status: 'pending',
         })
-        .eq('id', recordId);
+        .eq('id', recordId)
+        .select('id')
+        .single();
+
+      if (error) throw error;
+      setApplicantStatusOverrides((prev) => ({ ...prev, [recordId]: 'completed' }));
+      setCompletionTimestampOverrides((prev) => ({ ...prev, [recordId]: completedAt }));
     } catch (err) {
       console.warn('Error completing work:', err);
     }
@@ -772,7 +770,7 @@ export function DashboardTab({
           const key = `${r.job_id}_${r.reviewed_profile_id}`;
           revMap[key] = {
             id: r.id,
-            rating: Number(r.rating) || 5,
+            rating: Number(r.rating),
             comment: r.comment,
           };
         });
@@ -921,6 +919,12 @@ export function DashboardTab({
   const completedJobsCount = appliedJobs.filter(
     (j) => j.status === 'completed' || j.jobs?.status === 'completed'
   ).length;
+  const validReviewRatings = reviews
+    .map((review) => Number(review.rating))
+    .filter((rating) => Number.isFinite(rating) && rating >= 1 && rating <= 5);
+  const averageReviewRating = validReviewRatings.length > 0
+    ? validReviewRatings.reduce((total, rating) => total + rating, 0) / validReviewRatings.length
+    : null;
 
   return (
     <motion.div
@@ -942,7 +946,7 @@ export function DashboardTab({
                 <span className="text-[11px] uppercase font-black tracking-wider px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
                   Super Admin Session Active
                 </span>
-                <span className="text-xs text-slate-400 hidden sm:inline">Governance Suite Ready</span>
+                <span className="text-xs text-slate-400 hidden sm:inline">{t('adminSuiteReady')}</span>
               </div>
               <h3 className="font-heading font-black text-base text-white mt-1">
                 National DPI Administration Console
@@ -964,7 +968,7 @@ export function DashboardTab({
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-extrabold text-xs transition-all shadow-md flex items-center justify-center gap-2 shrink-0 cursor-pointer"
           >
             <ShieldCheck className="w-4 h-4" />
-            <span>Launch Admin Suite →</span>
+            <span>{t('launchAdminSuite')}</span>
           </button>
         </div>
       )}
@@ -973,16 +977,16 @@ export function DashboardTab({
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-slate-200">
         <div>
           <span className="text-xs font-bold text-brand-600 uppercase tracking-wider block mb-1">
-            {viewMode === 'worker' ? 'Citizen Account & Work History' : t('workforceManagement')}
+            {viewMode === 'worker' ? t('workerDashboardEyebrow') : t('workforceManagement')}
           </span>
           <div className="flex items-center gap-2">
             <h1 className="font-heading font-extrabold text-2xl sm:text-3xl text-slate-900">
-              {viewMode === 'worker' ? 'Worker Dashboard & Activity' : t('dashboardTitle')}
+              {viewMode === 'worker' ? t('workerDashboardTitle') : t('dashboardTitle')}
             </h1>
             <VoiceSpeakerButton
               text={
                 viewMode === 'worker'
-                  ? 'Worker dashboard. View your persistent profile, applied jobs, wages received, equipment rentals, and reviews.'
+                  ? t('workerDashboardSpeech')
                   : `${t('dashboardTitle')}. ${t('dashboardSub')}`
               }
               lang={currentLang}
@@ -991,43 +995,13 @@ export function DashboardTab({
           </div>
           <p className="text-xs sm:text-sm text-slate-500 mt-1">
             {viewMode === 'worker'
-              ? '100% persistent history across logins and devices. Direct settlements and verified ratings.'
+              ? t('workerDashboardDescription')
               : t('dashboardSub')}
           </p>
         </div>
 
         {user && (
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 w-full sm:w-auto">
-            {/* View Mode Toggle Pill */}
-            <div className="flex flex-1 sm:flex-initial p-1 bg-slate-100 rounded-xl border border-slate-200 text-xs font-bold shadow-2xs">
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('worker');
-                  speakText('Switched to worker dashboard', currentLang);
-                }}
-                className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-lg transition-all text-center cursor-pointer ${viewMode === 'worker'
-                    ? 'bg-white text-emerald-800 shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                  }`}
-              >
-                Worker View
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setViewMode('employer');
-                  speakText('Switched to employer dashboard', currentLang);
-                }}
-                className={`flex-1 sm:flex-initial px-3.5 py-2 rounded-lg transition-all text-center cursor-pointer ${viewMode === 'employer'
-                    ? 'bg-white text-amber-800 shadow-2xs'
-                    : 'text-slate-500 hover:text-slate-800'
-                  }`}
-              >
-                Employer View
-              </button>
-            </div>
-
             {viewMode === 'employer' ? (
               <button
                 onClick={() => onNavigateTab('post-job')}
@@ -1042,7 +1016,7 @@ export function DashboardTab({
                 className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
               >
                 <Edit3 className="w-4 h-4" />
-                <span>Edit Profile</span>
+                <span>{t('editProfile')}</span>
               </button>
             )}
           </div>
@@ -1094,7 +1068,7 @@ export function DashboardTab({
                     <p className="font-bold text-sm text-slate-900">{profile.full_name || 'Previous worker profile'}</p>
                     {profile.location && <p className="text-xs text-slate-500 mt-0.5">{profile.location}</p>}
                     <p className="text-[11px] text-slate-400 mt-1">
-                      Created {new Date(profile.created_at).toLocaleDateString()}
+                      Created {formatLocalizedDate(profile.created_at, currentLang)}
                     </p>
                   </div>
                   <div className="flex flex-col sm:flex-row gap-2 sm:items-center sm:shrink-0">
@@ -1165,13 +1139,13 @@ export function DashboardTab({
                   className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-xs flex items-center justify-center gap-2 cursor-pointer"
                 >
                   <Edit3 className="w-4 h-4" />
-                  <span>Edit Profile</span>
+                  <span>{t('editProfile')}</span>
                 </button>
                 <button
                   onClick={fetchWorkerHistory}
                   disabled={loadingWorkerData}
                   className="p-2.5 rounded-xl bg-white hover:bg-slate-50 border border-slate-200 text-slate-600 transition-colors shadow-2xs cursor-pointer shrink-0"
-                  title="Refresh activity history"
+                  title={t('refresh')}
                 >
                   <RefreshCw className={`w-4 h-4 ${loadingWorkerData ? 'animate-spin text-brand-600' : ''}`} />
                 </button>
@@ -1223,7 +1197,7 @@ export function DashboardTab({
               </span>
               <span className="font-heading font-black text-xl sm:text-3xl text-amber-600 flex items-center gap-0.5">
                 <IndianRupee className="w-4 h-4 sm:w-6 sm:h-6" />
-                {totalWagesSum.toLocaleString()}
+                {formatLocalizedNumber(totalWagesSum, currentLang)}
               </span>
             </div>
 
@@ -1232,10 +1206,14 @@ export function DashboardTab({
                 Reviews & Ratings
               </span>
               <span className="font-heading font-black text-xl sm:text-3xl text-yellow-600 flex items-center gap-1">
-                <Star className="w-4 h-4 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
-                {reviews.length > 0
-                  ? (reviews.reduce((a, b) => a + Number(b.rating || 5), 0) / reviews.length).toFixed(1)
-                  : '5.0'}
+                {averageReviewRating !== null ? (
+                  <>
+                    <Star className="w-4 h-4 sm:w-6 sm:h-6 fill-yellow-400 text-yellow-500" />
+                    {formatLocalizedNumber(averageReviewRating, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}
+                  </>
+                ) : (
+                  <span className="text-slate-500">{t('newRating')}</span>
+                )}
               </span>
             </div>
           </div>
@@ -1248,10 +1226,10 @@ export function DashboardTab({
                   <span className="text-[10px] font-black uppercase tracking-wider px-2.5 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
                     Direct Payout Setup
                   </span>
-                  <span className="text-xs text-emerald-400 font-bold">0% Middleman Cut</span>
+                  <span className="text-xs text-emerald-400 font-bold">{t('zeroMiddlemanCut')}</span>
                 </div>
                 <h3 className="text-lg sm:text-xl font-heading font-extrabold text-white flex items-center gap-2">
-                  <span><EmojiIcon name="activity" className="mr-1 h-4 w-4" /> Worker Direct UPI & Bank Account</span>
+                  <span><EmojiIcon name="activity" className="mr-1 h-4 w-4" /> {t('workerDirectBankDetails')}</span>
                 </h3>
                 <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
                   {t('eduUpiNoWithdrawal')}
@@ -1314,7 +1292,7 @@ export function DashboardTab({
                 onClick={() => onNavigateTab('home')}
                 className="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 cursor-pointer"
               >
-                <span>Find More Jobs</span>
+                <span>{t('findMoreJobs')}</span>
                 <ArrowRight className="w-3 h-3" />
               </button>
             </div>
@@ -1326,7 +1304,7 @@ export function DashboardTab({
             ) : appliedJobs.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center space-y-3">
                 <Briefcase className="w-10 h-10 text-slate-300 mx-auto" />
-                <h4 className="font-bold text-sm text-slate-800">No Job Applications Yet</h4>
+                <h4 className="font-bold text-sm text-slate-800">{t('noJobApplicationsYet')}</h4>
                 <p className="text-xs text-slate-500 max-w-sm mx-auto">
                   Browse open job listings and tap &quot;I&apos;m Interested&quot; to apply. Your applications will permanently appear here.
                 </p>
@@ -1364,7 +1342,7 @@ export function DashboardTab({
                           </h4>
                         </div>
                         <span className="font-extrabold text-sm px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                          ₹{job?.offered_wages || 500} / day
+                          {formatLocalizedCurrency(job?.offered_wages || 500, currentLang)} / day
                         </span>
                       </div>
 
@@ -1376,9 +1354,9 @@ export function DashboardTab({
 
                       <div className="pt-3 border-t border-slate-100 flex items-center justify-between text-xs">
                         <div className="text-slate-600">
-                          <span>Employer: <strong className="text-slate-800">{employerName}</strong></span>
+                          <span>{t('employerLabel')}: <strong className="text-slate-800">{employerName}</strong></span>
                           <span className="block text-[10px] text-slate-400">
-                            Applied: {new Date(rec.created_at).toLocaleDateString()}
+                            Applied: {formatLocalizedDate(rec.created_at, currentLang)}
                           </span>
                         </div>
 
@@ -1388,7 +1366,7 @@ export function DashboardTab({
                             className="px-3 py-1.5 rounded-lg bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs flex items-center gap-1.5 shadow-2xs transition-colors"
                           >
                             <PhoneCall className="w-3.5 h-3.5" />
-                            <span>Call Employer</span>
+                            <span>{t('callEmployer')}</span>
                           </a>
                         )}
                       </div>
@@ -1405,7 +1383,7 @@ export function DashboardTab({
                             className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Navigation className="w-3 h-3" />
-                            <span>Mark On the Way (30m)</span>
+                            <span>{t('markOnTheWay')} ({formatLocalizedNumber(30, currentLang)}m)</span>
                           </button>
                         </div>
                       )}
@@ -1422,7 +1400,7 @@ export function DashboardTab({
                             className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-emerald-700 hover:bg-emerald-800 text-white font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
-                            <span>Mark Arrived</span>
+                            <span>{t('markArrived')}</span>
                           </button>
                         </div>
                       )}
@@ -1430,21 +1408,21 @@ export function DashboardTab({
                       {rec.status === 'arrived' && (
                         <div className="pt-2 p-2.5 rounded-xl bg-slate-50 border border-slate-200 text-[11px] font-bold text-slate-700 flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Arrived at Site · Awaiting Employer Attendance Confirmation</span>
+                          <span>{t('arrivedAwaitingAttendance')}</span>
                         </div>
                       )}
 
                       {rec.status === 'attendance_confirmed' && (
                         <div className="pt-2 p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-[11px] font-bold text-emerald-800 flex items-center gap-1.5">
                           <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                          <span>Attendance Confirmed · Work Starting Soon</span>
+                          <span>{t('attendanceConfirmedLabel')}</span>
                         </div>
                       )}
 
                       {rec.status === 'in_progress' && (
                         <div className="pt-2 p-2.5 rounded-xl bg-brand-50 border border-brand-200 text-[11px] font-bold text-brand-800 flex items-center gap-1.5">
                           <Clock className="w-4 h-4 text-brand-600 animate-pulse" />
-                          <span>Work in Progress</span>
+                          <span>{t('workInProgressLabel')}</span>
                         </div>
                       )}
 
@@ -1458,10 +1436,10 @@ export function DashboardTab({
                       {rec.status === 'completed' && (
                         <div className="pt-2 flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-emerald-50 p-2.5 rounded-xl border border-emerald-200">
                           <div>
-                            <span className="text-[10px] font-extrabold uppercase text-emerald-800 block">Work Completed</span>
+                            <span className="text-[10px] font-extrabold uppercase text-emerald-800 block">{t('workCompletedLabel')}</span>
                             <span className="text-xs font-bold text-slate-800">
-                              Total Payable: ₹{rec.total_payable || job?.offered_wages || 500}
-                              {rec.total_paid ? ` • Paid: ₹${rec.total_paid}` : ''}
+                              Total Payable: {formatLocalizedCurrency(rec.total_payable || job?.offered_wages || 500, currentLang)}
+                              {rec.total_paid ? ` • Paid: ${formatLocalizedCurrency(rec.total_paid, currentLang)}` : ''}
                             </span>
                           </div>
                           <button
@@ -1470,7 +1448,7 @@ export function DashboardTab({
                             className="w-full sm:w-auto justify-center px-3 py-2 rounded-lg bg-white border border-emerald-300 hover:bg-emerald-100 text-emerald-900 font-bold text-xs flex items-center gap-1 transition-colors cursor-pointer"
                           >
                             <Receipt className="w-3.5 h-3.5" />
-                            <span>View Receipt</span>
+                            <span>{t('viewReceipt')}</span>
                           </button>
                         </div>
                       )}
@@ -1486,14 +1464,14 @@ export function DashboardTab({
             <div className="flex items-center gap-2">
               <Landmark className="w-5 h-5 text-emerald-600" />
               <h3 className="font-heading font-extrabold text-lg text-slate-900">
-                Direct Wage Settlements & Receipts
+                {t('wageSettlementsAndReceipts')}
               </h3>
             </div>
 
             {wagePayments.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-500 space-y-1">
                 <Landmark className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-bold text-slate-700">No Direct Wage Settlements Recorded</p>
+                <p className="font-bold text-slate-700">{t('noDirectWageSettlements')}</p>
                 <p className="text-slate-400">
                   When employers settle your daily wages via Net Banking (IMPS/NEFT) or Direct UPI, verified payment receipts are permanently recorded here.
                 </p>
@@ -1540,12 +1518,12 @@ export function DashboardTab({
                           </div>
                           <span className="text-[11px] text-slate-400 block mt-0.5 font-mono break-all">
                             {pay.payment_reference ? `Ref: ${pay.payment_reference}` : ''}
-                            {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ''} • {new Date(pay.created_at).toLocaleDateString()}
+                            {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ''} • {formatLocalizedDate(pay.created_at, currentLang)}
                           </span>
                         </div>
                       </div>
                       <span className="font-heading font-black text-sm sm:text-base text-emerald-700 self-end sm:self-center">
-                        +₹{pay.amount.toLocaleString()}
+                        +{formatLocalizedCurrency(pay.amount, currentLang)}
                       </span>
                     </div>
                   ))}
@@ -1576,12 +1554,12 @@ export function DashboardTab({
                             Machine Rental Settlement ({rent.payment_method})
                           </span>
                           <span className="text-[11px] text-slate-400 block mt-0.5">
-                            Ref: {rent.transaction_ref || rent.id.slice(0, 8)} • {new Date(rent.created_at).toLocaleDateString()}
+                            Ref: {rent.transaction_ref || rent.id.slice(0, 8)} • {formatLocalizedDate(rent.created_at, currentLang)}
                           </span>
                         </div>
                       </div>
                       <span className="font-heading font-extrabold text-sm text-slate-800">
-                        ₹{rent.amount.toLocaleString()}
+                        {formatLocalizedCurrency(rent.amount, currentLang)}
                       </span>
                     </div>
                   ))}
@@ -1602,8 +1580,8 @@ export function DashboardTab({
             {reviews.length === 0 ? (
               <div className="bg-white rounded-2xl border border-slate-200 p-6 text-center text-xs text-slate-500">
                 <Star className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-bold text-slate-700">No Reviews Recorded Yet</p>
-                <p className="text-slate-400">Complete assignments with local employers to receive ratings on your permanent record.</p>
+                <p className="font-bold text-slate-700">{t('noReviewsRecorded')}</p>
+                <p className="text-slate-400">{t('completeAssignmentsForRatings')}</p>
               </div>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1614,7 +1592,7 @@ export function DashboardTab({
                         {[1, 2, 3, 4, 5].map((star) => (
                           <Star
                             key={star}
-                            className={`w-3.5 h-3.5 ${star <= (rev.rating || 5)
+                            className={`w-3.5 h-3.5 ${star <= rev.rating
                                 ? 'fill-yellow-400 text-yellow-500'
                                 : 'text-slate-200'
                               }`}
@@ -1622,7 +1600,7 @@ export function DashboardTab({
                         ))}
                       </div>
                       <span className="text-[10px] text-slate-400">
-                        {new Date(rev.created_at).toLocaleDateString()}
+                        {formatLocalizedDate(rev.created_at, currentLang)}
                       </span>
                     </div>
                     {rev.comment && (
@@ -1654,7 +1632,7 @@ export function DashboardTab({
                         <h5 className="font-bold text-xs text-slate-900">{notif.title}</h5>
                         <p className="text-xs text-slate-600 mt-0.5">{notif.message}</p>
                         <span className="text-[10px] text-slate-400 mt-1 block">
-                          {new Date(notif.created_at).toLocaleString()}
+                          {formatLocalizedDate(notif.created_at, currentLang, { day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' })}
                         </span>
                       </div>
                     </div>
@@ -1756,7 +1734,7 @@ export function DashboardTab({
 
                       <div className="flex items-center gap-3">
                         <span className="font-extrabold text-sm px-3 py-1.5 rounded-xl bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                          ₹{job.offered_wages} / day
+                          {formatLocalizedCurrency(job.offered_wages, currentLang)} / day
                         </span>
                         {job.status === 'open' && (
                           <button
@@ -1835,7 +1813,7 @@ export function DashboardTab({
                                       )}
                                     </div>
                                     <span className="text-[10px] text-slate-500 block mt-0.5">
-                                      Agreed Daily Wage: ₹{rec.agreed_wage || job.offered_wages || 500}
+                                      Agreed Daily Wage: {formatLocalizedCurrency(rec.agreed_wage || job.offered_wages || 500, currentLang)}
                                       {rec.total_working_hours ? ` • ${rec.total_working_hours}h worked` : ''}
                                       {rec.overtime_hours ? ` (+${rec.overtime_hours}h overtime)` : ''}
                                     </span>
@@ -1863,7 +1841,7 @@ export function DashboardTab({
                                           title="Hire / Accept this worker"
                                         >
                                           <CheckCircle2 className="w-3.5 h-3.5" />
-                                          <span>Hire</span>
+                                          <span>{t('hireWorker')}</span>
                                         </button>
 
                                         {currentStatus !== 'rejected' && (
@@ -1904,7 +1882,7 @@ export function DashboardTab({
                                         className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                       >
                                         <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Mark Worker Arrived</span>
+                                        <span>{t('markWorkerArrived')}</span>
                                       </button>
                                     </div>
                                   </div>
@@ -1921,7 +1899,7 @@ export function DashboardTab({
                                       className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
                                       <CheckCircle2 className="w-3.5 h-3.5" />
-                                      <span>Confirm Attendance</span>
+                                      <span>{t('confirmAttendance')}</span>
                                     </button>
                                   </div>
                                 )}
@@ -1937,7 +1915,7 @@ export function DashboardTab({
                                       className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                     >
                                       <Play className="w-3.5 h-3.5" />
-                                      <span>Start Work</span>
+                                      <span>{t('startWork')}</span>
                                     </button>
                                   </div>
                                 )}
@@ -1947,11 +1925,11 @@ export function DashboardTab({
                                     <div className="flex items-center gap-2">
                                       <span className="text-[11px] font-bold text-brand-800 flex items-center gap-1">
                                         <Clock className="w-3.5 h-3.5 text-brand-600" />
-                                        <span>{currentStatus === 'on_break' ? 'Worker on break' : 'Work in progress'}</span>
+                                        <span>{currentStatus === 'on_break' ? t('workerOnBreak') : t('workInProgressLabel')}</span>
                                       </span>
                                       {currentStatus === 'in_progress' && (
                                         <div className="flex items-center gap-1 bg-white px-2 py-0.5 rounded-lg border border-slate-200">
-                                          <span className="text-[10px] text-slate-400 font-bold">OT hrs:</span>
+                                          <span className="text-[10px] text-slate-400 font-bold">{t('overtimeHours')}:</span>
                                           <input
                                             type="number"
                                             min="0"
@@ -1974,38 +1952,40 @@ export function DashboardTab({
                                         {currentStatus === 'on_break' ? (
                                           <>
                                             <Play className="w-3 h-3 text-emerald-600" />
-                                            <span>Resume Work</span>
+                                            <span>{t('resumeWork')}</span>
                                           </>
                                         ) : (
                                           <>
                                             <Pause className="w-3 h-3 text-amber-600" />
-                                            <span>Take Break</span>
+                                            <span>{t('takeBreak')}</span>
                                           </>
                                         )}
                                       </button>
 
-                                      <button
+                                      {userRole === 'employer' && (
+<button
                                         type="button"
                                         onClick={() => handleCompleteWork(job.id, rec.id, rec.agreed_wage || job.offered_wages || 500, Number(overtimeInputs[rec.id] || 0))}
                                         className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                       >
                                         <CheckCircle2 className="w-3.5 h-3.5" />
-                                        <span>Complete Work</span>
+                                        <span>{t('completeWork')}</span>
                                       </button>
+)}
                                     </div>
                                   </div>
                                 )}
 
                                 {/* SETTLEMENT, RECEIPTS & REVIEWS (Requirement G, H) */}
-                                {(job.status === 'completed' || currentStatus === 'completed' || currentStatus === 'hired') && (
+                                {((currentStatus === 'completed' || currentStatus === 'work_completed') && Boolean(rec.work_completed_at || completionTimestampOverrides[rec.id])) && (
                                   <div className="pt-2 border-t border-slate-200/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-emerald-50/50 p-2.5 rounded-xl border border-emerald-100">
                                     <div className="text-xs">
                                       <div className="flex items-center gap-2">
-                                        <span className="font-bold text-slate-800">Total Payable: ₹{totalPayable}</span>
-                                        <span className="font-bold text-emerald-700">Paid: ₹{totalPaid}</span>
+                                        <span className="font-bold text-slate-800">Total Payable: {formatLocalizedCurrency(totalPayable, currentLang)}</span>
+                                        <span className="font-bold text-emerald-700">Paid: {formatLocalizedCurrency(totalPaid, currentLang)}</span>
                                         {remainingBal > 0 ? (
                                           <span className="font-bold text-amber-800 bg-amber-100 px-1.5 py-0.5 rounded text-[10px]">
-                                            Balance: ₹{remainingBal}
+                                            Balance: {formatLocalizedCurrency(remainingBal, currentLang)}
                                           </span>
                                         ) : (
                                           <span className="font-bold text-emerald-800 bg-emerald-100 px-1.5 py-0.5 rounded text-[10px]">
@@ -2036,7 +2016,7 @@ export function DashboardTab({
                                           className="px-2.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs flex items-center gap-1 shadow-xs transition-colors cursor-pointer"
                                         >
                                           <Landmark className="w-3.5 h-3.5" />
-                                          <span>Record Settlement (₹{remainingBal})</span>
+                                          <span>Record Settlement ({formatLocalizedCurrency(remainingBal, currentLang)})</span>
                                         </button>
                                       )}
 
@@ -2046,7 +2026,7 @@ export function DashboardTab({
                                         className="px-2.5 py-1.5 rounded-lg bg-white border border-slate-200 hover:bg-slate-100 text-slate-700 font-bold text-xs flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
                                       >
                                         <Receipt className="w-3.5 h-3.5 text-brand-600" />
-                                        <span>Receipt</span>
+                                        <span>{t('receipt')}</span>
                                       </button>
 
                                       {(() => {
@@ -2113,7 +2093,7 @@ export function DashboardTab({
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Refresh</span>
+                <span>{t('refresh')}</span>
               </button>
             </div>
 
@@ -2124,7 +2104,7 @@ export function DashboardTab({
             ) : previouslyHiredWorkers.length === 0 ? (
               <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500 space-y-1">
                 <UserCheck className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-bold text-slate-700">No Previously Hired Workers</p>
+                <p className="font-bold text-slate-700">{t('noPreviouslyHiredWorkers')}</p>
                 <p className="text-slate-400">
                   {t('noPreviouslyHired')}
                 </p>
@@ -2148,7 +2128,7 @@ export function DashboardTab({
                         </div>
                         <span className="flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200">
                           <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-400" />
-                          <span>{w.averageRating ? w.averageRating.toFixed(1) : '5.0'}</span>
+                          <span>{formatLocalizedNumber(w.averageRating || 5, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 })}</span>
                         </span>
                       </div>
 
@@ -2160,13 +2140,13 @@ export function DashboardTab({
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400">Date:</span>
+                          <span className="text-slate-400">{t('dateLabel')}:</span>
                           <span className="text-slate-600 font-mono">
-                            {new Date(w.lastHiredDate).toLocaleDateString()}
+                            {formatLocalizedDate(w.lastHiredDate, currentLang)}
                           </span>
                         </div>
                         <div className="flex items-center justify-between text-[11px]">
-                          <span className="text-slate-400">Total engagements:</span>
+                          <span className="text-slate-400">{t('totalEngagements')}:</span>
                           <span className="font-bold text-emerald-700">
                             {w.hiresCount} {t('timesHired')}
                           </span>
@@ -2249,7 +2229,7 @@ export function DashboardTab({
                 className="text-xs font-bold text-slate-500 hover:text-slate-800 flex items-center gap-1 cursor-pointer"
               >
                 <RefreshCw className="w-3.5 h-3.5" />
-                <span>Refresh</span>
+                <span>{t('refresh')}</span>
               </button>
             </div>
 
@@ -2260,7 +2240,7 @@ export function DashboardTab({
             ) : employerPayments.length === 0 ? (
               <div className="p-6 rounded-2xl bg-white border border-slate-200 text-center text-xs text-slate-500 space-y-1">
                 <Receipt className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="font-bold text-slate-700">No Payment Attempts Yet</p>
+                <p className="font-bold text-slate-700">{t('noPaymentAttempts')}</p>
                 <p className="text-slate-400">
                   When you settle daily wages using &quot;Pay Wage to Bank&quot;, records of your UPI attempts and submitted references will appear here.
                 </p>
@@ -2303,12 +2283,12 @@ export function DashboardTab({
                         </div>
                         <span className="text-[11px] text-slate-500 block font-mono">
                           {pay.payment_reference ? `Ref: ${pay.payment_reference}` : ''}
-                          {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ' • (Awaiting UTR)'} • {new Date(pay.created_at).toLocaleDateString()}
+                          {pay.transaction_ref ? ` • UTR: ${pay.transaction_ref}` : ' • (Awaiting UTR)'} • {formatLocalizedDate(pay.created_at, currentLang)}
                         </span>
                       </div>
 
                       <span className="font-heading font-black text-sm sm:text-base text-slate-900 self-end sm:self-center">
-                        -₹{pay.amount.toLocaleString()}
+                        -{formatLocalizedCurrency(pay.amount, currentLang)}
                       </span>
                     </div>
                   ))}

@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 602 570" role="img" aria-labelledby="title desc">
+  <title id="title">QuickHire verified search mark</title>
+  <desc id="desc">A white checkmark inside a saffron-to-green search ring on a deep navy background.</desc>
+  <defs>
+    <linearGradient id="quickhire-ring" x1="0" y1="0" x2="0.12" y2="1">
+      <stop offset="0" stop-color="#F28C28"/>
+      <stop offset="0.34" stop-color="#D5B94A"/>
+      <stop offset="0.68" stop-color="#42A86D"/>
+      <stop offset="1" stop-color="#079B70"/>
+    </linearGradient>
+  </defs>
+  <rect width="602" height="570" rx="0" fill="#102A43"/>
+  <path d="M430 408 L477 478" fill="none" stroke="#F28C28" stroke-width="54" stroke-linecap="butt"/>
+  <circle cx="291" cy="293" r="148" fill="none" stroke="url(#quickhire-ring)" stroke-width="70"/>
+  <path d="M236 292 L282 340 L365 237" fill="none" stroke="#FFFFFF" stroke-width="39" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>

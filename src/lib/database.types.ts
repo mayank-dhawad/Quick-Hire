@@ -12,6 +12,7 @@ export interface Database {
       profiles: {
         Row: {
           id: string
+          can_manage_rentals: boolean
           role: 'employer' | 'worker' | 'admin'
           full_name: string
           email: string | null
@@ -43,6 +44,7 @@ export interface Database {
         }
         Insert: {
           id: string
+          can_manage_rentals?: boolean
           role?: 'employer' | 'worker' | 'admin'
           full_name: string
           email?: string | null
@@ -74,6 +76,7 @@ export interface Database {
         }
         Update: {
           id?: string
+          can_manage_rentals?: boolean
           role?: 'employer' | 'worker' | 'admin'
           full_name?: string
           email?: string | null

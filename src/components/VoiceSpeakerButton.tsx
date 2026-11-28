@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Volume2, VolumeX } from 'lucide-react';
-import { speakText, stopSpeaking, subscribeToSpeech } from '../lib/speech';
+import { speakText, stopSpeaking, subscribeToSpeech, getVoiceAssistanceEnabled, subscribeToVoiceAssistance } from '../lib/speech';
+import { getTranslation } from '../lib/translations';
 
 interface VoiceSpeakerButtonProps {
   text: string;
@@ -13,13 +14,22 @@ interface VoiceSpeakerButtonProps {
 
 export function VoiceSpeakerButton({
   text,
-  lang = 'English',
   label,
-  className = '',
+  lang = 'English',
+    className = '',
   size = 'sm',
   showLabel = false,
 }: VoiceSpeakerButtonProps) {
   const [isPlaying, setIsPlaying] = useState(false);
+  const [voiceEnabled, setVoiceEnabled] = useState(() => getVoiceAssistanceEnabled());
+  const translatedListenLabel = getTranslation(lang, 'voiceListen');
+  const translatedPlayingLabel = getTranslation(lang, 'voicePlaying');
+  const listenLabel = label || (translatedListenLabel === 'voiceListen' ? 'Listen' : translatedListenLabel);
+  const playingLabel = translatedPlayingLabel === 'voicePlaying' ? 'Playing' : translatedPlayingLabel;
+
+  useEffect(() => {
+    return subscribeToVoiceAssistance(setVoiceEnabled);
+  }, []);
 
   useEffect(() => {
     const clean = text.trim();
@@ -34,12 +44,13 @@ export function VoiceSpeakerButton({
     e.preventDefault();
     e.stopPropagation();
 
+    if (!voiceEnabled) return;
     if (isPlaying) {
       stopSpeaking();
       return;
     }
 
-    speakText(text, lang);
+    speakText(text, lang, { userInitiated: true });
   };
 
   const sizeClasses = {
@@ -58,9 +69,10 @@ export function VoiceSpeakerButton({
     <button
       type="button"
       onClick={handleSpeak}
-      title={label || 'Listen aloud'}
-      aria-label={label || 'Listen aloud in audio'}
-      className={`inline-flex items-center justify-center rounded-lg transition-all focus:outline-hidden ${sizeClasses[size]} ${
+      disabled={!voiceEnabled}
+      title={listenLabel}
+      aria-label={listenLabel}
+      className={`inline-flex items-center justify-center rounded-lg transition-all focus:outline-hidden disabled:opacity-40 disabled:cursor-not-allowed ${sizeClasses[size]} ${
         isPlaying
           ? 'bg-amber-100 text-amber-800 ring-2 ring-amber-400 scale-105 shadow-xs'
           : 'bg-emerald-50 hover:bg-emerald-100 text-brand-600 hover:text-brand-700'
@@ -75,12 +87,12 @@ export function VoiceSpeakerButton({
             <span className="w-0.5 h-3 bg-amber-700 animate-bounce rounded-full" />
             <span className="w-0.5 h-1.5 bg-amber-600 animate-pulse rounded-full" />
           </span>
-          {showLabel && <span className="font-bold text-[10px] text-amber-800">Playing</span>}
+          {showLabel && <span className="font-bold text-[10px] text-amber-800">{playingLabel}</span>}
         </span>
       ) : (
         <span className="flex items-center gap-1">
           <Volume2 className={iconSizes[size]} />
-          {showLabel && <span className="text-[11px] font-medium">Listen</span>}
+          {showLabel && <span className="text-[11px] font-medium">{listenLabel}</span>}
         </span>
       )}
     </button>

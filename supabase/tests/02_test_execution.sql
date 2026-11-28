@@ -199,13 +199,23 @@ BEGIN
     RAISE NOTICE '[PASS] Test 8: Capacity limit strictly enforced on promotion (SQLSTATE %, Msg: %)', v_error_code, v_error_msg;
   END IF;
 
+  -- Mark the direct-hire assignment complete through its owning Employer.
+  -- Wage-payment tests below must use the same completed-work rule as production.
+  PERFORM set_config('request.jwt.claim.sub', v_emp_id::text, true);
+  UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_assign2_id;
+  UPDATE public.job_records SET status = 'arrived' WHERE id = v_assign2_id;
+  UPDATE public.job_records SET status = 'in_progress' WHERE id = v_assign2_id;
+  UPDATE public.job_records
+  SET status = 'completed', work_completed_at = now()
+  WHERE id = v_assign2_id;
+
   -- --------------------------------------------------------------------------
   -- TEST 9: Reject NULL, Zero and Negative Payment Amounts
   -- --------------------------------------------------------------------------
   v_op_succeeded := false;
   BEGIN
-    INSERT INTO public.payments (assignment_id, payer_id, payee_id, payment_for_type, amount, payment_method, status)
-    VALUES (v_assign2_id, v_emp_id, v_wrk2_id, 'worker_wage', -50, 'Cash', 'completed');
+    INSERT INTO public.payments (assignment_id, reference_id, payer_id, payee_id, payment_for_type, amount, payment_method, payment_reference, status)
+    VALUES (v_assign2_id, v_job2_id, v_emp_id, v_wrk2_id, 'worker_wage', -50, 'Cash', 'QH-TEST-NEGATIVE-' || v_assign2_id::text, 'completed');
     v_op_succeeded := true;
   EXCEPTION WHEN SQLSTATE '23514' THEN
     GET STACKED DIAGNOSTICS v_error_code = RETURNED_SQLSTATE, v_error_msg = MESSAGE_TEXT;
@@ -221,9 +231,9 @@ BEGIN
   -- TEST 10: Cash Payment Updates Assignment Ledger Atomically
   -- --------------------------------------------------------------------------
   INSERT INTO public.payments (
-    assignment_id, payer_id, payee_id, payment_for_type, amount, payment_method, status, verification_status
+    assignment_id, reference_id, payer_id, payee_id, payment_for_type, amount, payment_method, payment_reference, status, verification_status
   ) VALUES (
-    v_assign2_id, v_emp_id, v_wrk2_id, 'worker_wage', 700, 'Cash', 'completed', 'user_reported'
+    v_assign2_id, v_job2_id, v_emp_id, v_wrk2_id, 'worker_wage', 700, 'Cash', 'QH-TEST-CASH-' || v_assign2_id::text, 'completed', 'user_reported'
   ) RETURNING id INTO v_pay_id;
 
   SELECT total_paid, payment_status INTO v_current_paid, v_current_status FROM public.job_records WHERE id = v_assign2_id;
@@ -240,9 +250,9 @@ BEGIN
   v_op_succeeded := false;
   BEGIN
     INSERT INTO public.payments (
-      assignment_id, payer_id, payee_id, payment_for_type, amount, payment_method, status, verification_status
+      assignment_id, reference_id, payer_id, payee_id, payment_for_type, amount, payment_method, payment_reference, status, verification_status
     ) VALUES (
-      v_assign2_id, v_emp_id, v_wrk2_id, 'worker_wage', 100, 'Cash', 'completed', 'user_reported'
+      v_assign2_id, v_job2_id, v_emp_id, v_wrk2_id, 'worker_wage', 100, 'Cash', 'QH-TEST-OVERPAY-' || v_assign2_id::text, 'completed', 'user_reported'
     );
     v_op_succeeded := true;
   EXCEPTION WHEN SQLSTATE '23514' THEN
@@ -377,13 +387,22 @@ BEGIN
   -- --------------------------------------------------------------------------
   -- TEST 15C: Non-Admin Escalation Blocked by Trigger
   -- --------------------------------------------------------------------------
-  -- Create a separate eligible unverified payment on v_assign_id (Job 1) as employer/payer
+  -- Create a separate eligible unverified payment on v_assign_id (Job 1).
+  -- The assignment must be completed and the payment must carry a stable reference.
   PERFORM set_config('request.jwt.claim.sub', v_emp_id::text, true);
+  UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_assign_id;
+  UPDATE public.job_records SET status = 'arrived' WHERE id = v_assign_id;
+  UPDATE public.job_records SET status = 'in_progress' WHERE id = v_assign_id;
+  UPDATE public.job_records
+  SET status = 'completed', work_completed_at = now()
+  WHERE id = v_assign_id;
 
   INSERT INTO public.payments (
-    assignment_id, payer_id, payee_id, payment_for_type, amount, payment_method, status, verification_status
+    assignment_id, reference_id, payer_id, payee_id, payment_for_type,
+    amount, payment_method, payment_reference, status, verification_status
   ) VALUES (
-    v_assign_id, v_emp_id, v_wrk_id, 'worker_wage', 100, 'UPI', 'pending', 'unverified'
+    v_assign_id, v_job1_id, v_emp_id, v_wrk_id, 'worker_wage',
+    100, 'UPI', 'QH-TEST-UNVERIFIED-' || v_assign_id::text, 'pending', 'unverified'
   ) RETURNING id INTO v_unverified_pay_id;
 
   -- Non-admin payer attempts to escalate verification_status to 'verified'

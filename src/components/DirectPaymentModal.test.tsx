@@ -91,6 +91,8 @@ vi.mock('../lib/supabase', () => {
 // Mock speech
 vi.mock('../lib/speech', () => ({
   speakText: vi.fn(),
+  getVoiceAssistanceEnabled: vi.fn(() => true),
+  subscribeToVoiceAssistance: vi.fn(() => () => {}),
   getVoiceGuidance: vi.fn(),
   isSpeechSupported: vi.fn(() => true),
   subscribeToSpeech: vi.fn(() => () => {}),
@@ -271,7 +273,7 @@ describe('DirectPaymentModal & Direct UPI Intent Flow', () => {
 
       // Verify Step 2 UI is displayed
       expect(await screen.findByText(/UPI Intent Dispatched/i)).toBeInTheDocument();
-      expect(screen.getByText(/does not mark payments as paid merely because you returned/i)).toBeInTheDocument();
+      expect(screen.getByText(/Opening a UPI app does not confirm money transfer/i)).toBeInTheDocument();
       expect(screen.getByPlaceholderText(/e\.g\. 423849182394 or UPI Reference/i)).toBeInTheDocument();
 
       // Assert direct table inserts are eliminated in favor of RPC execution

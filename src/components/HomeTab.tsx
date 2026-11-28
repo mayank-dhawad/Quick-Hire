@@ -17,7 +17,7 @@ import {
   Send
 } from 'lucide-react';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency } from '../lib/translations';
 import { getJobSpeechText } from '../lib/speech';
 
 export interface JobItem {
@@ -72,11 +72,11 @@ export function HomeTab({
         <div className="flex items-center gap-2.5">
           <EmojiIcon name="megaphone" className="h-4 w-4 shrink-0" />
           <span className="font-semibold leading-relaxed">
-            <strong className="text-amber-900">Official Advisory:</strong> QuickHire is a 100% Free Direct Employment & Equipment Portal. Never pay middlemen or commission fees. Verify bank details in the Bank & Payouts tab for direct wage transfer.
+            <strong className="text-amber-900">{t('officialAdvisory')}:</strong> {t('officialAdvisoryBody')}
           </span>
         </div>
         <VoiceSpeakerButton
-          text="Official Advisory: QuickHire is a 100% Free Direct Employment and Equipment Portal. Never pay middlemen or commission fees. Verify bank details in the Bank and Payouts tab for direct wage transfer."
+          text={t('officialAdvisorySpeech')}
           lang={currentLang}
           label="Listen to official citizen advisory"
         />
@@ -202,7 +202,7 @@ export function HomeTab({
             onClick={() => onNavigateTab('workers')}
             className="text-xs font-bold text-brand-600 hover:text-brand-700 flex items-center gap-1 self-start sm:self-auto"
           >
-            <span>Browse Full Directory</span>
+            <span>{t('browseFullDirectory')}</span>
             <ArrowRight className="w-3.5 h-3.5" />
           </button>
         </div>
@@ -228,7 +228,7 @@ export function HomeTab({
               </p>
             </div>
             <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-brand-600">
-              <span>Explore Workers</span>
+              <span>{t('exploreWorkers')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -253,7 +253,7 @@ export function HomeTab({
               </p>
             </div>
             <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-amber-600">
-              <span>Explore Workers</span>
+              <span>{t('exploreWorkers')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -278,7 +278,7 @@ export function HomeTab({
               </p>
             </div>
             <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-blue-600">
-              <span>Explore Workers</span>
+              <span>{t('exploreWorkers')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -303,7 +303,7 @@ export function HomeTab({
               </p>
             </div>
             <div className="mt-5 pt-3 border-t border-slate-100 flex items-center justify-between text-xs font-bold text-brand-600">
-              <span>Explore Workers</span>
+              <span>{t('exploreWorkers')}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </div>
           </div>
@@ -374,7 +374,7 @@ export function HomeTab({
         {activeJobs.length === 0 ? (
           <div className="text-center py-12 bg-white rounded-2xl border border-slate-200 text-slate-500 text-sm p-6">
             <Briefcase className="w-8 h-8 text-slate-400 mx-auto mb-2" />
-            <p>No active job listings currently open. Employers can post jobs in seconds!</p>
+            <p>{t('noOpenJobsForWorkers')}</p>
             <button
               onClick={() => onNavigateTab('post-job')}
               className="mt-4 px-4 py-2 bg-brand-500 text-white rounded-xl text-xs font-bold hover:bg-brand-600 transition-colors"
@@ -401,7 +401,7 @@ export function HomeTab({
                         label="Listen to job details"
                       />
                       <span className="text-xs font-extrabold px-2.5 py-1 rounded-lg bg-amber-50 text-amber-800 border border-amber-200 whitespace-nowrap">
-                        ₹{job.offered_wages} / day
+                        {formatLocalizedCurrency(job.offered_wages, currentLang)} / day
                       </span>
                     </div>
                   </div>

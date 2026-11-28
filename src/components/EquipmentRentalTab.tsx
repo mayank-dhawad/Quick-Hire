@@ -13,9 +13,10 @@ import {
 } from 'lucide-react';
 import { EquipmentItem } from './PostEquipmentModal';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate } from '../lib/translations';
 
 interface EquipmentRentalTabProps {
+  canManageRentals?: boolean;
   equipmentList: EquipmentItem[];
   equipmentLoading: boolean;
   selectedCategory: string;
@@ -32,6 +33,7 @@ interface EquipmentRentalTabProps {
 }
 
 export function EquipmentRentalTab({
+  canManageRentals = false,
   equipmentList,
   equipmentLoading,
   selectedCategory,
@@ -90,13 +92,17 @@ export function EquipmentRentalTab({
         </div>
 
         <div className="flex items-center gap-3">
-          <button
+          {canManageRentals ? (
+            <button
             onClick={onPostEquipmentClick}
             className="px-5 py-3 rounded-xl bg-brand-500 hover:bg-brand-600 text-white font-bold text-xs sm:text-sm transition-all shadow-sm flex items-center gap-2 shrink-0"
           >
             <PlusCircle className="w-4 h-4" />
             <span>{t('listEquipmentBtn')}</span>
           </button>
+          ) : (
+            <span className="max-w-xs text-right text-[11px] leading-relaxed text-slate-500">{t('rentalProviderApprovalRequired')}</span>
+          )}
         </div>
       </div>
 
@@ -167,7 +173,7 @@ export function EquipmentRentalTab({
       {equipmentLoading ? (
         <div className="text-center py-16 text-slate-500 text-sm">
           <div className="inline-block animate-spin w-8 h-8 border-4 border-brand-500 border-t-transparent rounded-full mb-3" />
-          <p>Loading available machinery and tools...</p>
+          <p>{t('loadingEquipment')}</p>
         </div>
       ) : filteredEquipment.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-3xl border border-slate-200 p-8 space-y-4">
@@ -208,7 +214,7 @@ export function EquipmentRentalTab({
                       <span className="text-[11px] font-bold px-2.5 py-1 rounded-md bg-brand-50 text-brand-700 border border-brand-200">
                         {item.category}
                       </span>
-                      {currentUserId && item.owner_id === currentUserId && (
+                      {canManageRentals && currentUserId && item.owner_id === currentUserId && (
                         <button
                           type="button"
                           onClick={() => onEditEquipmentClick?.(item)}
@@ -255,7 +261,7 @@ export function EquipmentRentalTab({
                         {t('dailyRent')}
                       </span>
                       <span className="font-heading font-black text-lg text-brand-700">
-                        ₹{dailyRate}
+                        {formatLocalizedCurrency(dailyRate, currentLang)}
                         <span className="text-xs font-normal text-slate-500"> / {t('day')}</span>
                       </span>
                     </div>
@@ -265,7 +271,7 @@ export function EquipmentRentalTab({
                           {t('securityDeposit')}
                         </span>
                         <span className="text-xs font-bold text-slate-700">
-                          ₹{deposit}
+                          {formatLocalizedCurrency(deposit, currentLang)}
                         </span>
                       </div>
                     ) : (
@@ -281,7 +287,7 @@ export function EquipmentRentalTab({
                       Owner: {ownerName}
                     </span>
                     <span className="text-[11px] text-slate-400">
-                      {new Date(item.created_at).toLocaleDateString()}
+                      {formatLocalizedDate(item.created_at, currentLang)}
                     </span>
                   </div>
                 </div>
@@ -299,7 +305,7 @@ export function EquipmentRentalTab({
                   ) : (
                     <div className="w-full py-3 px-3 rounded-xl bg-slate-50 text-slate-600 text-xs flex items-center justify-center gap-2 border border-slate-200 text-center">
                       <Phone className="w-3.5 h-3.5 text-slate-500 shrink-0" />
-                      <span>Owner phone numbers are private and are not shown in public listings.</span>
+                      <span>{t('ownerPhonePrivate')}</span>
                     </div>
                   )}
 

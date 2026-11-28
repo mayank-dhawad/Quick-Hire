@@ -21,7 +21,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { speakText } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate } from '../lib/translations';
 import { PaymentRecord, UPI_REGEX } from '../lib/paymentUtils';
 import { extractErrorMessage } from '../lib/errorHandler';
 
@@ -226,37 +226,37 @@ export function DirectPaymentModal({
     }
 
     if (paymentForType === 'machine_rental') {
-      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      setErrorMsg(t('machineRentalDisabled'));
       return;
     }
 
     const effectiveJobId = jobId || referenceId || null;
     if (!effectiveJobId) {
-      setErrorMsg('A valid job reference is required to record wage payments.');
+      setErrorMsg(t('validJobReference'));
       return;
     }
 
     if (!assignmentId) {
-      setErrorMsg('A valid worker assignment reference (job_records.id) is required to record wage payments.');
+      setErrorMsg(t('validAssignmentReference'));
       return;
     }
 
     if (!recipientId) {
-      setErrorMsg('Recipient information is missing.');
+      setErrorMsg(t('recipientMissing'));
       return;
     }
 
     const parsedAmount = Number(amount);
     if (!parsedAmount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setErrorMsg('Please enter a valid cash amount.');
+      setErrorMsg(t('validPaymentAmount').replace('{amount}', formatLocalizedCurrency(1, currentLang)));
       return;
     }
     if (remainingBalance > 0 && parsedAmount > remainingBalance) {
-      setErrorMsg(`Payment amount (₹${parsedAmount}) cannot exceed remaining balance (₹${remainingBalance}).`);
+      setErrorMsg(t('paymentAmountExceedsRemaining').replace('{amount}', formatLocalizedCurrency(parsedAmount, currentLang)).replace('{balance}', formatLocalizedCurrency(remainingBalance, currentLang)));
       return;
     }
     if (remainingBalance <= 0 && totalPreviouslyPaid > 0) {
-      setErrorMsg('This assignment is already fully paid.');
+      setErrorMsg(t('assignmentFullyPaid'));
       return;
     }
 
@@ -345,23 +345,23 @@ export function DirectPaymentModal({
     }
 
     if (paymentForType === 'machine_rental') {
-      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      setErrorMsg(t('machineRentalDisabled'));
       return;
     }
 
     const effectiveJobId = jobId || referenceId || null;
     if (!effectiveJobId) {
-      setErrorMsg('A valid job reference is required to initiate wage payments.');
+      setErrorMsg(t('validJobReference'));
       return;
     }
 
     if (!assignmentId) {
-      setErrorMsg('A valid worker assignment reference (job_records.id) is required to initiate wage payments.');
+      setErrorMsg(t('validAssignmentReference'));
       return;
     }
 
     if (!recipientId) {
-      setErrorMsg('Recipient information is missing.');
+      setErrorMsg(t('recipientMissing'));
       return;
     }
 
@@ -373,16 +373,16 @@ export function DirectPaymentModal({
 
     const parsedAmount = Number(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setErrorMsg('Please enter a valid payment amount (minimum ₹1).');
+      setErrorMsg(t('validPaymentAmount').replace('{amount}', formatLocalizedCurrency(1, currentLang)));
       return;
     }
 
     if (remainingBalance > 0 && parsedAmount > remainingBalance) {
-      setErrorMsg(`Payment amount (₹${parsedAmount}) cannot exceed remaining balance (₹${remainingBalance}).`);
+      setErrorMsg(t('paymentAmountExceedsRemaining').replace('{amount}', formatLocalizedCurrency(parsedAmount, currentLang)).replace('{balance}', formatLocalizedCurrency(remainingBalance, currentLang)));
       return;
     }
     if (remainingBalance <= 0 && totalPreviouslyPaid > 0) {
-      setErrorMsg('This assignment is already fully paid.');
+      setErrorMsg(t('assignmentFullyPaid'));
       return;
     }
 
@@ -427,40 +427,40 @@ export function DirectPaymentModal({
     }
 
     if (paymentForType === 'machine_rental') {
-      setErrorMsg('Machine rental payments via in-app direct settlements are temporarily disabled pending booking contract verification.');
+      setErrorMsg(t('machineRentalDisabled'));
       return;
     }
 
     const effectiveJobId = jobId || referenceId || null;
     if (!effectiveJobId) {
-      setErrorMsg('A valid job reference is required to record wage payments.');
+      setErrorMsg(t('validJobReference'));
       return;
     }
 
     if (!assignmentId) {
-      setErrorMsg('A valid worker assignment reference (job_records.id) is required to record wage payments.');
+      setErrorMsg(t('validAssignmentReference'));
       return;
     }
 
     if (!recipientId) {
-      setErrorMsg('Recipient information is missing.');
+      setErrorMsg(t('recipientMissing'));
       return;
     }
 
     const cleanUtr = utrNumber.trim();
     if (!cleanUtr) {
-      setErrorMsg('Please enter the 12-digit UPI Reference / UTR Number from your payment receipt.');
+      setErrorMsg(t('submitUtrPrompt'));
       return;
     }
 
     if (cleanUtr.length < 6) {
-      setErrorMsg('UPI Reference / UTR number is usually 12 digits. Please check your payment receipt.');
+      setErrorMsg(t('utrFormatReminder'));
       return;
     }
 
     const parsedAmount = Number(amount);
     if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
-      setErrorMsg('Please enter a valid payment amount (minimum ₹1).');
+      setErrorMsg(t('validPaymentAmount').replace('{amount}', formatLocalizedCurrency(1, currentLang)));
       return;
     }
 
@@ -623,7 +623,7 @@ export function DirectPaymentModal({
                 <span>{t('duplicatePaymentWarning')}</span>
               </div>
               <p className="text-[11px] text-amber-800">
-                A previous payment attempt (Ref: <strong className="font-mono">{existingPendingAttempt.payment_reference || existingPendingAttempt.id.slice(0, 8)}</strong>) for ₹{existingPendingAttempt.amount} was initiated on {new Date(existingPendingAttempt.created_at || '').toLocaleDateString()}. Status: <em>{existingPendingAttempt.status}</em>.
+                {t('previousPaymentAttempt').replace('{reference}', String(existingPendingAttempt.payment_reference ?? existingPendingAttempt.id.slice(0, 8))).replace('{amount}', formatLocalizedCurrency(existingPendingAttempt.amount, currentLang)).replace('{date}', formatLocalizedDate(existingPendingAttempt.created_at, currentLang)).replace('{status}', String(existingPendingAttempt.status ?? ''))}
               </p>
               <button
                 type="button"
@@ -665,7 +665,7 @@ export function DirectPaymentModal({
                 </a>
               )}
               <div className="px-3 py-1.5 rounded-xl bg-emerald-50 text-emerald-800 border border-emerald-200 text-xs font-extrabold whitespace-nowrap">
-                ₹{amount}
+                {formatLocalizedCurrency(amount, currentLang)}
               </div>
             </div>
           </div>
@@ -675,7 +675,7 @@ export function DirectPaymentModal({
             <div className="mb-4 p-4 rounded-2xl bg-amber-50 border border-amber-200 text-xs text-amber-950 space-y-2">
               <div className="flex items-center gap-2 font-bold text-amber-950">
                 <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                <span>Machine Rental Direct Payments Temporarily Disabled</span>
+                <span>{t('machineRentalDisabledTitle')}</span>
               </div>
               <p className="text-[11px] text-amber-800 leading-relaxed">
                 Machinery rental payments via in-app direct settlements are temporarily disabled pending rental booking contract verification. Please arrange rental settlement directly with the equipment owner.
@@ -761,16 +761,16 @@ export function DirectPaymentModal({
               {totalPreviouslyPaid > 0 && (
                 <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-xs flex items-center justify-between">
                   <div>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase block">Total Agreed</span>
-                    <span className="font-bold text-slate-800">₹{defaultAmount}</span>
+                    <span className="text-[10px] text-slate-400 font-bold uppercase block" >{t('totalAgreed')}</span>
+                    <span className="font-bold text-slate-800">{formatLocalizedCurrency(defaultAmount, currentLang)}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-emerald-600 font-bold uppercase block">Paid So Far</span>
-                    <span className="font-bold text-emerald-700">₹{totalPreviouslyPaid}</span>
+                    <span className="text-[10px] text-emerald-600 font-bold uppercase block" >{t('paidSoFar')}</span>
+                    <span className="font-bold text-emerald-700">{formatLocalizedCurrency(totalPreviouslyPaid, currentLang)}</span>
                   </div>
                   <div>
-                    <span className="text-[10px] text-amber-600 font-bold uppercase block">Remaining Balance</span>
-                    <span className="font-black text-amber-800">₹{remainingBalance}</span>
+                    <span className="text-[10px] text-amber-600 font-bold uppercase block" >{t('remainingBalance')}</span>
+                    <span className="font-black text-amber-800">{formatLocalizedCurrency(remainingBalance, currentLang)}</span>
                   </div>
                 </div>
               )}
@@ -786,8 +786,8 @@ export function DirectPaymentModal({
                       <VoiceSpeakerButton
                         text={
                           hasValidUpi
-                            ? `Recipient UPI ID is ${cleanUpiId}. Amount is ₹${amount}. Tap Proceed to open your UPI payment app.`
-                            : 'Worker has not added a UPI ID yet.'
+                            ? `Recipient UPI ID is ${cleanUpiId}. Amount is ${formatLocalizedCurrency(amount, currentLang)}. Tap Proceed to open your UPI payment app.`
+                            : t('workerUpiNotAdded')
                         }
                         lang={currentLang}
                         label="Listen to UPI details"
@@ -813,7 +813,7 @@ export function DirectPaymentModal({
                     {/* AMOUNT CONFIRMATION INPUT */}
                     <div className="space-y-1.5 bg-white p-4 rounded-xl border border-emerald-200">
                       <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                        Agreed Payment Amount (₹ INR) *
+                        {t('agreedPaymentAmountLabel')}
                       </label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-slate-400">
@@ -845,12 +845,12 @@ export function DirectPaymentModal({
                         {isLaunchingIntent ? (
                           <>
                             <RefreshCw className="w-4 h-4 animate-spin" />
-                            <span>Launching UPI Intent...</span>
+                            <span>{t('launchingUpiIntent')}</span>
                           </>
                         ) : (
                           <>
                             <QrCode className="w-5 h-5" />
-                            <span>{t('proceedToUpiBtn')} (₹{amount})</span>
+                            <span>{t('proceedToUpiBtn')} ({formatLocalizedCurrency(amount, currentLang)})</span>
                             <ArrowRight className="w-4 h-4 ml-1" />
                           </>
                         )}
@@ -890,7 +890,7 @@ export function DirectPaymentModal({
 
                     <div className="space-y-1.5 bg-white p-4 rounded-xl border border-amber-200">
                       <label className="text-[11px] font-bold text-slate-700 uppercase tracking-wider block">
-                        Cash Amount Handed Over (₹ INR) *
+                        {t('cashAmountHandedOverLabel')}
                       </label>
                       <div className="relative">
                         <span className="absolute left-3.5 top-1/2 -translate-y-1/2 font-extrabold text-slate-400">
@@ -927,14 +927,14 @@ export function DirectPaymentModal({
                       className="w-full py-4 rounded-2xl bg-amber-600 hover:bg-amber-700 text-white font-black text-sm sm:text-base flex items-center justify-center gap-2 shadow-lg shadow-amber-600/30 transition-all hover:scale-[1.01] disabled:opacity-50 cursor-pointer"
                     >
                       <Check className="w-5 h-5" />
-                      <span>{isRecordingCash ? 'Recording Cash Settlement...' : `${t('recordCashBtn')} (₹${amount})`}</span>
+                      <span>{isRecordingCash ? t('recordingCashSettlement') : `${t('recordCashBtn')} (${formatLocalizedCurrency(amount, currentLang)})`}</span>
                     </button>
                   </div>
 
                   <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-slate-600 text-[11px] leading-relaxed flex items-start gap-2">
                     <Info className="w-4 h-4 text-slate-400 shrink-0 mt-0.5" />
                     <span>
-                      <strong>Notice:</strong> Cash settlements are recorded directly in QuickHire's permanent ledger as user-reported transactions. Both parties can view and print receipts immediately.
+                      <strong>{t('notice')}:</strong> Cash settlements are recorded directly in QuickHire's permanent ledger as user-reported transactions. Both parties can view and print receipts immediately.
                     </span>
                   </div>
                 </div>
@@ -1039,7 +1039,7 @@ export function DirectPaymentModal({
                     }}
                     className="w-full py-3 rounded-xl bg-slate-900 hover:bg-slate-800 disabled:opacity-50 text-white font-bold text-xs sm:text-sm flex items-center justify-center gap-2 cursor-pointer"
                   >
-                    <span>Transferred via Net Banking? Submit UTR Reference →</span>
+                    <span>{t('transferredViaNetBanking')} →</span>
                   </button>
                 </div>
               )}
@@ -1069,7 +1069,7 @@ export function DirectPaymentModal({
                     className="text-xs font-bold text-emerald-800 underline hover:text-emerald-950 flex items-center gap-1 cursor-pointer"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
-                    <span>Re-open UPI App</span>
+                    <span>{t('reopenUpiApp')}</span>
                   </button>
                   <span className="text-emerald-400">•</span>
                   <button
@@ -1097,7 +1097,7 @@ export function DirectPaymentModal({
                     />
                   </div>
                   <p className="text-[11px] text-slate-500 max-w-sm mx-auto">
-                    Pay exactly ₹{amount} to <strong className="font-mono text-slate-900">{cleanUpiId}</strong>
+                    {t('payExactly').replace('{amount}', formatLocalizedCurrency(amount, currentLang))} <strong className="font-mono text-slate-900">{cleanUpiId}</strong>
                   </p>
                 </div>
               )}
@@ -1112,7 +1112,7 @@ export function DirectPaymentModal({
                 </div>
 
                 <div className="p-3 rounded-xl bg-amber-50/70 border border-amber-200 text-[11px] text-amber-900 leading-relaxed">
-                  <strong>Important:</strong> QuickHire does not mark payments as paid merely because you returned to the site. Please enter your 12-digit UPI Reference / UTR Number from your UPI app receipt to submit the payment for verification.
+                  {t('unverifiedPaymentDisclaimer')} {t('submitUtrPrompt')}
                 </div>
 
                 {errorMsg && (
@@ -1128,7 +1128,7 @@ export function DirectPaymentModal({
                     className="p-3 rounded-xl bg-emerald-50 border border-emerald-200 text-xs text-emerald-800 font-bold flex items-center gap-2"
                   >
                     <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-                    <span>Reference submitted! Payment logged as Submitted (Awaiting Verification).</span>
+                    <span>{t('referenceSubmittedNotice')}</span>
                   </motion.div>
                 )}
 

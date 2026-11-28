@@ -118,5 +118,10 @@
         }
       ]
     }
-  ]
+  ],
+  "git": {
+    "deploymentEnabled": {
+      "feature/*": false
+    }
+  }
 }

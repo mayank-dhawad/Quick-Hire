@@ -44,6 +44,40 @@ vi.mock('../lib/supabase', () => {
   };
 });
 
+describe('QuickHire public landing and authentication entry', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  it('keeps authentication closed until Register or Login is selected', async () => {
+    render(<Auth isGate currentLang="English" />);
+
+    expect(screen.getByRole('button', { name: 'Register' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    expect(screen.queryByPlaceholderText(/Enter 10-digit mobile number/i)).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Register' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Enter 10-digit mobile number/i)).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Register' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Close authentication dialog' }));
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
+  });
+
+  it('opens the existing sign-in flow from the top Login action', () => {
+    render(<Auth isGate currentLang="English" />);
+
+    fireEvent.click(screen.getByRole('button', { name: 'Login' }));
+    expect(screen.getByRole('dialog')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Login' })).toBeInTheDocument();
+    expect(screen.getByPlaceholderText(/Enter 10-digit mobile number/i)).toBeInTheDocument();
+  });
+});
+
 describe('Auth Component with Supabase Native Phone Authentication', () => {
   beforeEach(() => {
     vi.clearAllMocks();
@@ -116,7 +150,7 @@ describe('Auth Component with Supabase Native Phone Authentication', () => {
     await waitFor(() => {
       expect(supabase.auth.signInWithOtp).toHaveBeenCalledWith({
         phone: '+919876543210',
-        options: { channel: 'sms' },
+        options: { channel: 'sms', shouldCreateUser: false },
       });
       // Verifies eligible message
       expect(screen.getByText(/If the number is eligible, a verification code will be sent by SMS/i)).toBeInTheDocument();

@@ -283,6 +283,36 @@ let currentSpeakingText: string | null = null;
 let activeUtterance: SpeechSynthesisUtterance | null = null;
 let globalSpeechRate = 0.8; // Default 0.8x for clear rural accessibility
 
+const VOICE_ASSISTANCE_STORAGE_KEY = 'quickhire_voice_assistance';
+type VoiceAssistanceListener = (enabled: boolean) => void;
+const voiceAssistanceListeners = new Set<VoiceAssistanceListener>();
+
+export function getVoiceAssistanceEnabled(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return window.localStorage.getItem(VOICE_ASSISTANCE_STORAGE_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+export function setVoiceAssistanceEnabled(enabled: boolean): void {
+  if (typeof window !== 'undefined') {
+    try { window.localStorage.setItem(VOICE_ASSISTANCE_STORAGE_KEY, String(enabled)); } catch { /* Storage may be unavailable. */ }
+  }
+  voiceAssistanceListeners.forEach((listener) => {
+    try { listener(enabled); } catch { /* Ignore listener errors. */ }
+  });
+  if (!enabled) stopSpeaking();
+}
+
+export function subscribeToVoiceAssistance(listener: VoiceAssistanceListener): () => void {
+  voiceAssistanceListeners.add(listener);
+  listener(getVoiceAssistanceEnabled());
+  return () => voiceAssistanceListeners.delete(listener);
+}
+
+
 export function setGlobalSpeechRate(rate: number): void {
   globalSpeechRate = Math.max(0.5, Math.min(1.5, rate));
 }
@@ -535,6 +565,7 @@ export function getTabSummarySpeechText(tab: string, lang = 'English'): string {
 }
 
 interface SpeakOptions {
+  userInitiated?: boolean;
   rate?: number;
   pitch?: number;
   onStart?: () => void;
@@ -548,7 +579,7 @@ interface SpeakOptions {
  * Uses a slower rate (0.8) so rural and elderly listeners can easily understand.
  */
 export function speakText(text: string, currentLang = 'English', options: SpeakOptions = {}): void {
-  if (!isSpeechSupported() || !text || !text.trim()) {
+  if (!options.userInitiated || !getVoiceAssistanceEnabled() || !isSpeechSupported() || !text || !text.trim()) {
     return;
   }
 

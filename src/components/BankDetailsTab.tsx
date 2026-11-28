@@ -22,7 +22,7 @@ import {
 import { supabase } from '../lib/supabase';
 import { speakText, getVoiceGuidance } from '../lib/speech';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
-import { getTranslation } from '../lib/translations';
+import { getTranslation, formatLocalizedCurrency, formatLocalizedDate } from '../lib/translations';
 import { extractErrorMessage } from '../lib/errorHandler';
 import { PaymentRecord, UPI_REGEX, IFSC_REGEX } from '../lib/paymentUtils';
 
@@ -618,7 +618,7 @@ export function BankDetailsTab({
                 {accountNo && confirmAccountNo && accountNo === confirmAccountNo && (
                   <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium pt-1">
                     <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                    <span>Account Numbers Match</span>
+                    <span>{t('accountNumbersMatch')}</span>
                   </div>
                 )}
               </div>
@@ -688,7 +688,7 @@ export function BankDetailsTab({
               ) : ifsc.trim() && IFSC_REGEX.test(ifsc.trim()) ? (
                 <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium pt-0.5">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Verified 11-digit IFSC structure</span>
+                  <span>{t('validIfsc')}</span>
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-400">
@@ -763,7 +763,7 @@ export function BankDetailsTab({
               ) : upiId.trim() && upiId.includes('@') && !upiId.startsWith('@') && !upiId.endsWith('@') ? (
                 <div className="flex items-center gap-1 text-[11px] text-emerald-600 font-medium pt-0.5">
                   <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
-                  <span>Valid UPI Virtual Payment Address (VPA) format</span>
+                  <span>{t('validUpi')}</span>
                 </div>
               ) : (
                 <p className="text-[11px] text-slate-400">
@@ -775,7 +775,7 @@ export function BankDetailsTab({
               <div className="mt-3 p-3.5 rounded-xl bg-amber-50/80 border border-amber-200/90 text-xs text-amber-900 flex items-start gap-2.5">
                 <ShieldCheck className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
                 <div className="space-y-1">
-                  <span className="font-bold block text-amber-950">Security & Privacy Note:</span>
+                  <span className="font-bold block text-amber-950">{t('securityPrivacyNote')}:</span>
                   <p className="text-[11px] leading-relaxed text-amber-800">
                     {t('eduUpiNoWithdrawal')}
                   </p>
@@ -947,7 +947,7 @@ export function BankDetailsTab({
                 <span>{t('totalReceived')}</span>
               </div>
               <div className="text-xl sm:text-2xl font-heading font-black text-slate-900">
-                ₹{totalReceived.toLocaleString('en-IN')}
+                {formatLocalizedCurrency(totalReceived, currentLang)}
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">{t('wagesAndRentals')}</p>
             </div>
@@ -958,7 +958,7 @@ export function BankDetailsTab({
                 <span>{t('totalPaidOut')}</span>
               </div>
               <div className="text-xl sm:text-2xl font-heading font-black text-slate-900">
-                ₹{totalSent.toLocaleString('en-IN')}
+                {formatLocalizedCurrency(totalSent, currentLang)}
               </div>
               <p className="text-[11px] text-slate-500 mt-0.5">{t('wagesAndMachineRents')}</p>
             </div>
@@ -1076,7 +1076,7 @@ export function BankDetailsTab({
                 {filteredPayments.map((p) => {
                   const isReceived = p.payee_id === user.id;
                   const dateStr = p.created_at
-                    ? new Date(p.created_at).toLocaleDateString('en-IN', {
+                    ? formatLocalizedDate(p.created_at, currentLang, {
                         day: 'numeric',
                         month: 'short',
                         year: 'numeric',
@@ -1124,7 +1124,7 @@ export function BankDetailsTab({
                             isReceived ? 'text-emerald-700' : 'text-slate-900'
                           }`}
                         >
-                          {isReceived ? '+' : '-'} ₹{Number(p.amount).toLocaleString('en-IN')}
+                          {isReceived ? '+' : '-'} {formatLocalizedCurrency(Number(p.amount), currentLang)}
                         </span>
                       </td>
 

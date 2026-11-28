@@ -8,6 +8,9 @@ import type { User, Session } from '@supabase/supabase-js';
 // Mock speech
 vi.mock('../lib/speech', () => ({
   speakText: vi.fn(),
+  stopSpeaking: vi.fn(),
+  getVoiceAssistanceEnabled: vi.fn(() => true),
+  subscribeToVoiceAssistance: vi.fn(() => () => {}),
   getVoiceGuidance: vi.fn(() => 'voice instructions'),
   getWorkerSpeechText: vi.fn(() => 'worker details'),
   subscribeToSpeech: vi.fn(() => () => {}),
@@ -30,6 +33,7 @@ vi.mock('../lib/translations', () => ({
       catSkilled: 'Skilled self-employed',
       callWorker: 'Call Worker',
       phoneAvailableToRegistered: 'Contact phone available to verified users',
+      newRating: 'New',
     };
     return map[key] || key;
   }),
@@ -108,7 +112,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
         skills: ['Masonry', 'Plastering'],
         experience_years: 12,
         daily_wage: 750,
-        average_rating: 4.8,
+        average_rating: null,
         is_available: true,
         village: 'Kalyan',
         city: 'Thane',
@@ -147,6 +151,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
       expect(screen.getByText('Baburao Apte')).toBeInTheDocument();
       expect(screen.getByText('Masonry')).toBeInTheDocument();
       expect(screen.getByText('Plastering')).toBeInTheDocument();
+      expect(screen.getByText('New')).toBeInTheDocument();
     });
   });
 
@@ -225,6 +230,7 @@ describe('WorkerDiscoveryModal Component - Secure Access & Pipeline Verification
       expect(supabase.from).toHaveBeenCalledWith('public_worker_directory');
       expect(supabase.from).toHaveBeenCalledWith('workers');
       expect(screen.getByText('Ananda Shinde')).toBeInTheDocument();
+      expect(screen.getByText('4.6')).toBeInTheDocument();
       expect(consoleWarnSpy).toHaveBeenCalledWith(
         expect.stringContaining('WorkerDiscoveryModal: public_worker_directory query failed, falling back:'),
         expect.anything()

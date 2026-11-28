@@ -10,7 +10,6 @@ import {
   CheckCircle2,
   Award,
   Phone,
-  Landmark,
   Sparkles,
   MapPin,
   IndianRupee,
@@ -40,7 +39,7 @@ import {
 } from '../lib/geocoding';
 import { VoiceSpeakerButton } from './VoiceSpeakerButton';
 import { speakText, getVoiceGuidance } from '../lib/speech';
-import { getTranslation, getSuggestedSkillTags } from '../lib/translations';
+import { getTranslation, getSuggestedSkillTags, formatLocalizedCurrency, formatLocalizedNumber } from '../lib/translations';
 import { PostCallDirectHireModal, DirectHireWorkerInfo } from './PostCallDirectHireModal';
 import { getIndianTelUri } from '../lib/phone';
 
@@ -55,7 +54,6 @@ interface WorkersTabProps {
   user: User | null;
   onRequireLogin: () => void;
   onRegisterSkillProfile: () => void;
-  onOpenDirectPayment: (recipientId: string, recipientName: string, recipientPhone?: string | null) => void;
   onOpenWorkerDiscovery: (category: string, skill: string) => void;
   onRefreshWorkers?: () => void;
   onAssignmentCreated?: (assignment: Record<string, unknown>, job: Record<string, unknown>) => void;
@@ -72,7 +70,6 @@ export function WorkersTab({
   user,
   onRequireLogin,
   onRegisterSkillProfile,
-  onOpenDirectPayment,
   onOpenWorkerDiscovery,
   onRefreshWorkers,
   onAssignmentCreated,
@@ -170,12 +167,12 @@ export function WorkersTab({
         if (error.code === 'P0001' || (error.message && error.message.toLowerCase().includes('limit'))) {
           setCallError({
             workerId,
-            message: 'Daily contact limit reached (15 calls per 24 hours). Please try again tomorrow.',
+            message: t('workerContactLimit').replace('{limit}', formatLocalizedNumber(15, currentLang)).replace('{hours}', formatLocalizedNumber(24, currentLang)),
           });
         } else if (error.code === 'P0002' || (error.message && error.message.toLowerCase().includes('not available'))) {
           setCallError({
             workerId,
-            message: 'Worker contact number is currently not available.',
+            message: t('workerContactUnavailable'),
           });
         } else {
           // Clean Option 3 authorization message (never leak raw error.message or DB internals)
@@ -229,7 +226,7 @@ export function WorkersTab({
   // Browser Geolocation API ("Use My Location")
   const handleGetCurrentLocation = () => {
     if (typeof window === 'undefined' || !navigator.geolocation) {
-      alert('Geolocation is not supported by your browser.');
+      alert(t('geolocationUnsupported'));
       return;
     }
     setIsLocatingGps(true);
@@ -677,7 +674,7 @@ export function WorkersTab({
                 )}
               </button>
 
-              {/* Find Nearby (Geocoding) Button */}
+              {/* {t('findNearby')} (Geocoding) Button */}
               <button
                 type="submit"
                 disabled={isLocating}
@@ -691,7 +688,7 @@ export function WorkersTab({
                 ) : (
                   <>
                     <Navigation className="w-4 h-4" />
-                    <span>Find Nearby</span>
+                    <span>{t('findNearby')}</span>
                   </>
                 )}
               </button>
@@ -718,7 +715,7 @@ export function WorkersTab({
             <div className="flex items-center gap-1.5 overflow-x-auto pb-0.5 text-xs no-scrollbar">
               <span className="text-[11px] font-bold text-slate-400 flex items-center gap-1 shrink-0">
                 <History className="w-3 h-3 text-slate-400" />
-                <span>Recent:</span>
+                <span>{t('recentLabel')}:</span>
               </span>
               {recentLocations.slice(0, 6).map((loc, idx) => (
                 <button
@@ -747,11 +744,11 @@ export function WorkersTab({
               <div className="flex items-center gap-1.5 text-brand-900 font-semibold truncate">
                 <MapPin className="w-3.5 h-3.5 text-brand-600 shrink-0" />
                 <span className="truncate">
-                  Active Location: <strong className="font-bold">{searchCoords.label}</strong> ({searchCoords.lat.toFixed(4)}, {searchCoords.lon.toFixed(4)})
+                  {t('workerActiveLocation')}: <strong className="font-bold">{searchCoords.label}</strong> ({formatLocalizedNumber(searchCoords.lat, currentLang, { minimumFractionDigits: 4, maximumFractionDigits: 4 })}, {formatLocalizedNumber(searchCoords.lon, currentLang, { minimumFractionDigits: 4, maximumFractionDigits: 4 })})
                 </span>
                 {selectedRadiusKm && (
                   <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-brand-200/70 text-brand-800 shrink-0">
-                    {selectedRadiusKm} km radius
+                    {formatLocalizedNumber(selectedRadiusKm, currentLang)} {t('workerRadius')}
                   </span>
                 )}
               </div>
@@ -976,7 +973,7 @@ export function WorkersTab({
       {workersLoading ? (
         <div className="text-center py-20 text-slate-400 text-sm">
           <div className="w-8 h-8 border-2 border-brand-500 border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-          <span>Loading verified workers...</span>
+          <span>{t('loadingVerifiedWorkers')}</span>
         </div>
       ) : processedWorkers.length === 0 ? (
         <div className="text-center py-16 bg-white rounded-2xl border border-slate-200 p-8 space-y-4">
@@ -1005,7 +1002,9 @@ export function WorkersTab({
             const isAssisted = worker.profiles?.is_assisted_profile;
             const wage = worker.daily_wage || 500;
             const expYears = worker.experience_years || 1;
-            const rating = worker.average_rating ? Number(worker.average_rating).toFixed(1) : '5.0';
+            const numericRating = Number(worker.average_rating);
+            const hasRating = worker.average_rating !== null && worker.average_rating !== undefined && Number.isFinite(numericRating) && numericRating >= 1 && numericRating <= 5;
+            const rating = hasRating ? formatLocalizedNumber(numericRating, currentLang, { minimumFractionDigits: 1, maximumFractionDigits: 1 }) : null;
             const distance = worker.distance_km;
             const isSelected = selectedWorkerId === worker.id;
 
@@ -1037,9 +1036,9 @@ export function WorkersTab({
                       </div>
                     </div>
 
-                    <div className="flex items-center gap-1 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-lg shrink-0">
-                      <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />
-                      <span className="text-xs font-bold text-amber-900">{rating}</span>
+                    <div className={`flex items-center gap-1 px-2 py-0.5 rounded-lg shrink-0 ${hasRating ? 'bg-amber-50 border border-amber-200' : 'bg-slate-50 border border-slate-200'}`}>
+                      {hasRating && <Star className="w-3.5 h-3.5 fill-amber-400 text-amber-500" />}
+                      <span className={`text-xs font-bold ${hasRating ? 'text-amber-900' : 'text-slate-600'}`}>{rating ?? t('newRating')}</span>
                     </div>
                   </div>
 
@@ -1052,7 +1051,7 @@ export function WorkersTab({
                           Daily Wage
                         </span>
                         <span className="font-extrabold text-slate-800">
-                          ₹{wage} / day
+                          {formatLocalizedCurrency(wage, currentLang)} / day
                         </span>
                       </div>
                     </div>
@@ -1092,14 +1091,14 @@ export function WorkersTab({
                       ) : (
                         <span className="inline-flex items-center gap-1 text-slate-400 text-xs italic">
                           <MapPin className="w-3 h-3 text-slate-300 shrink-0" />
-                          <span>Location not specified</span>
+                          <span>{t('locationNotSpecified')}</span>
                         </span>
                       )}
 
                       {/* Explicit indicator when genuine coordinates are missing */}
                       {(worker.latitude === null || worker.longitude === null) && (
                         <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-amber-700 bg-amber-50 border border-amber-200 px-2 py-0.5 rounded-md">
-                          <span>Map location not set</span>
+                          <span>{t('mapLocationNotSet')}</span>
                         </span>
                       )}
                       {isAssisted && (
@@ -1146,7 +1145,7 @@ export function WorkersTab({
                     {callingWorkerId === worker.id ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>Connecting...</span>
+                        <span>{t('connecting')}</span>
                       </>
                     ) : (
                       <>
@@ -1174,23 +1173,7 @@ export function WorkersTab({
                       </button>
                     ) : null}
 
-                    <button
-                      onClick={() => {
-                        if (!user) {
-                          onRequireLogin();
-                          return;
-                        }
-                        onOpenDirectPayment(
-                          worker.profiles?.id || worker.id,
-                          name,
-                          workerPhones[worker.id] || null
-                        );
-                      }}
-                      className="flex-1 py-2 rounded-xl bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors flex items-center justify-center gap-1.5 border border-emerald-200 cursor-pointer"
-                    >
-                      <Landmark className="w-3.5 h-3.5 text-emerald-700" />
-                      <span>{t('payWageToBank')}</span>
-                    </button>
+                    
                   </div>
 
                   <button

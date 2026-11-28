@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, useRef, lazy, Suspense } from 'react';
 import { PwaUpdatePrompt } from './components/PwaUpdatePrompt';
+import { Auth } from './components/Auth';
 import { EmojiIcon } from './components/EmojiIcon';
 import { supabase } from './lib/supabase';
 import { User } from '@supabase/supabase-js';
@@ -29,11 +30,11 @@ import { usePwaInstall } from './hooks/usePwaInstall';
 import { speakText, getVoiceGuidance } from './lib/speech';
 import { VoiceSpeakerButton } from './components/VoiceSpeakerButton';
 import { AccessibleVoiceBar } from './components/AccessibleVoiceBar';
+import { VoiceAssistanceToggle } from './components/VoiceAssistanceToggle';
 import { extractErrorMessage } from './lib/errorHandler';
 import { resolveLocalityCoordinates } from './lib/geocoding';
 
 // Lazy-loaded modals for code splitting and ultra-fast initial load
-const Auth = lazy(() => import('./components/Auth').then(m => ({ default: m.Auth })));
 const WorkerDiscoveryModal = lazy(() => import('./components/WorkerDiscoveryModal').then(m => ({ default: m.WorkerDiscoveryModal })));
 const WorkerProfileModal = lazy(() => import('./components/WorkerProfileModal').then(m => ({ default: m.WorkerProfileModal })));
 const PostEquipmentModal = lazy(() => import('./components/PostEquipmentModal').then(m => ({ default: m.PostEquipmentModal })));
@@ -136,7 +137,7 @@ interface PostedJobItem {
   job_records?: JobRecordItem[];
 }
 
-import { matchesSkillSearch, getTranslation } from './lib/translations';
+import { matchesSkillSearch, getTranslation, formatLocalizedCurrency } from './lib/translations';
 
 
 
@@ -185,6 +186,7 @@ export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [authChecking, setAuthChecking] = useState(true);
   const [userRole, setUserRole] = useState<'worker' | 'employer' | 'admin' | null>(null);
+  const [canManageRentals, setCanManageRentals] = useState(false);
 
   // Stable refs to prevent circular callback identity thrashing
   const userRef = useRef<User | null>(user);
@@ -194,6 +196,7 @@ export default function App() {
 
   // Safe user state updater that prevents redundant re-renders when identity hasn't changed
   const safeSetUser = useCallback((nextUser: User | null) => {
+    if (!nextUser) setCanManageRentals(false);
     setUser((prev) => {
       if (!prev && !nextUser) return null;
       if (
@@ -733,6 +736,7 @@ export default function App() {
 
       if (adminCheck.isAdmin) {
         setUserRole('admin');
+        setCanManageRentals(true);
         ensureAdminSession(activeUser, adminCheck.role, adminCheck.verifiedEmail, adminCheck.verifiedPhone);
         // Supabase Auth is the only source of truth for authenticated sessions.
         // Do not persist a browser-side user object as a login fallback.
@@ -743,12 +747,28 @@ export default function App() {
       } else {
         clearAdminSession();
 
-        const { data: profile, error: profileLookupError } = await supabase
+        let profileResult = await supabase
           .from('profiles')
-          .select('id, role, account_status')
+          .select('id, role, account_status, can_manage_rentals')
           .eq('id', activeUser.id)
           .maybeSingle();
 
+        // Keep preview builds compatible with production until the reviewed
+        // capability migration has been applied to the target database.
+        if (profileResult.error && /can_manage_rentals|42703/i.test(profileResult.error.message)) {
+          const legacyProfileResult = await supabase
+            .from('profiles')
+            .select('id, role, account_status')
+            .eq('id', activeUser.id)
+            .maybeSingle();
+          profileResult = {
+            ...legacyProfileResult,
+            data: legacyProfileResult.data as typeof profileResult.data,
+          };
+          setCanManageRentals(false);
+        }
+
+        const { data: profile, error: profileLookupError } = profileResult;
         if (profileLookupError) throw profileLookupError;
         if (!profile) {
           // An Auth session without its matching QuickHire profile is not a
@@ -765,6 +785,8 @@ export default function App() {
           showToast('Your account is suspended. Please contact QuickHire support.', 'error');
           return;
         }
+
+        setCanManageRentals(Boolean(profile.can_manage_rentals));
 
         if (profile?.role === 'employer') {
           setUserRole('employer');
@@ -1181,13 +1203,13 @@ export default function App() {
     );
   }
 
-  // Dedicated Admin Login Page (/admin/login)
+  // Dedicated {t('adminLogin')} Page (/admin/login)
   if (appRoute === 'admin-login') {
     return (
       <Suspense
         fallback={
           <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
-            Loading Admin Security Portal...
+            {t('loadingAdminSuite')}
           </div>
         }
       >
@@ -1203,13 +1225,13 @@ export default function App() {
     );
   }
 
-  // Dedicated Admin Dashboard Suite (/admin, /admin/users, /admin/jobs, etc.)
+  // Dedicated {t('tabDashboard')} Suite (/admin, /admin/users, /admin/jobs, etc.)
   if (isAdminPath()) {
     // 1. If auth is still verifying session, render loading screen
     if (authChecking) {
       return (
         <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
-          Verifying Admin Access...
+          {t('verifyingAdminAccess')}
         </div>
       );
     }
@@ -1225,9 +1247,9 @@ export default function App() {
             <div className="w-12 h-12 rounded-2xl bg-rose-500/20 text-rose-400 flex items-center justify-center mx-auto">
               <AlertTriangle className="w-6 h-6" />
             </div>
-            <h2 className="text-xl font-heading font-black text-white">403 — Unauthorized Access</h2>
+            <h2 className="text-xl font-heading font-black text-white">{t('unauthorizedAccessTitle')}</h2>
             <p className="text-xs text-slate-400 leading-relaxed">
-              Your current session ({user.email || 'Citizen'}) is authorized as a <strong>{userRole || 'standard user'}</strong>. Administrator authorization in <code className="text-rose-300 font-mono">admin_users</code> is required to open the security governance suite.
+              {t('unauthorizedAccessMessage').replace('{email}', user.email || 'Citizen').replace('{role}', userRole || 'standard user')}
             </p>
             <div className="pt-2 flex items-center gap-3">
               <button
@@ -1248,7 +1270,7 @@ export default function App() {
                 }}
                 className="flex-1 py-2.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs transition cursor-pointer"
               >
-                Admin Login
+                {t('adminLogin')}
               </button>
             </div>
           </div>
@@ -1262,7 +1284,7 @@ export default function App() {
         <Suspense
           fallback={
             <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
-              Loading Admin Security Portal...
+              {t('loadingAdminSuite')}
             </div>
           }
         >
@@ -1288,7 +1310,7 @@ export default function App() {
       <Suspense
         fallback={
           <div className="min-h-screen bg-slate-950 flex items-center justify-center text-emerald-400 font-bold">
-            Loading Admin Governance Suite...
+            {t('loadingAdminSuite')}
           </div>
         }
       >
@@ -1297,7 +1319,7 @@ export default function App() {
           globalSearchQuery={adminSearchQuery}
           onGlobalSearchChange={setAdminSearchQuery}
           onLogout={async () => {
-            showToast('Administrator session closed safely.', 'info');
+            showToast(t('adminSessionClosed'), 'info');
             clearAdminSession();
             sessionStorage.removeItem('quickhire_admin_preview_citizen');
             try {
@@ -1333,7 +1355,7 @@ export default function App() {
           }}
         >
           {currentAdminNav === 'admin-overview' && <AdminOverview />}
-          {currentAdminNav === 'admin-users' && <UserManagement />}
+          {currentAdminNav === 'admin-users' && <UserManagement currentLang={currentLang} />}
           {currentAdminNav === 'admin-jobs' && <JobManagement />}
           {currentAdminNav === 'admin-equipment' && <EquipmentManagement />}
           {currentAdminNav === 'admin-payments' && <PaymentManagement />}
@@ -1346,8 +1368,29 @@ export default function App() {
     );
   }
 
+
+  // Public launch experience: no operational listings or private records before login.
+  if (!user) {
+    return (
+      <Auth
+        isGate
+        currentLang={currentLang}
+        onLangChange={handleLangChange}
+        onLoginSuccess={(loggedInUser, role) => {
+          safeSetUser(loggedInUser);
+          setUserRole(role);
+          fetchUserData(loggedInUser, true);
+          if (role === 'admin') {
+            navigateTo('/admin');
+            setAppRoute('admin-overview');
+          }
+        }}
+      />
+    );
+  }
+
   return (
-    <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#0f2942] selection:text-white overflow-x-hidden w-full ${fontSizeZoom === 'larger' ? 'text-base' : fontSizeZoom === 'large' ? 'text-[15px]' : 'text-sm'
+    <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#102a43] selection:text-white overflow-x-hidden w-full ${fontSizeZoom === 'larger' ? 'text-base' : fontSizeZoom === 'large' ? 'text-[15px]' : 'text-sm'
       }`}>
       {/* REAL-TIME NETWORK STATUS BANNER */}
       <OfflineBanner />
@@ -1770,7 +1813,7 @@ export default function App() {
                                 <span className="font-bold text-slate-900 text-sm">{job.title}</span>
                               </div>
                               <span className="text-xs font-extrabold text-amber-800 bg-amber-50 px-2 py-1 rounded-lg border border-amber-200">
-                                ₹{job.offered_wages} / day
+                                {formatLocalizedCurrency(job.offered_wages, currentLang)} / day
                               </span>
                             </div>
                             <div className="pt-2 border-t border-slate-200 space-y-2">
@@ -1796,7 +1839,8 @@ export default function App() {
                                           ) : (
                                             <span className="text-slate-400 text-[10px]">{t('numberNotShared')}</span>
                                           )}
-                                          <button
+                                          {(rec.status === 'completed' || rec.status === 'work_completed') && rec.work_completed_at && (
+<button
                                             onClick={() => {
                                               setShowEmployerDashboard(false);
                                               setDirectPaymentModal({
@@ -1816,6 +1860,7 @@ export default function App() {
                                             <Landmark className="w-3 h-3 text-emerald-700" />
                                             <span>₹ {t('payWageToBank')}</span>
                                           </button>
+)}
                                         </div>
                                       </div>
                                     );
@@ -1857,16 +1902,16 @@ export default function App() {
       </AnimatePresence>
 
       {/* LAYER 1: TOP TRICOLOR & GIGW ACCESSIBILITY STRIP */}
-      <div className="bg-slate-900 text-white text-xs py-1.5 border-t-4 border-t-[#FF9933] shadow-xs">
+      <div className="bg-slate-900 text-white text-xs py-1.5 border-t-4 border-t-[#f28c28] shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 text-[11px] sm:text-xs min-w-0">
             <span className="flex items-center gap-1 shrink-0">
-              <span className="w-2 h-2 rounded-full bg-[#FF9933]" />
+              <span className="w-2 h-2 rounded-full bg-[#f28c28]" />
               <span className="w-2 h-2 rounded-full bg-[#FFFFFF]" />
               <span className="w-2 h-2 rounded-full bg-[#138808]" />
             </span>
             <span className="font-semibold text-slate-200 truncate">
-              ग्रामीण रोजगार एवं श्रम कल्याण पोर्टल | Rural Employment & Workforce Welfare Initiative — Direct 0% Commission Platform
+              {t('appTagline')}
             </span>
           </div>
 
@@ -1874,18 +1919,18 @@ export default function App() {
             {/* Skip to Main Content */}
             <a
               href="#main-content"
-              className="sr-only focus:not-sr-only focus:inline-block focus:bg-[#FF9933] focus:text-slate-900 px-2 py-0.5 rounded text-xs font-bold"
+              className="sr-only focus:not-sr-only focus:inline-block focus:bg-[#f28c28] focus:text-slate-900 px-2 py-0.5 rounded text-xs font-bold"
             >
               Skip to Main Content
             </a>
 
             {/* Font Size Accessibility Controls */}
             <div className="flex items-center gap-1 bg-slate-800 px-1.5 sm:px-2 py-0.5 rounded border border-slate-700">
-              <span className="text-[10px] text-slate-400 font-semibold mr-1 hidden sm:inline">Font:</span>
+              <span className="text-[10px] text-slate-400 font-semibold mr-1 hidden sm:inline">{t('fontSize')}:</span>
               <button
                 onClick={() => setFontSizeZoom('normal')}
                 className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'normal'
-                    ? 'bg-[#FF9933] text-slate-900'
+                    ? 'bg-[#f28c28] text-slate-900'
                     : 'text-slate-300 hover:text-white'
                   }`}
                 title="Default font size"
@@ -1895,7 +1940,7 @@ export default function App() {
               <button
                 onClick={() => setFontSizeZoom('large')}
                 className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'large'
-                    ? 'bg-[#FF9933] text-slate-900'
+                    ? 'bg-[#f28c28] text-slate-900'
                     : 'text-slate-300 hover:text-white'
                   }`}
                 title="Large font size"
@@ -1905,7 +1950,7 @@ export default function App() {
               <button
                 onClick={() => setFontSizeZoom('larger')}
                 className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'larger'
-                    ? 'bg-[#FF9933] text-slate-900'
+                    ? 'bg-[#f28c28] text-slate-900'
                     : 'text-slate-300 hover:text-white'
                   }`}
                 title="Extra large font size"
@@ -1916,7 +1961,7 @@ export default function App() {
 
             <span className="hidden md:inline-flex items-center gap-1.5 bg-emerald-950/80 text-emerald-300 px-2 py-0.5 rounded border border-emerald-500/40 font-semibold">
               <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-              <span> Voice Guidance Active</span>
+              <span> {t('voiceGuidanceActive')}</span>
             </span>
 
             <a
@@ -1924,7 +1969,7 @@ export default function App() {
               className="flex items-center gap-1 text-amber-300 hover:text-amber-200 font-bold tracking-wide"
             >
               <PhoneCall className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Toll-Free: 1800-180-1551</span>
+              <span className="hidden sm:inline">{t('publicKisanCallCenter')}: 1800-180-1551</span>
               <span className="sm:hidden">1800-180-1551</span>
             </a>
           </div>
@@ -1939,25 +1984,22 @@ export default function App() {
             onClick={() => setActiveTab('home')}
             className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0 min-w-0"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#0f2942] to-[#1a3d60] text-white flex flex-col items-center justify-center shadow-md border-2 border-[#FF9933]/60 group-hover:scale-105 transition-transform shrink-0">
-              <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
-              <span className="text-[7px] font-black tracking-widest uppercase text-emerald-300">DPI</span>
-            </div>
+            <img src="/quickhire-logo.svg" alt="QuickHire" className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-slate-200 shadow-sm transition-transform duration-200 group-hover:scale-[1.03] shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-heading font-black text-xl sm:text-2xl tracking-tight text-[#0f2942]">
+                <span className="font-heading font-black text-xl sm:text-2xl tracking-tight text-[#102a43]">
                   Quick<span className="text-[#138808]">Hire</span>
                 </span>
-                <span className="text-[9px] sm:text-[10px] uppercase font-extrabold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-sm bg-[#0f2942] text-white">
+                <span className="text-[9px] sm:text-[10px] uppercase font-extrabold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-sm bg-[#102a43] text-white">
                   Portal
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
                   <CheckCircle2 className="w-3 h-3 text-[#138808]" />
-                  Direct Benefit & Wage Settlement
+                  Work & wage records
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-600 font-medium hidden sm:block">
-                Rural Workforce, Skill Discovery & Agricultural Equipment Platform (Independent DPI Initiative)
+                {t('appTagline')}
               </p>
             </div>
           </div>
@@ -1965,13 +2007,15 @@ export default function App() {
           {/* Right: Language Selector, User Role Badge, Profile, Logout */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
 
+            <VoiceAssistanceToggle currentLang={currentLang} />
+
             {/* 5-Language Selector */}
             <div className="relative shrink-0">
               <button
                 onClick={() => setLangMenuOpen(!langMenuOpen)}
                 className="flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 transition-colors shadow-2xs"
               >
-                <Globe2 className="w-4 h-4 text-[#0f2942]" />
+                <Globe2 className="w-4 h-4 text-[#102a43]" />
                 <span className="hidden sm:inline">{currentLang}</span>
                 <span className="sm:hidden">{currentLang.slice(0, 2).toUpperCase()}</span>
               </button>
@@ -2010,29 +2054,29 @@ export default function App() {
               userRole === 'admin' ? (
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-slate-900 text-emerald-400 border border-emerald-500/40 whitespace-nowrap shadow-xs">
                   <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>Super Admin / मुख्य प्रशासक</span>
+                  <span>{t('adminRoleLabel')}</span>
                 </span>
               ) : userRole === 'employer' ? (
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-amber-50 text-amber-900 border border-amber-300 whitespace-nowrap">
                   <Building2 className="w-3.5 h-3.5 text-amber-700" />
-                  <span>Employer / नियोक्ता</span>
+                  <span>{t('roleEmployer')}</span>
                 </span>
               ) : (
                 <span className="hidden md:inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-900 border border-emerald-300 whitespace-nowrap">
                   <UserCheck className="w-3.5 h-3.5 text-[#138808]" />
-                  <span>Worker / कामगार</span>
+                  <span>{t('roleWorker')}</span>
                 </span>
               )
             )}
 
-            {/* Worker Profile Button - non-admin users */}
+            {/* {t('workerProfile')} Button - non-admin users */}
             {user && userRole !== 'admin' && (
               <button
                 onClick={() => setIsWorkerProfileOpen(true)}
                 className="hidden sm:flex px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-50 hover:bg-emerald-100 text-[#138808] border border-emerald-300 transition-colors items-center gap-1.5 whitespace-nowrap"
               >
                 <UserCheck className="w-3.5 h-3.5 text-[#138808]" />
-                <span className="hidden md:inline">Worker Profile</span>
+                <span className="hidden md:inline">{t('workerProfile')}</span>
                 <span className="md:hidden">Profile</span>
               </button>
             )}
@@ -2048,7 +2092,7 @@ export default function App() {
                 className="hidden sm:flex px-3.5 py-2 rounded-xl text-xs sm:text-sm font-bold bg-emerald-600 hover:bg-emerald-500 text-white shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
               >
                 <ShieldCheck className="w-4 h-4 text-white" />
-                <span>Admin Dashboard</span>
+                <span>{t('tabDashboard')}</span>
               </button>
             )}
 
@@ -2056,11 +2100,11 @@ export default function App() {
             {isInstallable && !isInstalled && (
               <button
                 onClick={() => promptInstall()}
-                className="hidden md:flex px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#FF9933] hover:bg-[#e68a2e] text-slate-900 shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                className="hidden md:flex px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#f28c28] hover:bg-[#e68a2e] text-slate-900 shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
                 title="Install QuickHire on your device"
               >
                 <Download className="w-3.5 h-3.5 text-slate-900" />
-                <span>Install App</span>
+                <span>{t('installApp')}</span>
               </button>
             )}
 
@@ -2075,7 +2119,7 @@ export default function App() {
             ) : (
               <button
                 onClick={() => setIsLoginOpen(true)}
-                className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#0f2942] hover:bg-[#1a3d60] text-white transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+                className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#102a43] hover:bg-[#1a3d60] text-white transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Phone className="w-3.5 h-3.5" />
                 <span>{t('login')}</span>
@@ -2095,15 +2139,15 @@ export default function App() {
         </div>
       </div>
 
-      {/* LAYER 3: BOTTOM OFFICIAL NAVIGATION BAR (ZERO HORIZONTAL OVERFLOW) */}
-      <div className="bg-[#0f2942] text-white sticky top-0 z-40 border-b-2 border-b-[#FF9933] shadow-md w-full">
+      {/* LAYER 3: ROLE-BASED NAVIGATION BAR (ZERO HORIZONTAL OVERFLOW) */}
+      <div className="bg-[#102a43] text-white sticky top-0 z-40 border-b-2 border-b-[#f28c28] shadow-md w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <nav className="flex items-center overflow-x-auto no-scrollbar py-0.5 gap-1 sm:gap-1.5 w-full">
             {/* Tab 1: Home / Portal Overview */}
             <button
               onClick={() => setActiveTab('home')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'home'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'home'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2111,11 +2155,12 @@ export default function App() {
               <span>{t('tabHome')}</span>
             </button>
 
-            {/* Tab 2: Workers Directory */}
+{(userRole === 'employer' || userRole === 'admin') && (
+
             <button
               onClick={() => setActiveTab('workers')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2123,11 +2168,13 @@ export default function App() {
               <span>{t('tabWorkers')}</span>
             </button>
 
+  )}
+
             {/* Tab 3: Equipment & Tool Bank */}
             <button
               onClick={() => setActiveTab('equipment')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'equipment'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'equipment'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2135,11 +2182,12 @@ export default function App() {
               <span>{t('tabEquipment')}</span>
             </button>
 
-            {/* Tab 4: Post Employment */}
+{(userRole === 'employer' || userRole === 'admin') && (
+
             <button
               onClick={() => setActiveTab('post-job')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2147,18 +2195,20 @@ export default function App() {
               <span>{t('tabPostJob')}</span>
             </button>
 
+  )}
+
             {/* Tab 5: Citizen Dashboard */}
             <button
               onClick={() => setActiveTab('my-jobs')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 relative ${activeTab === 'my-jobs'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 relative ${activeTab === 'my-jobs'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
               <EmojiIcon name="chart" className="h-4 w-4" />
               <span>{t('tabMyJobs')}</span>
               {myPostedJobs.length > 0 && (
-                <span className="w-4 h-4 rounded-full bg-[#FF9933] text-slate-900 text-[10px] font-black flex items-center justify-center">
+                <span className="w-4 h-4 rounded-full bg-[#f28c28] text-slate-900 text-[10px] font-black flex items-center justify-center">
                   {myPostedJobs.length}
                 </span>
               )}
@@ -2167,8 +2217,8 @@ export default function App() {
             {/* Tab 6: Bank & DBT Payouts */}
             <button
               onClick={() => setActiveTab('bank')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'bank'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'bank'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2179,8 +2229,8 @@ export default function App() {
             {/* Tab 7: Grievance & SOS Helplines */}
             <button
               onClick={() => setActiveTab('safety')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'safety'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'safety'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2197,7 +2247,7 @@ export default function App() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="lg:hidden border-t border-slate-700 bg-[#0f2942] px-4 py-4 space-y-3 shadow-2xl overflow-hidden text-white"
+              className="lg:hidden border-t border-slate-700 bg-[#102a43] px-4 py-4 space-y-3 shadow-2xl overflow-hidden text-white"
             >
               {/* MOBILE ACCOUNT & IDENTITY CARD */}
               {user ? (
@@ -2235,14 +2285,14 @@ export default function App() {
                       className="px-3 py-2 rounded-xl text-xs font-bold bg-slate-700 hover:bg-slate-600 text-slate-200 transition-colors flex items-center justify-center gap-1.5"
                     >
                       <UserCheck className="w-3.5 h-3.5 text-emerald-400" />
-                      <span>Profile</span>
+                      <span>{t('profileButton')}</span>
                     </button>
                     <button
                       onClick={() => {
                         setMobileMenuOpen(false);
                         setActiveTab('my-jobs');
                       }}
-                      className="px-3 py-2 rounded-xl text-xs font-bold bg-[#FF9933]/20 hover:bg-[#FF9933]/30 text-[#FF9933] border border-[#FF9933]/40 transition-colors flex items-center justify-center gap-1.5"
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-[#f28c28]/20 hover:bg-[#f28c28]/30 text-[#f28c28] border border-[#f28c28]/40 transition-colors flex items-center justify-center gap-1.5"
                     >
                       <span><EmojiIcon name="chart" className="mr-1 h-4 w-4" /> Dashboard</span>
                     </button>
@@ -2251,9 +2301,9 @@ export default function App() {
               ) : (
                 <div className="bg-gradient-to-r from-slate-800 to-slate-800/90 rounded-2xl p-3.5 border border-slate-700/80 space-y-2">
                   <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-200">अतिथि नागरिक / Guest Citizen</span>
+                    <span className="text-xs font-bold text-slate-200">{t('guestCitizen')}</span>
                     <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/20 text-amber-300 border border-amber-500/40">
-                      Not Signed In
+                      {t('notSignedIn')}
                     </span>
                   </div>
                   <p className="text-[11px] text-slate-400">
@@ -2264,10 +2314,10 @@ export default function App() {
                       setMobileMenuOpen(false);
                       setIsLoginOpen(true);
                     }}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FF9933] to-[#e68a2e] text-slate-900 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#f28c28] to-[#e68a2e] text-slate-900 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Phone className="w-3.5 h-3.5 text-slate-900" />
-                    <span>Login / Register Account</span>
+                    <span>{t('loginRegisterAccount')}</span>
                   </button>
                 </div>
               )}
@@ -2279,7 +2329,7 @@ export default function App() {
                     setActiveTab('home');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'home' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'home' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="landmark" className="h-4 w-4" />
@@ -2290,7 +2340,7 @@ export default function App() {
                     setActiveTab('workers');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'workers' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'workers' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="users" className="h-4 w-4" />
@@ -2301,7 +2351,7 @@ export default function App() {
                     setActiveTab('equipment');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'equipment' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'equipment' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="tractor" className="h-4 w-4" />
@@ -2312,7 +2362,7 @@ export default function App() {
                     setActiveTab('post-job');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'post-job' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'post-job' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="clipboard" className="h-4 w-4" />
@@ -2323,7 +2373,7 @@ export default function App() {
                     setActiveTab('my-jobs');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'my-jobs' || activeTab === 'dashboard' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'my-jobs' || activeTab === 'dashboard' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <div className="flex items-center gap-3">
@@ -2331,7 +2381,7 @@ export default function App() {
                     <span>{t('tabMyJobs')}</span>
                   </div>
                   {myPostedJobs.length > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-[#FF9933] text-slate-900 text-[10px] font-black flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-[#f28c28] text-slate-900 text-[10px] font-black flex items-center justify-center">
                       {myPostedJobs.length}
                     </span>
                   )}
@@ -2341,7 +2391,7 @@ export default function App() {
                     setActiveTab('bank');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'bank' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'bank' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="landmark" className="h-4 w-4" />
@@ -2352,7 +2402,7 @@ export default function App() {
                     setActiveTab('safety');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'safety' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'safety' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="shield" className="h-4 w-4" />
@@ -2372,7 +2422,7 @@ export default function App() {
                   className="w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-emerald-900/60 text-emerald-300 border border-emerald-600/50 hover:bg-emerald-800/60 transition-colors"
                 >
                   <ShieldCheck className="w-4 h-4 text-emerald-400" />
-                  <span>Admin Governance Suite</span>
+                  <span>{t('adminRoleLabel')}</span>
                 </button>
               )}
 
@@ -2387,13 +2437,13 @@ export default function App() {
                       await promptInstall();
                     }
                   }}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-[#FF9933]/15 text-[#FF9933] border border-[#FF9933]/30 hover:bg-[#FF9933]/25 transition-colors"
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-[#f28c28]/15 text-[#f28c28] border border-[#f28c28]/30 hover:bg-[#f28c28]/25 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <Download className="w-4 h-4 text-[#FF9933]" />
+                    <Download className="w-4 h-4 text-[#f28c28]" />
                     <span>Install QuickHire App</span>
                   </div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#FF9933]/20 text-white">
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#f28c28]/20 text-white">
                     PWA
                   </span>
                 </button>
@@ -2421,12 +2471,21 @@ export default function App() {
       <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
         <Suspense
           fallback={
-            <div className="flex justify-center items-center h-64 text-emerald-600 font-medium">
-              Loading QuickHire...
+            <div className="flex justify-center items-center h-64 text-brand-700 font-medium">
+              {t('loadingQuickHire')}
             </div>
           }
         >
-          {activeTab === 'home' && (
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="min-h-[45vh]"
+            >
+          {activeTab === 'home' && userRole !== 'employer' && (
             <HomeTab
               currentLang={currentLang}
               onNavigateTab={(tab) => setActiveTab(tab as ActiveTab)}
@@ -2458,7 +2517,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'workers' && (
+          {activeTab === 'workers' && (userRole === 'employer' || userRole === 'admin') && (
             <WorkersTab
               currentLang={currentLang}
               workersLoading={workersLoading}
@@ -2475,16 +2534,6 @@ export default function App() {
                 } else {
                   setIsWorkerModalOpen(true);
                 }
-              }}
-              onOpenDirectPayment={(recipientId, recipientName, recipientPhone) => {
-                setDirectPaymentModal({
-                  isOpen: true,
-                  recipientId,
-                  recipientName,
-                  recipientPhone,
-                  paymentForType: 'worker_wage',
-                  defaultAmount: 500,
-                });
               }}
               onOpenWorkerDiscovery={(category, skill) => {
                 if (!user) {
@@ -2506,6 +2555,7 @@ export default function App() {
 
           {activeTab === 'equipment' && (
             <EquipmentRentalTab
+              canManageRentals={canManageRentals}
               equipmentList={equipmentList}
               equipmentLoading={equipmentLoading}
               selectedCategory={selectedEquipCategory}
@@ -2517,6 +2567,7 @@ export default function App() {
                   setIsLoginOpen(true);
                   return;
                 }
+                if (!canManageRentals) return;
                 setEquipmentToEdit(null);
                 setIsPostEquipModalOpen(true);
               }}
@@ -2525,6 +2576,7 @@ export default function App() {
                   setIsLoginOpen(true);
                   return;
                 }
+                if (!canManageRentals) return;
                 setEquipmentToEdit(item);
                 setIsPostEquipModalOpen(true);
               }}
@@ -2546,7 +2598,7 @@ export default function App() {
             />
           )}
 
-          {activeTab === 'post-job' && (
+          {activeTab === 'post-job' && (userRole === 'employer' || userRole === 'admin') && (
             <PostJobTab
               currentLang={currentLang}
               employerTitle={employerTitle}
@@ -2570,7 +2622,7 @@ export default function App() {
             />
           )}
 
-          {(activeTab === 'dashboard' || activeTab === 'my-jobs') && (
+          {(activeTab === 'dashboard' || activeTab === 'my-jobs' || (activeTab === 'home' && userRole === 'employer')) && (
             <DashboardTab
               currentLang={currentLang}
               user={user}
@@ -2638,41 +2690,41 @@ export default function App() {
           )}
 
           {activeTab === 'safety' && <SafetyTab currentLang={currentLang} />}
+            </motion.div>
+          </AnimatePresence>
         </Suspense>
       </main>
 
-      {/* OFFICIAL MULTI-COLUMN GOVERNMENT FOOTER */}
-      <footer className="mt-auto w-full bg-[#0f2942] text-white py-12 border-t-4 border-t-[#FF9933]">
+      {/* PLATFORM INFORMATION FOOTER */}
+      <footer className="mt-auto w-full bg-[#102a43] text-white py-12 border-t-4 border-t-[#f28c28]">
         <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Column 1: Institutional DPI Branding & Mission */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white to-slate-200 text-[#0f2942] flex items-center justify-center font-heading font-black shadow-sm border border-amber-400">
-                  <Landmark className="w-6 h-6 text-[#0f2942]" />
-                </div>
+                <img src="/quickhire-logo.svg" alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow-sm" />
                 <div>
                   <span className="font-heading font-black text-xl tracking-tight text-white">
-                    Quick<span className="text-[#FF9933]">Hire</span>
+                    Quick<span className="text-[#f28c28]">Hire</span>
                   </span>
                   <p className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">
-                    National Rural DPI Portal
+                    Independent rural work platform
                   </p>
                 </div>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                National Digital Public Infrastructure for rural workforce registration, agricultural machinery sharing, and direct-to-bank wage settlement without middlemen.
+                An independent platform for rural job discovery, workforce coordination, equipment access, and clearer work and wage records.
               </p>
               <div className="flex items-center gap-2 text-[11px] text-emerald-300 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>0% Commission · 100% Direct Citizen Transfer</span>
+                <span>Independent platform · Role-based access</span>
               </div>
             </div>
 
             {/* Column 2: Portal Navigation */}
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                <EmojiIcon name="landmark" className="mr-1 inline h-4 w-4" /> Citizen Services & Navigation
+              <span className="text-xs font-bold uppercase tracking-wider text-[#f28c28] block mb-3">
+                <EmojiIcon name="landmark" className="mr-1 inline h-4 w-4" /> Platform information & navigation
               </span>
               <ul className="space-y-2 text-xs text-slate-300 font-medium">
                 <li>
@@ -2757,28 +2809,36 @@ export default function App() {
 
             {/* Column 3: Emergency & Labor Helplines */}
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                 <EmojiIcon name="phone" className="mr-1 inline h-4 w-4" /> Emergency & Labor Helplines
+              <span className="text-xs font-bold uppercase tracking-wider text-[#f28c28] block mb-3">
+                 <EmojiIcon name="phone" className="mr-1 inline h-4 w-4" /> {t('publicSafetyTitle')}
               </span>
               <div className="space-y-2.5 text-xs text-slate-300">
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="alert" className="mr-1 h-4 w-4" /> All-in-One Emergency:</span>
+                  <span> <EmojiIcon name="alert" className="mr-1 h-4 w-4" /> {t('sos112Title')}:</span>
                   <a href="tel:112" className="font-bold text-white hover:text-amber-300">112</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="ambulance" className="mr-1 h-4 w-4" /> Medical Ambulance:</span>
-                  <a href="tel:108" className="font-bold text-white hover:text-amber-300">108</a>
+                  <span> <EmojiIcon name="ambulance" className="mr-1 h-4 w-4" /> {t('publicAmbulance102')}:</span>
+                  <span className="font-bold text-white"><a href="tel:102" className="hover:text-amber-300">102</a> / <a href="tel:108" className="hover:text-amber-300">108</a></span>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="sprout" className="mr-1 h-4 w-4" /> Kisan Call Center:</span>
+                  <span> <EmojiIcon name="sprout" className="mr-1 h-4 w-4" /> {t('publicKisanCallCenter')}:</span>
                   <a href="tel:18001801551" className="font-bold text-amber-300 hover:text-white">1800-180-1551</a>
                 </div>
                 <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
-                  <span> <EmojiIcon name="hardHat" className="mr-1 h-4 w-4" /> National Labor Helpline:</span>
-                  <a href="tel:14434" className="font-bold text-white hover:text-amber-300">14434</a>
+                  <span> <EmojiIcon name="shield" className="mr-1 h-4 w-4" /> {t('publicWomen181')}:</span>
+                  <a href="tel:181" className="font-bold text-white hover:text-amber-300">181</a>
+                </div>
+                <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
+                  <span><EmojiIcon name="alert" className="mr-1 h-4 w-4" /> {t('publicChild1098')}:</span>
+                  <a href="tel:1098" className="font-bold text-white hover:text-amber-300">1098</a>
+                </div>
+                <div className="flex items-center justify-between pb-1 border-b border-slate-700/60">
+                  <span><EmojiIcon name="shield" className="mr-1 h-4 w-4" /> {t('publicCyber1930')}:</span>
+                  <a href="tel:1930" className="font-bold text-white hover:text-amber-300">1930</a>
                 </div>
                 <div className="flex items-center justify-between">
-                  <span><EmojiIcon name="shield" className="mr-1 h-4 w-4" /> Women Safety Helpline:</span>
+                  <span><EmojiIcon name="shield" className="mr-1 h-4 w-4" /> {t('sos1091Title')}:</span>
                   <a href="tel:1091" className="font-bold text-white hover:text-amber-300">1091</a>
                 </div>
               </div>
@@ -2786,11 +2846,11 @@ export default function App() {
 
             {/* Column 4: Supported Regional Languages */}
             <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                 <EmojiIcon name="globe" className="mr-1 inline h-4 w-4" /> Multilingual Audio Guidance
+              <span className="text-xs font-bold uppercase tracking-wider text-[#f28c28] block mb-3">
+                 <EmojiIcon name="globe" className="mr-1 inline h-4 w-4" /> {t('voiceHelper')}
               </span>
               <p className="text-xs text-slate-300 leading-relaxed">
-                Full voice guidance enabled across 5 regional languages with instant text-to-speech feedback.
+                {t('statVoiceNav')}
               </p>
               <div className="flex flex-wrap gap-1.5 pt-1">
                 {languages.map((lang) => (
@@ -2798,7 +2858,7 @@ export default function App() {
                     key={lang}
                     onClick={() => handleLangChange(lang)}
                     className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${currentLang === lang
-                        ? 'bg-[#FF9933] text-slate-900 font-bold'
+                        ? 'bg-[#f28c28] text-slate-900 font-bold'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
                       }`}
                   >
@@ -2812,14 +2872,14 @@ export default function App() {
           {/* GIGW 3.0 Statutory Public Service Disclaimer */}
           <div className="pt-6 pb-2 text-[11px] text-slate-400 border-t border-slate-800/80 leading-relaxed text-center sm:text-left">
             <p>
-              <strong className="text-slate-300">Public Service Disclaimer:</strong> QuickHire is an independent, non-governmental rural digital public infrastructure platform connecting citizens for livelihood and agricultural equipment rental opportunities. It is not affiliated with, operated by, or endorsed by the Government of India or any state government ministry. All helpline numbers (112, 108, 1091, 14434, 1800-180-1551) are provided as public safety references for direct citizen access.
+              {t('publicDisclaimer')}
             </p>
           </div>
 
           <div className="pt-4 border-t border-slate-800/50 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400">
-            <span>Designed for Rural Digital Empowerment • Accessible Voice-Enabled Interface • 0% Commission Direct Settlement</span>
+            <span>{t('appTagline')} · {t('voiceHelper')} · {t('publicCommissionBadge')}</span>
             <div className="flex items-center gap-4">
-              <span>© {new Date().getFullYear()} QuickHire Rural DPI Initiative. All Rights Reserved.</span>
+              <span>© {new Date().getFullYear()} {t('publicPlatformName')}. {t('allRightsReserved')}</span>
               <a
                 href="/admin/login"
                 onClick={(e) => {
@@ -2829,7 +2889,7 @@ export default function App() {
                 }}
                 className="text-slate-400 hover:text-emerald-400 font-bold transition flex items-center gap-1 cursor-pointer"
               >
-                <span>Admin Portal</span>
+                <span>{t('adminRoleLabel')}</span>
               </a>
             </div>
           </div>
@@ -2839,7 +2899,7 @@ export default function App() {
       {/* MOBILE BOTTOM NAVIGATION BAR (FIXED ON SCREEN BOTTOM FOR EASY 1-THUMB NAVIGATION) */}
       <nav
         aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0f2942]/95 backdrop-blur-md border-t border-[#FF9933]/50 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.25)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#102a43]/95 backdrop-blur-md border-t border-[#f28c28]/50 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.25)]"
       >
         <div className="grid grid-cols-5 h-16 items-center px-1">
           {/* 1. Home */}
@@ -2847,48 +2907,65 @@ export default function App() {
             type="button"
             onClick={() => setActiveTab('home')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
-              activeTab === 'home' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+              activeTab === 'home' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="landmark" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Home</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabHome')}</span>
           </button>
 
-          {/* 2. Workers */}
+          {(userRole === 'employer' || userRole === 'admin') && (
+
           <button
             type="button"
             onClick={() => setActiveTab('workers')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
-              activeTab === 'workers' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+              activeTab === 'workers' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="users" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Workers</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabWorkers')}</span>
           </button>
+
+          )}
 
           {/* 3. Equipment */}
           <button
             type="button"
             onClick={() => setActiveTab('equipment')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
-              activeTab === 'equipment' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+              activeTab === 'equipment' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="tractor" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Equipment</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabEquipment')}</span>
           </button>
 
-          {/* 4. Post Job */}
+          {(userRole === 'employer' || userRole === 'admin') ? (
+
           <button
             type="button"
             onClick={() => setActiveTab('post-job')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
-              activeTab === 'post-job' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+              activeTab === 'post-job' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="clipboard" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Post Job</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabPostJob')}</span>
           </button>
+
+          ) : (
+            <button type="button" onClick={() => setActiveTab('bank')} className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${activeTab === 'bank' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'}`}>
+              <EmojiIcon name="landmark" className="h-5 w-5" />
+              <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabBank')}</span>
+            </button>
+          )}
+          {userRole !== 'employer' && userRole !== 'admin' && (
+            <button type="button" onClick={() => setActiveTab('safety')} className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${activeTab === 'safety' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'}`}>
+              <EmojiIcon name="shield" className="h-5 w-5" />
+              <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabSafety')}</span>
+            </button>
+          )}
 
           {/* 5. Dashboard / Account */}
           <button
@@ -2896,14 +2973,14 @@ export default function App() {
             onClick={() => setActiveTab('my-jobs')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors relative cursor-pointer ${
               activeTab === 'my-jobs' || activeTab === 'dashboard'
-                ? 'text-[#FF9933] font-bold'
+                ? 'text-[#f28c28] font-bold'
                 : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="chart" className="h-5 w-5" />
-            <span className="text-[10px] mt-1 font-medium tracking-tight">Dashboard</span>
+            <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabDashboard')}</span>
             {myPostedJobs.length > 0 && (
-              <span className="absolute top-2 right-3 w-4 h-4 rounded-full bg-[#FF9933] text-slate-900 text-[9px] font-black flex items-center justify-center">
+              <span className="absolute top-2 right-3 w-4 h-4 rounded-full bg-[#f28c28] text-slate-900 text-[9px] font-black flex items-center justify-center">
                 {myPostedJobs.length}
               </span>
             )}

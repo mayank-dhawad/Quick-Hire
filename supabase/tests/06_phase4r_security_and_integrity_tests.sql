@@ -218,7 +218,7 @@ BEGIN
     UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_assignment_id;
     UPDATE public.job_records SET status = 'arrived' WHERE id = v_assignment_id;
     UPDATE public.job_records SET status = 'in_progress' WHERE id = v_assignment_id;
-    UPDATE public.job_records SET status = 'completed' WHERE id = v_assignment_id;
+    UPDATE public.job_records SET status = 'completed', work_completed_at = now() WHERE id = v_assignment_id;
 
     UPDATE public.jobs SET status = 'in_progress' WHERE id = v_job_id;
 
@@ -265,14 +265,14 @@ BEGIN
     UPDATE public.job_records SET status = 'on_the_way' WHERE id = v_historical_assignment_id;
     UPDATE public.job_records SET status = 'arrived' WHERE id = v_historical_assignment_id;
     UPDATE public.job_records SET status = 'in_progress' WHERE id = v_historical_assignment_id;
-    UPDATE public.job_records SET status = 'completed' WHERE id = v_historical_assignment_id;
+    UPDATE public.job_records SET status = 'completed', work_completed_at = now() WHERE id = v_historical_assignment_id;
 
     INSERT INTO public.payments (
         id, payer_id, payee_id, payment_for_type, reference_id, assignment_id, amount,
-        payment_method, status, verification_status, recorded_by
+        payment_method, payment_reference, status, verification_status, recorded_by
     ) VALUES (
         v_historical_payment_id, v_contractor_id, v_assisted_worker_id, 'worker_wage', v_historical_job_id,
-        v_historical_assignment_id, 500, 'Cash', 'completed', 'user_reported', v_contractor_id
+        v_historical_assignment_id, 500, 'Cash', 'QH-HISTORICAL-' || v_historical_payment_id::text, 'completed', 'user_reported', v_contractor_id
     );
 
     UPDATE public.jobs SET status = 'completed' WHERE id = v_historical_job_id;
@@ -1134,6 +1134,12 @@ BEGIN
             bank_ifsc = EXCLUDED.bank_ifsc,
             upi_id = EXCLUDED.upi_id;
 
+        -- Insert a historical ledger fixture through the trusted service-role
+        -- path. This intentionally has no assignment because it models legacy data.
+        PERFORM set_config('role', 'service_role', true);
+        PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+        PERFORM set_config('request.jwt.claim.sub', '', true);
+
         -- Insert immutable payment ledger row where fin_user is payee
         INSERT INTO public.payments (
             id, payer_id, payee_id, amount, payment_method, payment_for_type, status, reference_id, transaction_ref
@@ -1141,8 +1147,19 @@ BEGIN
             v_payment_id, v_employer_id, v_fin_user_id, 500, 'Direct UPI', 'worker_wage', 'completed', v_job_id::text, 'UTR-TEST-FIN-001'
         );
 
-        -- Delete user from auth.users
+        -- Return to the normal test actor context for the deletion assertions.
+        PERFORM set_config('role', 'postgres', true);
+        PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_employer_id::text, true);
+
+        -- Model a real self-service account deletion: auth.uid() must identify
+        -- the account being deleted. The profile identity guard intentionally
+        -- blocks unrelated authenticated users from changing account_status.
+        PERFORM set_config('request.jwt.claim.sub', v_fin_user_id::text, true);
         DELETE FROM auth.users WHERE id = v_fin_user_id;
+
+        -- Restore the test operator for the follow-up synchronization assertion.
+        PERFORM set_config('request.jwt.claim.sub', v_employer_id::text, true);
 
         -- Assert that payment ledger row was NOT cascade-deleted
         SELECT EXISTS(SELECT 1 FROM public.payments WHERE id = v_payment_id) INTO v_payment_still_exists;
@@ -1186,20 +1203,31 @@ BEGIN
         v_record_id uuid := gen_random_uuid();
         v_record_still_exists boolean;
     BEGIN
-        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-        VALUES (v_app_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'app.user@quickhire.in', 'pw', now(), now(), now());
+        -- Auth signup creates a profile for the registering identity.
+        PERFORM set_config('request.jwt.claim.sub', v_app_user_id::text, true);
+        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+        VALUES (v_app_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'app.user@quickhire.in', 'pw', now(), '{"role":"worker"}'::jsonb, now(), now());
 
-        -- Auth signup trigger creates the profile; update it for this test fixture.
+        -- Auth signup trigger creates the Worker profile; do not mutate its immutable role.
         UPDATE public.profiles
-        SET full_name = 'Application User', role = 'worker',
+        SET full_name = 'Application User',
             phone_number = '+919876543288', is_assisted_profile = false, account_status = 'active'
         WHERE id = v_app_user_id;
 
         INSERT INTO public.workers (id, category, skills) VALUES (v_app_user_id, 'Construction', ARRAY['Masonry']);
 
+        -- Seed this historical completed assignment through the trusted service-role
+        -- path; a worker cannot directly create a completed assignment.
+        PERFORM set_config('role', 'service_role', true);
+        PERFORM set_config('request.jwt.claim.role', 'service_role', true);
+        PERFORM set_config('request.jwt.claim.sub', '', true);
         INSERT INTO public.job_records (id, job_id, worker_id, status)
         VALUES (v_record_id, v_job_alt_id, v_app_user_id, 'completed');
 
+        -- Restore the same authenticated worker identity for self-service deletion.
+        PERFORM set_config('role', 'postgres', true);
+        PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+        PERFORM set_config('request.jwt.claim.sub', v_app_user_id::text, true);
         DELETE FROM auth.users WHERE id = v_app_user_id;
 
         SELECT EXISTS(SELECT 1 FROM public.job_records WHERE id = v_record_id) INTO v_record_still_exists;
@@ -1219,12 +1247,14 @@ BEGIN
         v_review_id uuid := gen_random_uuid();
         v_review_still_exists boolean;
     BEGIN
-        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-        VALUES (v_rev_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'rev.user@quickhire.in', 'pw', now(), now(), now());
+        -- Register this identity as an Employer instead of mutating its role later.
+        PERFORM set_config('request.jwt.claim.sub', v_rev_user_id::text, true);
+        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+        VALUES (v_rev_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'rev.user@quickhire.in', 'pw', now(), '{"role":"employer"}'::jsonb, now(), now());
 
         -- Auth signup trigger creates the profile; update it for this test fixture.
         UPDATE public.profiles
-        SET full_name = 'Reviewer User', role = 'employer',
+        SET full_name = 'Reviewer User',
             phone_number = '+919876543277', is_assisted_profile = false, account_status = 'active'
         WHERE id = v_rev_user_id;
 
@@ -1250,12 +1280,14 @@ BEGIN
         v_open_job_id uuid := gen_random_uuid();
         v_open_job_status text;
     BEGIN
-        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, created_at, updated_at)
-        VALUES (v_emp_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'emp.user@quickhire.in', 'pw', now(), now(), now());
+        -- Register this identity as an Employer rather than mutating its role later.
+        PERFORM set_config('request.jwt.claim.sub', v_emp_user_id::text, true);
+        INSERT INTO auth.users (id, instance_id, aud, role, email, encrypted_password, email_confirmed_at, raw_user_meta_data, created_at, updated_at)
+        VALUES (v_emp_user_id, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', 'emp.user@quickhire.in', 'pw', now(), '{"role":"employer"}'::jsonb, now(), now());
 
         -- Auth signup trigger creates the profile; update it for this test fixture.
         UPDATE public.profiles
-        SET full_name = 'Employer User', role = 'employer',
+        SET full_name = 'Employer User',
             phone_number = '+919876543266', is_assisted_profile = false, account_status = 'active'
         WHERE id = v_emp_user_id;
 
