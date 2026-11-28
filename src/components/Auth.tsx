@@ -1168,22 +1168,22 @@ export function Auth({
       <div className="min-h-screen bg-[#fbfcf8] text-[#182b3a] font-sans overflow-x-hidden">
         <div className="h-1 w-full bg-gradient-to-r from-[#f28c28] via-white to-[#138808]" />
         <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-[#d9e2ec]">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[76px] flex items-center justify-between gap-4">
-            <a href="#public-home" className="flex items-center gap-3 shrink-0" aria-label="QuickHire home">
-              <img src="/quickhire-logo.svg" alt="" className="h-12 w-12 rounded-xl object-cover ring-1 ring-[#d9e2ec]" />
-              <div>
-                <div className="font-heading text-[23px] leading-none font-black tracking-tight text-[#102a43]">Quick<span className="text-[#f28c28]">Hire</span></div>
-                <p className="mt-1 text-[10px] sm:text-[11px] font-semibold tracking-wide text-slate-500">{t('appTagline')}</p>
-              </div>
-            </a>
-            <nav aria-label="Public navigation" className="hidden lg:flex items-center gap-7 text-sm font-semibold text-slate-600">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[76px] grid grid-cols-[1fr_auto_1fr] items-center gap-3 sm:gap-4">
+            <nav aria-label="Public navigation" className="hidden lg:flex col-start-1 items-center gap-4 xl:gap-6 text-sm font-semibold text-slate-600">
               <a href="#public-about" className="hover:text-[#138808]">{t('publicNavAbout')}</a>
               <a href="#public-how" className="hover:text-[#138808]">{t('publicNavHow')}</a>
               <a href="#public-features" className="hover:text-[#138808]">{t('publicNavFeatures')}</a>
               <a href="#public-safety" className="hover:text-[#138808]">{t('publicNavSafety')}</a>
               <a href="#public-contact" className="hover:text-[#138808]">{t('publicNavContact')}</a>
             </nav>
-            <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+            <a href="#public-home" className="col-start-2 justify-self-center flex items-center gap-2 sm:gap-3 shrink-0 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#138808] focus-visible:ring-offset-4" aria-label="QuickHire home — return to top">
+              <img src="/quickhire-logo.svg" alt="" className="h-12 w-12 rounded-xl object-cover ring-1 ring-[#d9e2ec]" />
+              <div>
+                <div className="font-heading text-[23px] leading-none font-black tracking-tight text-[#102a43]">Quick<span className="text-[#f28c28]">Hire</span></div>
+                <p className="mt-1 text-[10px] sm:text-[11px] font-semibold tracking-wide text-slate-500">{t('appTagline')}</p>
+              </div>
+            </a>
+            <div className="col-start-3 justify-self-end flex items-center gap-2 sm:gap-3 shrink-0">
               <div className="relative hidden sm:block">
                 <button type="button" aria-expanded={langMenuOpen} onClick={() => setLangMenuOpen(!langMenuOpen)} className="inline-flex items-center gap-2 rounded-lg px-2.5 py-2 text-xs sm:text-sm font-semibold text-slate-700 hover:bg-slate-50">
                   <Globe2 className="h-4 w-4 text-[#102a43]" />
