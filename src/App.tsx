@@ -1390,7 +1390,7 @@ export default function App() {
   }
 
   return (
-    <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#0f2942] selection:text-white overflow-x-hidden w-full ${fontSizeZoom === 'larger' ? 'text-base' : fontSizeZoom === 'large' ? 'text-[15px]' : 'text-sm'
+    <div className={`min-h-screen bg-[#f8fafc] text-slate-900 flex flex-col font-sans selection:bg-[#102a43] selection:text-white overflow-x-hidden w-full ${fontSizeZoom === 'larger' ? 'text-base' : fontSizeZoom === 'large' ? 'text-[15px]' : 'text-sm'
       }`}>
       {/* REAL-TIME NETWORK STATUS BANNER */}
       <OfflineBanner />
@@ -1902,16 +1902,16 @@ export default function App() {
       </AnimatePresence>
 
       {/* LAYER 1: TOP TRICOLOR & GIGW ACCESSIBILITY STRIP */}
-      <div className="bg-slate-900 text-white text-xs py-1.5 border-t-4 border-t-[#FF9933] shadow-xs">
+      <div className="bg-slate-900 text-white text-xs py-1.5 border-t-4 border-t-[#f28c28] shadow-xs">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 text-[11px] sm:text-xs min-w-0">
             <span className="flex items-center gap-1 shrink-0">
-              <span className="w-2 h-2 rounded-full bg-[#FF9933]" />
+              <span className="w-2 h-2 rounded-full bg-[#f28c28]" />
               <span className="w-2 h-2 rounded-full bg-[#FFFFFF]" />
               <span className="w-2 h-2 rounded-full bg-[#138808]" />
             </span>
             <span className="font-semibold text-slate-200 truncate">
-              {t('appTagline')} · {t('publicCommissionBadge')}
+              {t('appTagline')}
             </span>
           </div>
 
@@ -1919,7 +1919,7 @@ export default function App() {
             {/* Skip to Main Content */}
             <a
               href="#main-content"
-              className="sr-only focus:not-sr-only focus:inline-block focus:bg-[#FF9933] focus:text-slate-900 px-2 py-0.5 rounded text-xs font-bold"
+              className="sr-only focus:not-sr-only focus:inline-block focus:bg-[#f28c28] focus:text-slate-900 px-2 py-0.5 rounded text-xs font-bold"
             >
               Skip to Main Content
             </a>
@@ -1930,7 +1930,7 @@ export default function App() {
               <button
                 onClick={() => setFontSizeZoom('normal')}
                 className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'normal'
-                    ? 'bg-[#FF9933] text-slate-900'
+                    ? 'bg-[#f28c28] text-slate-900'
                     : 'text-slate-300 hover:text-white'
                   }`}
                 title="Default font size"
@@ -1940,7 +1940,7 @@ export default function App() {
               <button
                 onClick={() => setFontSizeZoom('large')}
                 className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'large'
-                    ? 'bg-[#FF9933] text-slate-900'
+                    ? 'bg-[#f28c28] text-slate-900'
                     : 'text-slate-300 hover:text-white'
                   }`}
                 title="Large font size"
@@ -1950,7 +1950,7 @@ export default function App() {
               <button
                 onClick={() => setFontSizeZoom('larger')}
                 className={`px-1.5 py-0.5 text-[11px] font-bold rounded transition-colors ${fontSizeZoom === 'larger'
-                    ? 'bg-[#FF9933] text-slate-900'
+                    ? 'bg-[#f28c28] text-slate-900'
                     : 'text-slate-300 hover:text-white'
                   }`}
                 title="Extra large font size"
@@ -1984,21 +1984,18 @@ export default function App() {
             onClick={() => setActiveTab('home')}
             className="flex items-center gap-2.5 sm:gap-3 cursor-pointer group shrink-0 min-w-0"
           >
-            <div className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl bg-gradient-to-br from-[#0f2942] to-[#1a3d60] text-white flex flex-col items-center justify-center shadow-md border-2 border-[#FF9933]/60 group-hover:scale-105 transition-transform shrink-0">
-              <Landmark className="w-4 h-4 sm:w-5 sm:h-5 text-amber-300" />
-              <span className="text-[7px] font-black tracking-widest uppercase text-emerald-300">QH</span>
-            </div>
+            <img src="/quickhire-logo.svg" alt="QuickHire" className="w-10 h-10 sm:w-11 sm:h-11 rounded-xl object-cover border border-slate-200 shadow-sm transition-transform duration-200 group-hover:scale-[1.03] shrink-0" />
             <div className="min-w-0">
               <div className="flex items-center gap-1.5 sm:gap-2">
-                <span className="font-heading font-black text-xl sm:text-2xl tracking-tight text-[#0f2942]">
+                <span className="font-heading font-black text-xl sm:text-2xl tracking-tight text-[#102a43]">
                   Quick<span className="text-[#138808]">Hire</span>
                 </span>
-                <span className="text-[9px] sm:text-[10px] uppercase font-extrabold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-sm bg-[#0f2942] text-white">
+                <span className="text-[9px] sm:text-[10px] uppercase font-extrabold tracking-wider px-1.5 sm:px-2 py-0.5 rounded-sm bg-[#102a43] text-white">
                   Portal
                 </span>
                 <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-300">
                   <CheckCircle2 className="w-3 h-3 text-[#138808]" />
-                  Direct Benefit & Wage Settlement
+                  Work & wage records
                 </span>
               </div>
               <p className="text-[11px] sm:text-xs text-slate-600 font-medium hidden sm:block">
@@ -2018,7 +2015,7 @@ export default function App() {
                 onClick={() => setLangMenuOpen(!langMenuOpen)}
                 className="flex items-center gap-2 px-2.5 sm:px-3 py-2 rounded-xl text-xs sm:text-sm font-bold border border-slate-300 bg-slate-50 hover:bg-slate-100 text-slate-800 transition-colors shadow-2xs"
               >
-                <Globe2 className="w-4 h-4 text-[#0f2942]" />
+                <Globe2 className="w-4 h-4 text-[#102a43]" />
                 <span className="hidden sm:inline">{currentLang}</span>
                 <span className="sm:hidden">{currentLang.slice(0, 2).toUpperCase()}</span>
               </button>
@@ -2103,7 +2100,7 @@ export default function App() {
             {isInstallable && !isInstalled && (
               <button
                 onClick={() => promptInstall()}
-                className="hidden md:flex px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#FF9933] hover:bg-[#e68a2e] text-slate-900 shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
+                className="hidden md:flex px-3 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#f28c28] hover:bg-[#e68a2e] text-slate-900 shadow-sm transition-all items-center gap-1.5 whitespace-nowrap cursor-pointer"
                 title="Install QuickHire on your device"
               >
                 <Download className="w-3.5 h-3.5 text-slate-900" />
@@ -2122,7 +2119,7 @@ export default function App() {
             ) : (
               <button
                 onClick={() => setIsLoginOpen(true)}
-                className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#0f2942] hover:bg-[#1a3d60] text-white transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap"
+                className="px-3 sm:px-4 py-2 rounded-xl text-xs sm:text-sm font-bold bg-[#102a43] hover:bg-[#1a3d60] text-white transition-all shadow-sm flex items-center gap-1.5 whitespace-nowrap"
               >
                 <Phone className="w-3.5 h-3.5" />
                 <span>{t('login')}</span>
@@ -2142,15 +2139,15 @@ export default function App() {
         </div>
       </div>
 
-      {/* LAYER 3: BOTTOM OFFICIAL NAVIGATION BAR (ZERO HORIZONTAL OVERFLOW) */}
-      <div className="bg-[#0f2942] text-white sticky top-0 z-40 border-b-2 border-b-[#FF9933] shadow-md w-full">
+      {/* LAYER 3: ROLE-BASED NAVIGATION BAR (ZERO HORIZONTAL OVERFLOW) */}
+      <div className="bg-[#102a43] text-white sticky top-0 z-40 border-b-2 border-b-[#f28c28] shadow-md w-full">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
           <nav className="flex items-center overflow-x-auto no-scrollbar py-0.5 gap-1 sm:gap-1.5 w-full">
             {/* Tab 1: Home / Portal Overview */}
             <button
               onClick={() => setActiveTab('home')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'home'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2163,7 +2160,7 @@ export default function App() {
             <button
               onClick={() => setActiveTab('workers')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2177,7 +2174,7 @@ export default function App() {
             <button
               onClick={() => setActiveTab('equipment')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'equipment'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2190,7 +2187,7 @@ export default function App() {
             <button
               onClick={() => setActiveTab('post-job')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2204,14 +2201,14 @@ export default function App() {
             <button
               onClick={() => setActiveTab('my-jobs')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 relative ${activeTab === 'my-jobs'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
               <EmojiIcon name="chart" className="h-4 w-4" />
               <span>{t('tabMyJobs')}</span>
               {myPostedJobs.length > 0 && (
-                <span className="w-4 h-4 rounded-full bg-[#FF9933] text-slate-900 text-[10px] font-black flex items-center justify-center">
+                <span className="w-4 h-4 rounded-full bg-[#f28c28] text-slate-900 text-[10px] font-black flex items-center justify-center">
                   {myPostedJobs.length}
                 </span>
               )}
@@ -2221,7 +2218,7 @@ export default function App() {
             <button
               onClick={() => setActiveTab('bank')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'bank'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2233,7 +2230,7 @@ export default function App() {
             <button
               onClick={() => setActiveTab('safety')}
               className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'safety'
-                  ? 'border-b-[#FF9933] bg-white/15 text-white'
+                  ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
             >
@@ -2250,7 +2247,7 @@ export default function App() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="lg:hidden border-t border-slate-700 bg-[#0f2942] px-4 py-4 space-y-3 shadow-2xl overflow-hidden text-white"
+              className="lg:hidden border-t border-slate-700 bg-[#102a43] px-4 py-4 space-y-3 shadow-2xl overflow-hidden text-white"
             >
               {/* MOBILE ACCOUNT & IDENTITY CARD */}
               {user ? (
@@ -2295,7 +2292,7 @@ export default function App() {
                         setMobileMenuOpen(false);
                         setActiveTab('my-jobs');
                       }}
-                      className="px-3 py-2 rounded-xl text-xs font-bold bg-[#FF9933]/20 hover:bg-[#FF9933]/30 text-[#FF9933] border border-[#FF9933]/40 transition-colors flex items-center justify-center gap-1.5"
+                      className="px-3 py-2 rounded-xl text-xs font-bold bg-[#f28c28]/20 hover:bg-[#f28c28]/30 text-[#f28c28] border border-[#f28c28]/40 transition-colors flex items-center justify-center gap-1.5"
                     >
                       <span><EmojiIcon name="chart" className="mr-1 h-4 w-4" /> Dashboard</span>
                     </button>
@@ -2317,7 +2314,7 @@ export default function App() {
                       setMobileMenuOpen(false);
                       setIsLoginOpen(true);
                     }}
-                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#FF9933] to-[#e68a2e] text-slate-900 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
+                    className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#f28c28] to-[#e68a2e] text-slate-900 font-extrabold text-xs shadow-md transition-all flex items-center justify-center gap-2 cursor-pointer"
                   >
                     <Phone className="w-3.5 h-3.5 text-slate-900" />
                     <span>{t('loginRegisterAccount')}</span>
@@ -2332,7 +2329,7 @@ export default function App() {
                     setActiveTab('home');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'home' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'home' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="landmark" className="h-4 w-4" />
@@ -2343,7 +2340,7 @@ export default function App() {
                     setActiveTab('workers');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'workers' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'workers' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="users" className="h-4 w-4" />
@@ -2354,7 +2351,7 @@ export default function App() {
                     setActiveTab('equipment');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'equipment' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'equipment' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="tractor" className="h-4 w-4" />
@@ -2365,7 +2362,7 @@ export default function App() {
                     setActiveTab('post-job');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'post-job' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'post-job' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="clipboard" className="h-4 w-4" />
@@ -2376,7 +2373,7 @@ export default function App() {
                     setActiveTab('my-jobs');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'my-jobs' || activeTab === 'dashboard' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'my-jobs' || activeTab === 'dashboard' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <div className="flex items-center gap-3">
@@ -2384,7 +2381,7 @@ export default function App() {
                     <span>{t('tabMyJobs')}</span>
                   </div>
                   {myPostedJobs.length > 0 && (
-                    <span className="w-5 h-5 rounded-full bg-[#FF9933] text-slate-900 text-[10px] font-black flex items-center justify-center">
+                    <span className="w-5 h-5 rounded-full bg-[#f28c28] text-slate-900 text-[10px] font-black flex items-center justify-center">
                       {myPostedJobs.length}
                     </span>
                   )}
@@ -2394,7 +2391,7 @@ export default function App() {
                     setActiveTab('bank');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'bank' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'bank' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="landmark" className="h-4 w-4" />
@@ -2405,7 +2402,7 @@ export default function App() {
                     setActiveTab('safety');
                     setMobileMenuOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'safety' ? 'bg-[#FF9933] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
+                  className={`w-full flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold ${activeTab === 'safety' ? 'bg-[#f28c28] text-slate-900 font-bold' : 'text-slate-200 hover:bg-white/10'
                     }`}
                 >
                   <EmojiIcon name="shield" className="h-4 w-4" />
@@ -2440,13 +2437,13 @@ export default function App() {
                       await promptInstall();
                     }
                   }}
-                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-[#FF9933]/15 text-[#FF9933] border border-[#FF9933]/30 hover:bg-[#FF9933]/25 transition-colors"
+                  className="w-full flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-semibold bg-[#f28c28]/15 text-[#f28c28] border border-[#f28c28]/30 hover:bg-[#f28c28]/25 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    <Download className="w-4 h-4 text-[#FF9933]" />
+                    <Download className="w-4 h-4 text-[#f28c28]" />
                     <span>Install QuickHire App</span>
                   </div>
-                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#FF9933]/20 text-white">
+                  <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 rounded-full bg-[#f28c28]/20 text-white">
                     PWA
                   </span>
                 </button>
@@ -2474,11 +2471,20 @@ export default function App() {
       <main id="main-content" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 pb-24">
         <Suspense
           fallback={
-            <div className="flex justify-center items-center h-64 text-emerald-600 font-medium">
+            <div className="flex justify-center items-center h-64 text-brand-700 font-medium">
               {t('loadingQuickHire')}
             </div>
           }
         >
+          <AnimatePresence mode="wait" initial={false}>
+            <motion.div
+              key={activeTab}
+              initial={{ opacity: 0, y: 8 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -5 }}
+              transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
+              className="min-h-[45vh]"
+            >
           {activeTab === 'home' && userRole !== 'employer' && (
             <HomeTab
               currentLang={currentLang}
@@ -2684,41 +2690,43 @@ export default function App() {
           )}
 
           {activeTab === 'safety' && <SafetyTab currentLang={currentLang} />}
+            </motion.div>
+          </AnimatePresence>
         </Suspense>
       </main>
 
-      {/* OFFICIAL MULTI-COLUMN GOVERNMENT FOOTER */}
-      <footer className="mt-auto w-full bg-[#0f2942] text-white py-12 border-t-4 border-t-[#FF9933]">
+      {/* PLATFORM INFORMATION FOOTER */}
+      <footer className="mt-auto w-full bg-[#102a43] text-white py-12 border-t-4 border-t-[#f28c28]">
         <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 space-y-10">
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
             {/* Column 1: Institutional DPI Branding & Mission */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white to-slate-200 text-[#0f2942] flex items-center justify-center font-heading font-black shadow-sm border border-amber-400">
-                  <Landmark className="w-6 h-6 text-[#0f2942]" />
+                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white to-slate-200 text-[#102a43] flex items-center justify-center font-heading font-black shadow-sm border border-amber-400">
+                  <Landmark className="w-6 h-6 text-[#102a43]" />
                 </div>
                 <div>
                   <span className="font-heading font-black text-xl tracking-tight text-white">
-                    Quick<span className="text-[#FF9933]">Hire</span>
+                    Quick<span className="text-[#f28c28]">Hire</span>
                   </span>
                   <p className="text-[10px] uppercase font-bold tracking-wider text-emerald-400">
-                    National Rural DPI Portal
+                    Independent rural work platform
                   </p>
                 </div>
               </div>
               <p className="text-xs text-slate-300 leading-relaxed">
-                National Digital Public Infrastructure for rural workforce registration, agricultural machinery sharing, and direct-to-bank wage settlement without middlemen.
+                An independent platform for rural job discovery, workforce coordination, equipment access, and clearer work and wage records.
               </p>
               <div className="flex items-center gap-2 text-[11px] text-emerald-300 font-semibold">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-                <span>{t('publicCommissionBadge')} · {t('directCitizenTransfer')}</span>
+                <span>Independent platform · Role-based access</span>
               </div>
             </div>
 
             {/* Column 2: Portal Navigation */}
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
-                <EmojiIcon name="landmark" className="mr-1 inline h-4 w-4" /> Citizen Services & Navigation
+              <span className="text-xs font-bold uppercase tracking-wider text-[#f28c28] block mb-3">
+                <EmojiIcon name="landmark" className="mr-1 inline h-4 w-4" /> Platform information & navigation
               </span>
               <ul className="space-y-2 text-xs text-slate-300 font-medium">
                 <li>
@@ -2803,7 +2811,7 @@ export default function App() {
 
             {/* Column 3: Emergency & Labor Helplines */}
             <div>
-              <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#f28c28] block mb-3">
                  <EmojiIcon name="phone" className="mr-1 inline h-4 w-4" /> {t('publicSafetyTitle')}
               </span>
               <div className="space-y-2.5 text-xs text-slate-300">
@@ -2840,7 +2848,7 @@ export default function App() {
 
             {/* Column 4: Supported Regional Languages */}
             <div className="space-y-3">
-              <span className="text-xs font-bold uppercase tracking-wider text-[#FF9933] block mb-3">
+              <span className="text-xs font-bold uppercase tracking-wider text-[#f28c28] block mb-3">
                  <EmojiIcon name="globe" className="mr-1 inline h-4 w-4" /> {t('voiceHelper')}
               </span>
               <p className="text-xs text-slate-300 leading-relaxed">
@@ -2852,7 +2860,7 @@ export default function App() {
                     key={lang}
                     onClick={() => handleLangChange(lang)}
                     className={`px-2.5 py-1 rounded text-xs font-semibold transition-colors ${currentLang === lang
-                        ? 'bg-[#FF9933] text-slate-900 font-bold'
+                        ? 'bg-[#f28c28] text-slate-900 font-bold'
                         : 'bg-slate-800 text-slate-300 hover:bg-slate-700 hover:text-white'
                       }`}
                   >
@@ -2893,7 +2901,7 @@ export default function App() {
       {/* MOBILE BOTTOM NAVIGATION BAR (FIXED ON SCREEN BOTTOM FOR EASY 1-THUMB NAVIGATION) */}
       <nav
         aria-label="Mobile Navigation"
-        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#0f2942]/95 backdrop-blur-md border-t border-[#FF9933]/50 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.25)]"
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 bg-[#102a43]/95 backdrop-blur-md border-t border-[#f28c28]/50 pb-[env(safe-area-inset-bottom)] shadow-[0_-4px_20px_rgba(0,0,0,0.25)]"
       >
         <div className="grid grid-cols-5 h-16 items-center px-1">
           {/* 1. Home */}
@@ -2901,7 +2909,7 @@ export default function App() {
             type="button"
             onClick={() => setActiveTab('home')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
-              activeTab === 'home' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+              activeTab === 'home' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="landmark" className="h-5 w-5" />
@@ -2914,7 +2922,7 @@ export default function App() {
             type="button"
             onClick={() => setActiveTab('workers')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
-              activeTab === 'workers' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+              activeTab === 'workers' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="users" className="h-5 w-5" />
@@ -2928,7 +2936,7 @@ export default function App() {
             type="button"
             onClick={() => setActiveTab('equipment')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
-              activeTab === 'equipment' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+              activeTab === 'equipment' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="tractor" className="h-5 w-5" />
@@ -2941,7 +2949,7 @@ export default function App() {
             type="button"
             onClick={() => setActiveTab('post-job')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${
-              activeTab === 'post-job' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'
+              activeTab === 'post-job' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="clipboard" className="h-5 w-5" />
@@ -2949,13 +2957,13 @@ export default function App() {
           </button>
 
           ) : (
-            <button type="button" onClick={() => setActiveTab('bank')} className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${activeTab === 'bank' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'}`}>
+            <button type="button" onClick={() => setActiveTab('bank')} className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${activeTab === 'bank' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'}`}>
               <EmojiIcon name="landmark" className="h-5 w-5" />
               <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabBank')}</span>
             </button>
           )}
           {userRole !== 'employer' && userRole !== 'admin' && (
-            <button type="button" onClick={() => setActiveTab('safety')} className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${activeTab === 'safety' ? 'text-[#FF9933] font-bold' : 'text-slate-300 hover:text-white'}`}>
+            <button type="button" onClick={() => setActiveTab('safety')} className={`flex flex-col items-center justify-center h-full py-1 transition-colors cursor-pointer ${activeTab === 'safety' ? 'text-[#f28c28] font-bold' : 'text-slate-300 hover:text-white'}`}>
               <EmojiIcon name="shield" className="h-5 w-5" />
               <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabSafety')}</span>
             </button>
@@ -2967,14 +2975,14 @@ export default function App() {
             onClick={() => setActiveTab('my-jobs')}
             className={`flex flex-col items-center justify-center h-full py-1 transition-colors relative cursor-pointer ${
               activeTab === 'my-jobs' || activeTab === 'dashboard'
-                ? 'text-[#FF9933] font-bold'
+                ? 'text-[#f28c28] font-bold'
                 : 'text-slate-300 hover:text-white'
             }`}
           >
             <EmojiIcon name="chart" className="h-5 w-5" />
             <span className="text-[10px] mt-1 font-medium tracking-tight">{t('tabDashboard')}</span>
             {myPostedJobs.length > 0 && (
-              <span className="absolute top-2 right-3 w-4 h-4 rounded-full bg-[#FF9933] text-slate-900 text-[9px] font-black flex items-center justify-center">
+              <span className="absolute top-2 right-3 w-4 h-4 rounded-full bg-[#f28c28] text-slate-900 text-[9px] font-black flex items-center justify-center">
                 {myPostedJobs.length}
               </span>
             )}
