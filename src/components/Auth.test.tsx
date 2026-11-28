@@ -51,7 +51,7 @@ describe('QuickHire public landing and authentication entry', () => {
     localStorage.clear();
   });
 
-  it('keeps authentication closed until Register or Login is selected', () => {
+  it('keeps authentication closed until Register or Login is selected', async () => {
     render(<Auth isGate currentLang="English" />);
 
     expect(screen.getByRole('button', { name: 'Register' })).toBeInTheDocument();
