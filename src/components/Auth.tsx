@@ -1170,9 +1170,7 @@ export function Auth({
         <header className="sticky top-0 z-40 bg-white/95 backdrop-blur border-b border-[#d9e2ec]">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 min-h-[76px] flex items-center justify-between gap-4">
             <a href="#public-home" className="flex items-center gap-3 shrink-0" aria-label="QuickHire home">
-              <div className="h-11 w-11 rounded-xl bg-[#102a43] text-white flex items-center justify-center border-b-2 border-[#f28c28]">
-                <Briefcase className="h-6 w-6" />
-              </div>
+              <img src="/quickhire-logo.svg" alt="" className="h-12 w-12 rounded-xl object-cover ring-1 ring-[#d9e2ec]" />
               <div>
                 <div className="font-heading text-[23px] leading-none font-black tracking-tight text-[#102a43]">Quick<span className="text-[#f28c28]">Hire</span></div>
                 <p className="mt-1 text-[10px] sm:text-[11px] font-semibold tracking-wide text-slate-500">{t('appTagline')}</p>
@@ -1291,7 +1289,7 @@ export function Auth({
 
         <footer id="public-contact" className="bg-[#102a43] text-white">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-7 flex flex-col md:flex-row md:items-center md:justify-between gap-5">
-            <div><div className="font-heading text-xl font-black">Quick<span className="text-[#f28c28]">Hire</span></div><p className="mt-1 text-xs text-slate-300">{t('appTagline')}</p></div>
+            <div><div className="flex items-center gap-3"><img src="/quickhire-logo.svg" alt="" className="h-10 w-10 rounded-lg object-cover" /><span className="font-heading text-xl font-black">Quick<span className="text-[#f28c28]">Hire</span></span></div><p className="mt-1 text-xs text-slate-300">{t('appTagline')}</p></div>
             <nav aria-label="Footer navigation" className="flex flex-wrap gap-x-5 gap-y-2 text-xs font-semibold text-slate-200"><a href="#public-about">{t('publicNavAbout')}</a><a href="#public-features">{t('publicNavFeatures')}</a><a href="#public-safety">{t('publicNavSafety')}</a><a href="#public-contact">{t('publicNavContact')}</a></nav>
             <p className="max-w-sm text-[11px] leading-relaxed text-slate-300">{t('publicDisclaimer')}</p>
           </div>
