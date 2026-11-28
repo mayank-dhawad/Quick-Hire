@@ -1225,8 +1225,8 @@ export function Auth({
                 <h1 className="mt-5 font-heading text-4xl sm:text-5xl lg:text-[58px] leading-[1.08] font-black tracking-tight text-[#102a43]">{t('publicHeroTitle')}</h1>
                 <p className="mt-5 max-w-2xl text-base sm:text-lg leading-relaxed text-slate-600">{t('publicHeroBody')}</p>
                 <div className="mt-8 flex flex-wrap gap-3">
-                  <a href="#public-about" className="inline-flex items-center gap-2 rounded-lg bg-[#102a43] px-5 py-3 text-sm font-bold text-white hover:bg-[#183b56]">{t('publicExplore')} <ArrowRight className="h-4 w-4" /></a>
-                  <a href="#public-how" className="inline-flex items-center gap-2 rounded-lg border border-[#102a43] px-5 py-3 text-sm font-bold text-[#102a43] hover:bg-slate-50">{t('publicNavHow')}</a>
+                  <a href="#public-about" className="inline-flex items-center gap-2 rounded-lg bg-brand-600 px-5 py-3 text-sm font-bold text-white shadow-sm hover:bg-brand-700 transition-colors duration-200">{t('publicExplore')} <ArrowRight className="h-4 w-4" /></a>
+                  <a href="#public-how" className="inline-flex items-center gap-2 rounded-lg border border-[#102a43] px-5 py-3 text-sm font-bold text-[#102a43] hover:bg-slate-50 transition-colors duration-200">{t('publicNavHow')}</a>
                 </div>
               </div>
               <div className="w-full max-w-xl lg:justify-self-end">
