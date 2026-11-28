@@ -65,7 +65,7 @@ describe('QuickHire public landing and authentication entry', () => {
     expect(screen.getByRole('heading', { name: 'Register' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Close authentication dialog' }));
-    expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument());
   });
 
   it('opens the existing sign-in flow from the top Login action', () => {
