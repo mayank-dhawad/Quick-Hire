@@ -2146,7 +2146,7 @@ export default function App() {
             {/* Tab 1: Home / Portal Overview */}
             <button
               onClick={() => setActiveTab('home')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'home'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'home'
                   ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
@@ -2159,7 +2159,7 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab('workers')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'workers'
                   ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
@@ -2173,7 +2173,7 @@ export default function App() {
             {/* Tab 3: Equipment & Tool Bank */}
             <button
               onClick={() => setActiveTab('equipment')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'equipment'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'equipment'
                   ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
@@ -2186,7 +2186,7 @@ export default function App() {
 
             <button
               onClick={() => setActiveTab('post-job')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'post-job'
                   ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
@@ -2200,7 +2200,7 @@ export default function App() {
             {/* Tab 5: Citizen Dashboard */}
             <button
               onClick={() => setActiveTab('my-jobs')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 relative ${activeTab === 'my-jobs'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 relative ${activeTab === 'my-jobs'
                   ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
@@ -2217,7 +2217,7 @@ export default function App() {
             {/* Tab 6: Bank & DBT Payouts */}
             <button
               onClick={() => setActiveTab('bank')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'bank'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'bank'
                   ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
@@ -2229,7 +2229,7 @@ export default function App() {
             {/* Tab 7: Grievance & SOS Helplines */}
             <button
               onClick={() => setActiveTab('safety')}
-              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap transition-all border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'safety'
+              className={`px-3.5 py-3 text-xs sm:text-sm font-bold whitespace-nowrap qh-interactive border-b-4 flex items-center gap-2 shrink-0 ${activeTab === 'safety'
                   ? 'border-b-[#f28c28] bg-white/15 text-white'
                   : 'border-b-transparent text-slate-200 hover:text-white hover:bg-white/10'
                 }`}
@@ -2483,7 +2483,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="min-h-[45vh]"
+              className="min-h-[45vh] qh-workspace"
             >
           {activeTab === 'home' && userRole !== 'employer' && (
             <HomeTab
@@ -2702,9 +2702,7 @@ export default function App() {
             {/* Column 1: Institutional DPI Branding & Mission */}
             <div className="space-y-4">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-white to-slate-200 text-[#102a43] flex items-center justify-center font-heading font-black shadow-sm border border-amber-400">
-                  <Landmark className="w-6 h-6 text-[#102a43]" />
-                </div>
+                <img src="/quickhire-logo.svg" alt="" className="w-10 h-10 rounded-xl object-cover border border-white/20 shadow-sm" />
                 <div>
                   <span className="font-heading font-black text-xl tracking-tight text-white">
                     Quick<span className="text-[#f28c28]">Hire</span>
