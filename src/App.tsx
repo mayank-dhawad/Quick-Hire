@@ -2483,7 +2483,7 @@ export default function App() {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: -5 }}
               transition={{ duration: 0.22, ease: [0.22, 1, 0.36, 1] }}
-              className="min-h-[45vh] qh-workspace"
+              className="min-h-[45vh]"
             >
           {activeTab === 'home' && userRole !== 'employer' && (
             <HomeTab
